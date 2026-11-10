@@ -387,15 +387,15 @@ input[type=color]::-moz-color-swatch { border: 0; border-radius: 5px; }
  * Print previews are rendered at low resolution: a thin border's edge pixels get blended,
  * and the next cell's background then paints over them, so lines randomly vanish. Each cell
  * draws its right and bottom line with pseudo-elements (z-index 1, so after all backgrounds),
- * centred on the boundary; the table's outline draws the outer edge.
+ * centred on the boundary. The outer top and left edges are inset shadows on the heading cells
+ * and first-column cells, painted with the cell itself so nothing can cover them (and the top
+ * edge repeats with the heading on every printed page).
  */
 .prog {
   --line: 1pt;
   --line-color: #2b2b2b;
   width: 100%; table-layout: fixed; font-size: var(--fs);
   border-collapse: separate; border-spacing: 0;
-  outline: var(--line) solid var(--line-color);
-  outline-offset: calc(var(--line) / -2);
 }
 .prog th, .prog td {
   border: 0;
@@ -409,6 +409,10 @@ input[type=color]::-moz-color-swatch { border: 0; border-radius: 5px; }
   hyphens: manual;
 }
 .prog [data-align=left] { text-align: left; }
+.prog thead th { box-shadow: inset 0 var(--line) 0 0 var(--line-color); }
+.prog tr:not(.cont) > :first-child { box-shadow: inset var(--line) 0 0 0 var(--line-color); }
+/* Top-left corner needs both edges (selector outranks the first-column rule above). */
+.prog thead tr:not(.cont) > th:first-child { box-shadow: inset var(--line) var(--line) 0 0 var(--line-color); }
 .prog th::after, .prog td::after,
 .prog th::before, .prog td::before {
   content: ''; position: absolute; z-index: 1; pointer-events: none;
@@ -428,10 +432,10 @@ input[type=color]::-moz-color-swatch { border: 0; border-radius: 5px; }
 }
 .prog thead { display: table-header-group; }
 .prog tr { break-inside: avoid; page-break-inside: avoid; }
-.prog .c-week { font-weight: 800; white-space: nowrap; }
+.prog .c-week { font-weight: 800; }
 .prog .c-week .wk, .prog th .th-l { display: inline-block; }
 .prog .c-date { white-space: pre-line; }
-.prog .c-date .dt { white-space: pre; } /* each date line stays together */
+.prog .c-date .dt { white-space: pre-line; } /* "Tue 2 Feb" may wrap after the weekday only */
 .prog .c-activity .ed { font-weight: 600; }
 .prog .ed {
   white-space: pre-wrap;
@@ -451,6 +455,7 @@ input[type=color]::-moz-color-swatch { border: 0; border-radius: 5px; }
 }
 /* While measuring column needs, contents shrink to their longest unbreakable piece. */
 .sheet.measuring .prog td > *, .sheet.measuring .prog th > * { width: min-content !important; display: inline-block; }
+.sheet.measure-oneline .prog .wk, .sheet.measure-oneline .prog .dt { white-space: pre !important; }
 .prog .patrol { font-weight: 700; display: inline-block; max-width: 100%; }
 .prog .ch { display: inline-flex; flex-direction: column; align-items: center; gap: .1em; vertical-align: middle; }
 .prog .ch-icon { width: 2.3em; height: 2.3em; display: block; object-fit: contain; }
