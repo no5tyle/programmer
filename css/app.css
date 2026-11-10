@@ -471,6 +471,21 @@ input[type=color]::-moz-color-swatch { border: 0; border-radius: 5px; }
 }
 .prog tr.no-meeting td.c-break .ed { font-weight: 700; font-style: italic; letter-spacing: .01em; }
 .reason-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Programs menu */
+.popover:has(.prog-list) { min-width: 320px; max-width: 380px; }
+.prog-list { display: flex; flex-direction: column; gap: 2px; max-height: 50vh; overflow-y: auto; margin: 0 -4px; }
+.prog-item { display: flex; align-items: center; gap: 4px; border-radius: 8px; padding-right: 4px; }
+.prog-item:hover { background: var(--primary-50); }
+.prog-item.on { background: var(--primary-100); }
+.prog-open {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  padding: 7px 10px; border: 0; background: transparent; text-align: left; cursor: pointer;
+}
+.prog-open b { font-weight: 600; font-size: 13.5px; }
+.prog-open span { font-size: 12px; color: var(--text-2); }
+.prog-open em { font-style: normal; color: var(--primary); font-weight: 600; }
+.prog-open:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; border-radius: 8px; }
 .doc-footer { margin-top: 2mm; font-size: max(7pt, calc(var(--fs) * .85)); color: #444; }
 
 /* Screen-only editing affordances */
