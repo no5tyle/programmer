@@ -262,11 +262,28 @@ function rowWeekStart(row) {
   return s ? startOfWeek(s) : null;
 }
 
-/** Stable sort by date; undated rows travel with the row above them. */
+/** Minutes after midnight of the first time in a cell ("18:15", "6:30 PM", "9 AM"), or null. */
+function startMinutes(text) {
+  const m = /(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?/i.exec(text || '');
+  if (!m || (!m[2] && !m[3])) return null;
+  let h = +m[1];
+  const min = +(m[2] || 0);
+  if (m[3]) { const pm = m[3].toLowerCase() === 'pm'; h = (h % 12) + (pm ? 12 : 0); }
+  return h > 23 || min > 59 ? null : h * 60 + min;
+}
+
+/**
+ * Keep rows in order: by date, then start time (rows without a time go last on their day).
+ * Undated rows travel with the row above them. Ties keep their current order.
+ */
 function sortRows() {
   let last = '';
-  const keyed = state.rows.map((r, i) => { if (r.date) last = r.date; return { r, k: r.date || last, i }; });
-  keyed.sort((a, b) => (a.k < b.k ? -1 : a.k > b.k ? 1 : a.i - b.i));
+  const keyed = state.rows.map((r, i) => {
+    if (r.date) last = r.date;
+    const t = startMinutes(r.time);
+    return { r, k: r.date || last, t: t ?? 24 * 60, i };
+  });
+  keyed.sort((a, b) => (a.k < b.k ? -1 : a.k > b.k ? 1 : a.t - b.t || a.i - b.i));
   state.rows = keyed.map((x) => x.r);
 }
 
@@ -300,48 +317,31 @@ function groupLabel(g) {
   return typeof g.key === 'number' ? `${state.options.weekPrefix || ''}${g.key}`.trim() : 'the next group';
 }
 
-/** Where a move up/down would take a row: a swap within its week, or into the neighbouring week. */
+/**
+ * Where moving a row a week up (-1) or down (+1) would take it, or null if that week is
+ * outside the term. Returns the target week's first day and its term week number.
+ */
 function movePlan(rowId, dir) {
-  const groups = weekGroups();
-  const gi = groups.findIndex((g) => g.rows.some((r) => r.id === rowId));
-  if (gi < 0) return null;
-  const g = groups[gi];
-  const pi = g.rows.findIndex((r) => r.id === rowId);
-  if ((dir < 0 && pi > 0) || (dir > 0 && pi < g.rows.length - 1)) return { type: 'swap', i: g.start + pi, j: g.start + pi + dir };
-  const target = groups[gi + dir];
-  return target ? { type: 'week', group: g, target } : null;
+  const row = rowById(rowId);
+  const ws = row && rowWeekStart(row);
+  const s = parseDate(state.term.start), e = parseDate(state.term.end);
+  if (!ws || !s) return null;
+  const target = addDays(ws, dir * 7);
+  if (addDays(target, 6) < s || (e && target > e)) return null;
+  return { target, wk: Math.floor(dayDiff(startOfWeek(s), target) / 7) + 1 };
 }
 
+/** Move a row a whole week, keeping its weekday (an undated row lands on the meeting night). */
 function moveRow(rowId, dir) {
   const plan = movePlan(rowId, dir);
   if (!plan) return;
-  if (plan.type === 'swap') {
-    [state.rows[plan.i], state.rows[plan.j]] = [state.rows[plan.j], state.rows[plan.i]];
-    return;
-  }
-  const { group, target } = plan;
   const row = rowById(rowId);
-  const targetDated = target.rows.filter((r) => r.date);
-  const neighbour = dir < 0 ? targetDated[targetDated.length - 1] : targetDated[0];
-  // Keep the same weekday when moving between term weeks; otherwise take the neighbour's date.
-  let shift = null;
-  if (row.date && typeof group.key === 'number' && typeof target.key === 'number') shift = (target.key - group.key) * 7;
-  const oldDate = parseDate(row.date);
-  const newDate = shift !== null ? toISO(addDays(oldDate, shift)) : (neighbour?.date || '');
-  if (row.endDate && oldDate && newDate) {
-    row.endDate = toISO(addDays(parseDate(row.endDate), dayDiff(oldDate, parseDate(newDate))));
+  if (row.date) {
+    row.date = toISO(addDays(parseDate(row.date), dir * 7));
+    if (row.endDate) row.endDate = toISO(addDays(parseDate(row.endDate), dir * 7));
+  } else {
+    row.date = toISO(addDays(plan.target, (state.term.meetingDay - weekStartDay() + 7) % 7));
   }
-  row.date = newDate;
-  // Place it in date order within the target week: at the bottom when moving up, the top when moving down.
-  state.rows.splice(state.rows.indexOf(row), 1);
-  const start = state.rows.indexOf(target.rows[0]);
-  let pos = start;
-  let inherited = '';
-  target.rows.forEach((r, k) => {
-    inherited = r.date || inherited;
-    if (dir < 0 ? inherited <= newDate : inherited < newDate) pos = start + k + 1;
-  });
-  state.rows.splice(pos, 0, row);
 }
 
 function visibleColumns() { return state.columns.filter((c) => c.visible); }
@@ -795,13 +795,14 @@ function challengeIconOnly(c) {
 }
 
 function renderAll() {
+  sortRows();
   applyPageSize();
   syncInputs();
   renderLists();
   renderSheet();
   fit();
 }
-function renderDoc() { applyPageSize(); renderSheet(); fit(); }
+function renderDoc() { sortRows(); applyPageSize(); renderSheet(); fit(); }
 
 /* ---------------------------------------------------------------- popovers */
 
@@ -886,7 +887,7 @@ function openChoicePopover(td, row, key) {
 function openRowMenu(anchor, rowId) {
   const r = rowById(rowId); if (!r) return;
   const up = movePlan(rowId, -1), down = movePlan(rowId, 1);
-  const moveLabel = (plan, word) => (plan?.type === 'week' ? `Move to ${esc(groupLabel(plan.target))}` : `Move ${word}`);
+  const moveLabel = (plan, word) => (plan ? `Move to ${esc(groupLabel({ key: plan.wk }))}` : `Move ${word} a week`);
   const icon = (d) => `<svg viewBox="0 0 24 24">${d}</svg>`;
   openPopover(anchor, `
     <div class="menu">
@@ -1164,6 +1165,11 @@ function bindEvents() {
     if (!e.target.matches('.ed')) return;
     e.target.closest('tr')?.classList.remove('editing');
     if (!e.target.textContent.trim()) e.target.textContent = '';
+    if (e.target.dataset.key === 'time') {
+      const before = state.rows.map((r) => r.id).join();
+      sortRows();
+      if (state.rows.map((r) => r.id).join() !== before) { save(); setTimeout(renderDoc, 0); }
+    }
   });
   sheet.addEventListener('input', (e) => {
     const ed = e.target.closest('.ed'); if (!ed) return;
@@ -1193,7 +1199,6 @@ function bindEvents() {
   $('#btnGenerate').onclick = generateDates;
   $('#btnGenerate2').onclick = generateDates;
   $('#btnAddRow').onclick = addActivity;
-  $('#btnSort').onclick = () => { pushHistory(); sortRows(); save(); renderDoc(); toast('Sorted by date.'); };
   $('#btnUndo').onclick = undo;
   $('#btnNew').onclick = newProgram;
   $('#btnImport').onclick = importJson;
