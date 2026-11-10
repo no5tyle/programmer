@@ -25,7 +25,20 @@ A small web app for building a term program to share with Scout families. It run
 - **Calendar file.** **Calendar** downloads an `.ics` file that families can open to add the program to Google, Apple or Outlook calendars. Each meeting has its times (read from the Time cell), location (*Where*) and details. Untimed items are all-day events, and weeks off are included as free all-day entries.
 - **Print / PDF.** Uses the browser's print dialog. Choose *Save as PDF* (the file is named after the program, e.g. "Cubs Program - Term 4 2026"), and turn off the browser's own *Headers and footers* option.
 
-Built for desktop browsers (current Chrome, Edge, Firefox or Safari).
+### On phones and tablets
+
+Phones and tablets get a touch-friendly view instead of editing the sheet directly:
+
+- **Week list.** A short list with one row per activity (date, time, activity, patrol and leader), so a whole term fits on about a screen. Tap the title to switch programs.
+- **Activity editor.** Tap a row to edit it. You get day buttons for its week, big text boxes, and tap-to-pick patrol, leader, challenge area and highlight. From there you can mark it as no meeting, move it a week, duplicate or delete it, or add another activity that week.
+- **Add.** Adds an activity on the next free meeting night, or a week off.
+- **Menu.** Programs, new, open, generate dates and undo, plus every settings section from the desktop sidebar, each on its own screen.
+- **Preview.** Shows the real printed sheet (pinch to zoom) and whether it fits one page.
+- **Share.** Print or save as PDF; from the print screen you can also send the PDF by email or message. You can also send the calendar file, activities spreadsheet or full program through the phone's share menu.
+
+The menu's *Use the desktop editor* switches back to the sheet editor, and *Switch to the mobile view* (bottom of the desktop sidebar) does the reverse.
+
+Desktop editing works in current Chrome, Edge, Firefox and Safari.
 
 ## Hosting on GitHub Pages
 
@@ -56,3 +69,4 @@ Term dates are in `js/data.js` under `TERM_DATES`, as `[start, end]` pairs for e
 | `assets/section-logos/` | Official Scouts Australia vertical Section logos (from the public Scouts NSW logo pack), cropped and resized but otherwise used as provided |
 | `assets/challenge-areas/` | Official Scouts Australia Challenge Area icons, from the Program Icons page at resources.scouts.com.au, used as provided |
 | `js/app.js` | State, rendering, auto-fit, editing, import/export |
+| `js/mobile.js`, `css/mobile.css` | Phone and tablet view |

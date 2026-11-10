@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lexend:wght@400;600;700&family=Nunito:wght@400;600;700;800&family=Open+Sans:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/mobile.css">
   <style id="pageStyle"></style>
 </head>
 <body>
@@ -227,7 +228,7 @@
         </div>
       </details>
 
-      <p class="sidebar-foot">Your programs save automatically in this browser (see <strong>Programs</strong>). Use <strong>Save file</strong> to keep a copy or share one with other leaders.</p>
+      <p class="sidebar-foot">Your programs save automatically in this browser (see <strong>Programs</strong>). Use <strong>Save file</strong> to keep a copy or share one with other leaders. <button class="link-btn" id="btnMobileView">Switch to the mobile view</button></p>
     </aside>
 
     <main class="workspace">
@@ -265,6 +266,31 @@
     </main>
   </div>
 
+  <!-- Phone and tablet view (js/mobile.js) -->
+  <div class="m-app" id="mApp">
+    <header class="m-top">
+      <button class="m-title" id="mTitle" aria-label="Switch program">
+        <span class="m-title-main" id="mTitleMain"></span>
+        <span class="m-title-sub" id="mTitleSub"></span>
+      </button>
+      <button class="m-icon" id="mMenu" aria-label="Menu and settings">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+    </header>
+    <main class="m-list" id="mList"></main>
+    <nav class="m-bottom">
+      <button id="mAdd"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add</button>
+      <button id="mPreview"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Preview</button>
+      <button id="mShare" class="m-primary"><svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></svg>Share</button>
+    </nav>
+  </div>
+  <div class="m-preview-bar" id="mPreviewBar">
+    <button class="btn btn-ghost" id="mBack"><svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg>Edit</button>
+    <span class="chip" id="mFit"></span>
+    <button class="btn btn-primary btn-sm" id="mShare2">Share</button>
+  </div>
+  <div class="m-panels" id="mPanels" hidden></div>
+
   <button class="row-handle" id="rowHandle" hidden title="Row options" aria-label="Row options">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
   </button>
@@ -276,5 +302,6 @@
 
   <script src="js/data.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/mobile.js"></script>
 </body>
 </html>
