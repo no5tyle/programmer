@@ -3,9 +3,12 @@
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-const STORE_KEY = 'scoutProgramBuilder.v1';
+const STORE_KEY = 'scoutProgramBuilder.v1';            // single-program storage (before the library)
+const LIB_KEY = 'scoutProgramBuilder.library.v1';      // { current, items: [{ id, name, group, updated }] }
+const programKey = (id) => `scoutProgramBuilder.program.${id}`;
 
 let state;
+let library = { current: null, items: [] };
 let undoStack = [];
 let zoom = 'fit';
 
@@ -191,19 +194,131 @@ function newRowShape() {
     where: '', patrol: '', leader: '', cost: '', challenge: '', notes: '', category: '', noMeeting: false, autoHoliday: false };
 }
 
+/* ---------------------------------------------------------------- saved programs */
+
+function readJSON(key) { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } }
+
 function save() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
-  catch { toast('Could not save in this browser (storage full?). Use "Save file" to keep a copy.', 'error'); }
+  try {
+    localStorage.setItem(programKey(library.current), JSON.stringify(state));
+    const info = { id: library.current, name: titleText() || 'Untitled program', group: state.branding.groupName.trim(), updated: Date.now() };
+    const i = library.items.findIndex((x) => x.id === library.current);
+    if (i < 0) library.items.push(info); else library.items[i] = info;
+    localStorage.setItem(LIB_KEY, JSON.stringify(library));
+  } catch {
+    toast('Could not save in this browser (storage full?). Use "Save file" to keep a copy.', 'error');
+  }
 }
 const saveSoon = debounce(save, 400);
 
-function load() {
-  let raw = null;
-  try { raw = JSON.parse(localStorage.getItem(STORE_KEY)); } catch { raw = null; }
-  if (raw) return normalise(raw);
+function freshState() {
   state = defaultState();
   state.rows = generateRows();
   return state;
+}
+
+/** Load the current program, moving an older single saved program into the library. */
+function load() {
+  const lib = readJSON(LIB_KEY);
+  if (lib && Array.isArray(lib.items)) {
+    library = { current: lib.current, items: lib.items.filter((x) => x && x.id) };
+    const raw = library.current && readJSON(programKey(library.current));
+    if (raw) return normalise(raw);
+    const other = library.items.find((x) => readJSON(programKey(x.id)));
+    if (other) { library.current = other.id; return normalise(readJSON(programKey(other.id))); }
+  }
+  library = { current: uid(), items: [] };
+  const old = readJSON(STORE_KEY);
+  state = old ? normalise(old) : freshState();
+  save();
+  if (old) { try { localStorage.removeItem(STORE_KEY); } catch { /* keep it */ } }
+  return state;
+}
+
+/** Make `next` the open program (a new entry in the library), keeping the current one saved. */
+function addProgram(next) {
+  save();
+  library.current = uid();
+  state = next;
+  undoStack = []; $('#btnUndo').disabled = true;
+  save(); renderAll();
+}
+
+function openProgram(id) {
+  if (id === library.current) return;
+  const raw = readJSON(programKey(id));
+  if (!raw) { toast('That program could not be found.', 'error'); return; }
+  save();
+  library.current = id;
+  state = normalise(raw);
+  undoStack = []; $('#btnUndo').disabled = true;
+  save(); renderAll();
+}
+
+async function deleteProgram(id) {
+  const item = library.items.find((x) => x.id === id);
+  if (!item) return;
+  const ok = await modal({
+    title: 'Delete this program?',
+    body: `<p><strong>${esc(item.name)}</strong>${item.group ? ` (${esc(item.group)})` : ''} will be removed from this browser. This can't be undone, so use <strong>Save file</strong> first if you might want it again.</p>`,
+    buttons: [{ label: 'Cancel', value: false, cls: 'btn-text' }, { label: 'Delete', value: true, cls: 'btn-danger' }],
+  });
+  if (!ok) return;
+  try { localStorage.removeItem(programKey(id)); } catch { /* ignore */ }
+  library.items = library.items.filter((x) => x.id !== id);
+  if (id === library.current) {
+    const next = [...library.items].sort((a, b) => b.updated - a.updated)[0];
+    if (next) { library.current = next.id; state = normalise(readJSON(programKey(next.id))); }
+    else { library.current = uid(); freshState(); }
+    undoStack = []; $('#btnUndo').disabled = true;
+  }
+  save(); renderAll();
+  toast('Program deleted.');
+}
+
+/** A copy with new row ids, so two programs never share calendar event ids. */
+function copyOf(s) {
+  const c = clone(s);
+  c.rows.forEach((r) => { r.id = uid(); });
+  return c;
+}
+
+function relTime(ms) {
+  const d = new Date(ms), now = new Date();
+  const time = `${((d.getHours() + 11) % 12) + 1}:${String(d.getMinutes()).padStart(2, '0')} ${d.getHours() >= 12 ? 'pm' : 'am'}`;
+  if (d.toDateString() === now.toDateString()) return `today ${time}`;
+  return `${d.getDate()} ${MONTH_SHORT[d.getMonth()]}${d.getFullYear() !== now.getFullYear() ? ` ${d.getFullYear()}` : ''}`;
+}
+
+function openProgramsMenu(anchor) {
+  save();
+  const items = [...library.items].sort((a, b) => b.updated - a.updated);
+  openPopover(anchor, `
+    <div class="pop-title">Programs <span class="pop-sub">saved in this browser</span></div>
+    <div class="prog-list">
+      ${items.map((x) => `
+        <div class="prog-item ${x.id === library.current ? 'on' : ''}">
+          <button class="prog-open" data-open="${x.id}" ${x.id === library.current ? 'aria-current="true"' : ''}>
+            <b>${esc(x.name)}</b>
+            <span>${esc([x.group, `edited ${relTime(x.updated)}`].filter(Boolean).join(' · '))}${x.id === library.current ? ' · <em>open</em>' : ''}</span>
+          </button>
+          <button class="icon-btn" data-delprog="${x.id}" title="Delete" aria-label="Delete ${esc(x.name)}"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
+        </div>`).join('')}
+    </div>
+    <div class="pop-actions">
+      <button class="btn btn-text btn-sm" id="pDupProg">Duplicate this one</button>
+      <button class="btn btn-primary btn-sm" id="pNewProg">New program</button>
+    </div>`, { type: 'programs' });
+  pop.querySelectorAll('[data-open]').forEach((b) => { b.onclick = () => { closePopover(); openProgram(b.dataset.open); }; });
+  pop.querySelectorAll('[data-delprog]').forEach((b) => { b.onclick = () => { closePopover(); deleteProgram(b.dataset.delprog); }; });
+  $('#pDupProg').onclick = () => {
+    closePopover();
+    const c = copyOf(state);
+    c.branding.versionText = '';
+    addProgram(c);
+    toast('Copy made — you are now editing the copy.');
+  };
+  $('#pNewProg').onclick = () => { closePopover(); newProgram(); };
 }
 
 function pushHistory() {
@@ -767,7 +882,17 @@ function applyZoom() {
 
 /* ---------------------------------------------------------------- sidebar */
 
+function ensureYearOption() {
+  const ys = $('#yearSelect');
+  if (![...ys.options].some((o) => +o.value === state.term.year)) {
+    const opt = new Option(state.term.year, state.term.year);
+    const after = [...ys.options].find((o) => +o.value > state.term.year);
+    ys.insertBefore(opt, after || null);
+  }
+}
+
 function syncInputs() {
+  ensureYearOption();
   $$('[data-bind]').forEach((el) => {
     const v = getPath(state, el.dataset.bind);
     if (el === document.activeElement) return;
@@ -1208,10 +1333,8 @@ function importJson() {
       try {
         const data = JSON.parse(fr.result);
         if (!data || typeof data !== 'object' || !data.branding) throw new Error('bad');
-        pushHistory();
-        state = normalise(data);
-        save(); renderAll();
-        toast('Program opened.');
+        addProgram(copyOf(normalise(data)));
+        toast('Program opened. It is saved alongside your others under Programs.');
       } catch { toast('That file is not a saved program.', 'error'); }
     };
     fr.readAsText(f);
@@ -1220,16 +1343,27 @@ function importJson() {
 }
 
 async function newProgram() {
-  const ok = await modal({
-    title: 'Start a new program?',
-    body: '<p>Your branding, leaders, columns and lists are kept. All activities are cleared and meeting dates are generated for the chosen term. Save a file first if you want to keep this one.</p>',
-    buttons: [{ label: 'Cancel', value: false, cls: 'btn-text' }, { label: 'Start new program', value: true, cls: 'btn-primary' }],
+  const t = state.term;
+  const next = t.term >= 4 ? { year: t.year + 1, term: 1 } : { year: t.year, term: t.term + 1 };
+  const choice = await modal({
+    title: 'Start a new program',
+    body: `<p>This program stays saved under <strong>Programs</strong>. The new one keeps your branding, leaders, columns and lists, with fresh meeting dates.</p>`,
+    buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' },
+      { label: `Same term (T${t.term} ${t.year})`, value: 'same', cls: 'btn-outline' },
+      { label: `Next term (T${next.term} ${next.year})`, value: 'next', cls: 'btn-primary' }],
   });
-  if (!ok) return;
-  pushHistory();
-  state.branding.versionText = '';
+  if (!choice) return;
+  const c = copyOf(state);
+  c.branding.versionText = '';
+  c.rows = [];
+  save();
+  const prev = state;
+  state = c;
+  if (choice === 'next') { Object.assign(state.term, next); if (!applyTermPreset()) { state.term.start = ''; state.term.end = ''; } }
   state.rows = generateRows();
-  save(); renderAll();
+  state = prev;
+  addProgram(c);
+  if (!c.rows.length) toast('Enter the term dates, then use Generate dates.');
 }
 
 async function resetAll() {
@@ -1405,6 +1539,7 @@ function bindEvents() {
   $('#btnAddBreak').onclick = (e) => openBreakPopover(e.currentTarget);
   $('#btnUndo').onclick = undo;
   $('#btnNew').onclick = newProgram;
+  $('#btnPrograms').onclick = (e) => openProgramsMenu(e.currentTarget);
   $('#btnImport').onclick = importJson;
   $('#btnExport').onclick = exportJson;
   $('#btnCalendar').onclick = exportCalendar;
@@ -1435,7 +1570,6 @@ function init() {
   const thisYear = new Date().getFullYear();
   for (let y = thisYear - 1; y <= thisYear + 3; y++) ys.insertAdjacentHTML('beforeend', `<option value="${y}">${y}</option>`);
   state = load();
-  if (![...ys.options].some((o) => +o.value === state.term.year)) ys.insertAdjacentHTML('afterbegin', `<option value="${state.term.year}">${state.term.year}</option>`);
   bindEvents();
   renderAll();
   // Fonts change text metrics — refit once they're ready.
