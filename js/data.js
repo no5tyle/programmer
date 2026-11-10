@@ -23,11 +23,11 @@ const TERM_DATES = {
 };
 
 const DEFAULT_COLUMNS = [
-  { key: 'week',        label: 'Week',           visible: true,  width: 5,  align: 'center' },
+  { key: 'week',        label: 'Week',           visible: true,  width: 6,  align: 'center' },
   { key: 'date',        label: 'Date',           visible: true,  width: 8,  align: 'center' },
   { key: 'time',        label: 'Time',           visible: true,  width: 8,  align: 'center' },
   { key: 'activity',    label: 'Activity',       visible: true,  width: 13, align: 'center' },
-  { key: 'description', label: 'Description',    visible: true,  width: 20, align: 'center' },
+  { key: 'description', label: 'Description',    visible: true,  width: 19, align: 'center' },
   { key: 'uniform',     label: 'Uniform',        visible: true,  width: 6,  align: 'center' },
   { key: 'forms',       label: 'Forms',          visible: true,  width: 6,  align: 'center' },
   { key: 'where',       label: 'Where',          visible: false, width: 8,  align: 'center' },

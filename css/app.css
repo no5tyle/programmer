@@ -384,7 +384,9 @@ input[type=color]::-moz-color-swatch { border: 0; border-radius: 5px; }
 }
 .prog thead { display: table-header-group; }
 .prog tr { break-inside: avoid; page-break-inside: avoid; }
-.prog .c-week { font-weight: 800; }
+.prog .c-week { font-weight: 800; white-space: nowrap; }
+.prog .c-week .wk, .prog th .th-l { display: inline-block; }
+.prog thead th { overflow-wrap: normal; }
 .prog .c-date { white-space: pre-line; }
 .prog .c-activity .ed { font-weight: 600; }
 .prog .ed {
