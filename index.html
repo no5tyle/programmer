@@ -97,7 +97,7 @@
       <details class="card" open>
         <summary><span class="card-icon"><svg viewBox="0 0 24 24"><path d="M12 3 4 7v6c0 4.5 3.4 7.6 8 8 4.6-.4 8-3.5 8-8V7z"/></svg></span>Branding</summary>
         <div class="card-body">
-          <label class="field"><span>Group name</span><input type="text" data-bind="branding.groupName" placeholder="1st Example Scout Group"></label>
+          <label class="field"><span>Group name</span><input type="text" data-bind="branding.groupName" placeholder="e.g. 1st Example Scout Group"></label>
           <div class="grid-2">
             <label class="field"><span>Section</span>
               <select data-bind="branding.section">
@@ -132,7 +132,7 @@
               <div class="logo-preview" id="logoPreview"></div>
               <div class="stack">
                 <button class="btn btn-outline btn-sm" id="btnLogo">Upload image</button>
-                <button class="btn btn-text btn-sm" id="btnLogoClear">Use default</button>
+                <button class="btn btn-text btn-sm" id="btnLogoClear">Use section logo</button>
               </div>
             </div>
           </div>
@@ -205,6 +205,7 @@
             <label class="field"><span>Largest text (pt)</span><input type="number" min="6" max="16" step="0.5" data-bind="options.maxFont" data-type="number"></label>
             <label class="field"><span>Smallest text (pt)</span><input type="number" min="5" max="12" step="0.5" data-bind="options.minFont" data-type="number"></label>
           </div>
+          <label class="check"><input type="checkbox" data-bind="options.fitDescription"> Shrink long descriptions to fit two lines</label>
           <label class="check"><input type="checkbox" data-bind="options.stretch"> Stretch rows to fill the page</label>
           <div class="grid-2">
             <label class="field"><span>Week label</span><input type="text" data-bind="options.weekPrefix" placeholder="Week "></label>

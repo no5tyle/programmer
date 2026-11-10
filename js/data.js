@@ -1,13 +1,20 @@
 /* Static data: section presets, term dates, defaults and icons. */
 'use strict';
 
+/*
+ * Section presets. Logos are the official Scouts Australia vertical Section logos
+ * (as distributed in the Scouts NSW logo pack); colours are each logo's main brand colour.
+ * Use the logos as provided — do not alter them.
+ */
 const SECTIONS = {
-  joeys:     { name: 'Joeys',     color: '#B5651D' },
-  cubs:      { name: 'Cubs',      color: '#FFC72C' },
-  scouts:    { name: 'Scouts',    color: '#00A651' },
-  venturers: { name: 'Venturers', color: '#8B1E3F' },
-  rovers:    { name: 'Rovers',    color: '#D6001C' },
+  joeys:     { name: 'Joeys',     color: '#B65518', logo: 'assets/section-logos/joeys.png' },
+  cubs:      { name: 'Cubs',      color: '#FFC82E', logo: 'assets/section-logos/cubs.png' },
+  scouts:    { name: 'Scouts',    color: '#00AE42', logo: 'assets/section-logos/scouts.png' },
+  venturers: { name: 'Venturers', color: '#9E1B32', logo: 'assets/section-logos/venturers.png' },
+  rovers:    { name: 'Rovers',    color: '#DC291E', logo: 'assets/section-logos/rovers.png' },
 };
+/* Section colours used by earlier versions of this app, migrated to the official ones on load. */
+const OLD_SECTION_COLORS = { joeys: '#B5651D', cubs: '#FFC72C', scouts: '#00A651', venturers: '#8B1E3F', rovers: '#D6001C' };
 
 /*
  * School term dates (government schools), [start, end] per term.

@@ -141,7 +141,7 @@ function defaultState() {
   const s = {
     v: 1,
     branding: {
-      groupName: 'Strathalbyn Scout Group', section: 'cubs', sectionName: 'Cubs', color: SECTIONS.cubs.color,
+      groupName: '', section: 'cubs', sectionName: 'Cubs', color: SECTIONS.cubs.color,
       titleTemplate: '{section} Program – Term {term} {year}', titleColor: 'dark', headerStyle: 'tint',
       font: 'Nunito', logo: null, versionText: '', footerText: '', leadersLabel: 'Leaders:',
       leaders: [{ name: 'Leader name', phone: '0400 000 000' }, { name: 'Leader name', phone: '0400 000 000' }],
@@ -157,7 +157,7 @@ function defaultState() {
     options: {
       highlight: 'date-activity', challengeDisplay: 'icon', weekPrefix: 'Week ', dateFormat: 'short',
       paper: 'A4', orientation: 'landscape', margin: 8, autoFit: true, maxFont: 11, minFont: 6.5,
-      stretch: true, showLegend: true, rotatePatrols: true,
+      stretch: true, showLegend: true, rotatePatrols: true, fitDescription: true,
     },
     rows: [],
   };
@@ -178,6 +178,9 @@ function normalise(raw) {
   const saved = Array.isArray(raw.columns) ? raw.columns.filter((c) => DEFAULT_COLUMNS.some((dc) => dc.key === c.key)) : [];
   s.columns = saved.map((c) => ({ ...DEFAULT_COLUMNS.find((dc) => dc.key === c.key), ...c }));
   DEFAULT_COLUMNS.forEach((dc) => { if (!s.columns.some((c) => c.key === dc.key)) s.columns.push(clone(dc)); });
+  if (OLD_SECTION_COLORS[s.branding.section] && s.branding.color?.toUpperCase() === OLD_SECTION_COLORS[s.branding.section]) {
+    s.branding.color = SECTIONS[s.branding.section].color;
+  }
   s.challenges.forEach((c) => { if (OLD_CHALLENGE_COLORS[c.id] && c.color?.toUpperCase() === OLD_CHALLENGE_COLORS[c.id]) c.color = DEFAULT_CHALLENGES.find((d) => d.id === c.id).color; });
   s.rows = Array.isArray(raw.rows) ? raw.rows.map((r) => ({ ...newRowShape(), ...r, id: r.id || uid() })) : [];
   return s;
@@ -265,6 +268,67 @@ function rowsHaveContent() {
 
 /* ---------------------------------------------------------------- sheet rendering */
 
+/** Consecutive rows in the same term week (undated rows join the group above). */
+function weekGroups() {
+  const groups = [];
+  let prevKey = Symbol('start');
+  state.rows.forEach((r, i) => {
+    const key = r.date ? (weekOf(r.date) ?? `out-${r.date}`) : prevKey;
+    if (groups.length && key === prevKey) groups[groups.length - 1].rows.push(r);
+    else groups.push({ key, start: i, rows: [r] });
+    prevKey = key;
+  });
+  return groups;
+}
+
+function groupLabel(g) {
+  return typeof g.key === 'number' ? `${state.options.weekPrefix || ''}${g.key}`.trim() : 'the next group';
+}
+
+/** Where a move up/down would take a row: a swap within its week, or into the neighbouring week. */
+function movePlan(rowId, dir) {
+  const groups = weekGroups();
+  const gi = groups.findIndex((g) => g.rows.some((r) => r.id === rowId));
+  if (gi < 0) return null;
+  const g = groups[gi];
+  const pi = g.rows.findIndex((r) => r.id === rowId);
+  if ((dir < 0 && pi > 0) || (dir > 0 && pi < g.rows.length - 1)) return { type: 'swap', i: g.start + pi, j: g.start + pi + dir };
+  const target = groups[gi + dir];
+  return target ? { type: 'week', group: g, target } : null;
+}
+
+function moveRow(rowId, dir) {
+  const plan = movePlan(rowId, dir);
+  if (!plan) return;
+  if (plan.type === 'swap') {
+    [state.rows[plan.i], state.rows[plan.j]] = [state.rows[plan.j], state.rows[plan.i]];
+    return;
+  }
+  const { group, target } = plan;
+  const row = rowById(rowId);
+  const targetDated = target.rows.filter((r) => r.date);
+  const neighbour = dir < 0 ? targetDated[targetDated.length - 1] : targetDated[0];
+  // Keep the same weekday when moving between term weeks; otherwise take the neighbour's date.
+  let shift = null;
+  if (row.date && typeof group.key === 'number' && typeof target.key === 'number') shift = (target.key - group.key) * 7;
+  const oldDate = parseDate(row.date);
+  const newDate = shift !== null ? toISO(addDays(oldDate, shift)) : (neighbour?.date || '');
+  if (row.endDate && oldDate && newDate) {
+    row.endDate = toISO(addDays(parseDate(row.endDate), dayDiff(oldDate, parseDate(newDate))));
+  }
+  row.date = newDate;
+  // Place it in date order within the target week: at the bottom when moving up, the top when moving down.
+  state.rows.splice(state.rows.indexOf(row), 1);
+  const start = state.rows.indexOf(target.rows[0]);
+  let pos = start;
+  let inherited = '';
+  target.rows.forEach((r, k) => {
+    inherited = r.date || inherited;
+    if (dir < 0 ? inherited <= newDate : inherited < newDate) pos = start + k + 1;
+  });
+  state.rows.splice(pos, 0, row);
+}
+
 function visibleColumns() { return state.columns.filter((c) => c.visible); }
 
 function titleText() {
@@ -284,6 +348,8 @@ function groupNameHTML() {
 function logoHTML() {
   const b = state.branding;
   if (b.logo) return `<img src="${b.logo}" alt="">`;
+  const official = SECTIONS[b.section]?.logo;
+  if (official) return `<img src="${official}" alt="${esc(SECTIONS[b.section].name)} logo">`;
   return `<span class="logo-glyph" style="color:${esc(b.color)}">⚜</span>`;
 }
 
@@ -339,7 +405,7 @@ function cellHTML(col, r) {
 
   if (k === 'date') {
     const txt = dateText(r, timeHidden);
-    return `<td class="c-date clickable" data-pop="date"${align}${tint}>${txt ? esc(txt) : '<span class="ph">Set date</span>'}</td>`;
+    return `<td class="c-date clickable" data-pop="date"${align}${tint}><div class="dt">${txt ? esc(txt) : '<span class="ph">Set date</span>'}</div></td>`;
   }
   if (k === 'challenge') return `<td class="c-challenge clickable" data-pop="challenge"${align}${tint}>${challengeHTML(r.challenge)}</td>`;
   if (k === 'patrol') return `<td class="c-patrol clickable" data-pop="patrol"${align}${tint}>${patrolHTML(r.patrol)}</td>`;
@@ -380,15 +446,7 @@ function renderSheet() {
   const legendHTML = o.showLegend && usedCats.length
     ? `<div class="doc-legend">${usedCats.map((c) => `<span style="background:${esc(c.color)}">${esc(c.label)}</span>`).join('')}</div>` : '';
 
-  // Group rows by term week (undated rows join the group above).
-  const groups = [];
-  let prevKey = Symbol('start');
-  state.rows.forEach((r) => {
-    const key = r.date ? (weekOf(r.date) ?? `out-${r.date}`) : prevKey;
-    if (groups.length && key === prevKey) groups[groups.length - 1].rows.push(r);
-    else groups.push({ key, rows: [r] });
-    prevKey = key;
-  });
+  const groups = weekGroups();
 
   const body = groups.map((g) => g.rows.map((r, i) => {
     const cat = state.categories.find((c) => c.id === r.category);
@@ -406,7 +464,7 @@ function renderSheet() {
     <div class="doc-header">
       <div class="doc-logo">${logoHTML()}</div>
       <div class="doc-titles">
-        <div class="doc-group">${groupNameHTML()}</div>
+        <div class="doc-group">${state.branding.groupName.trim() ? groupNameHTML() : '<span class="ph">Your Scout Group</span>'}</div>
         <div class="doc-title">${esc(titleText())}</div>
       </div>
       <div class="doc-side">
@@ -416,8 +474,8 @@ function renderSheet() {
     </div>
     ${legendHTML}
     <table class="prog">
-      <colgroup>${cols.map((c) => `<col style="width:${((+c.width || 1) / totalW) * 100}%">`).join('')}</colgroup>
-      <thead><tr>${cols.map((c) => `<th><span class="th-l">${esc(c.label)}</span></th>`).join('')}</tr></thead>
+      <colgroup>${cols.map((c) => `<col data-key="${c.key}" data-pct="${((+c.width || 1) / totalW) * 100}" style="width:${((+c.width || 1) / totalW) * 100}%">`).join('')}</colgroup>
+      <thead><tr>${cols.map((c) => `<th class="c-${c.key}"><span class="th-l">${esc(c.label)}</span></th>`).join('')}</tr></thead>
       <tbody>${body || `<tr class="empty-row"><td colspan="${cols.length}">No activities yet — use <b>Generate dates</b> or <b>Add activity</b>.</td></tr>`}</tbody>
     </table>
     ${b.footerText ? `<div class="doc-footer">${esc(b.footerText)}</div>` : ''}`;
@@ -441,6 +499,124 @@ function applyPageSize() {
     `@page { size: ${state.options.paper === 'Letter' ? 'letter' : 'A4'} ${state.options.orientation}; margin: ${m}mm; }`;
 }
 
+/**
+ * Widen columns whose longest word (or heading, week label, icon) doesn't fit, taking the room
+ * from columns with space to spare in proportion to it. The widths set in the sidebar are the
+ * starting point; text is only shrunk later if borrowing isn't enough.
+ */
+function fitColumns(sheet) {
+  const table = $('.prog', sheet);
+  if (!table) return;
+  const cols = $$('col', table);
+  cols.forEach((c) => { c.style.width = `${c.dataset.pct}%`; });
+  $$('.prog .ed, .prog .dt, .prog .patrol, .prog th, .prog .c-week', sheet).forEach((el) => { el.style.fontSize = ''; });
+
+  // Measure every cell's narrowest possible content (its longest unbreakable piece) in one pass.
+  sheet.classList.add('measuring');
+  const need = {};
+  $$('.prog th, .prog td', sheet).forEach((cell) => {
+    const key = [...cell.classList].find((c) => c.startsWith('c-'))?.slice(2);
+    const content = cell.firstElementChild;
+    if (!key || !content) return;
+    const cs = getComputedStyle(cell);
+    const w = content.offsetWidth + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + 1.5;
+    need[key] = Math.max(need[key] || 0, w);
+  });
+  sheet.classList.remove('measuring');
+
+  const total = table.clientWidth;
+  const items = cols.map((c) => {
+    const cur = (parseFloat(c.dataset.pct) / 100) * total;
+    const min = need[c.dataset.key] || 0;
+    return { c, cur, min };
+  });
+  const deficit = items.reduce((a, it) => a + Math.max(0, it.min - it.cur), 0);
+  if (deficit < 0.5) return;
+  const slack = items.reduce((a, it) => a + Math.max(0, it.cur - it.min), 0);
+  const take = Math.min(1, slack > 0 ? deficit / slack : 0);
+  items.forEach((it) => {
+    it.w = it.cur < it.min ? it.min : it.cur - (it.cur - it.min) * take;
+  });
+  // If there wasn't enough spare room, scale everything back to the table width (text shrinks after).
+  const sum = items.reduce((a, it) => a + it.w, 0);
+  items.forEach((it) => { it.c.style.width = `${(it.w / sum) * 100}%`; });
+}
+
+/** True when a block's text fits its width without any word sticking out. */
+function widthOk(el) {
+  if (el.classList.contains('patrol')) return overflowsNot(el);
+  return el.scrollWidth <= el.clientWidth + 0.5;
+}
+
+/**
+ * Size each body cell's text on its own, never smaller than 70% of the table text (or 6pt):
+ *  - no cell may break a word, so a cell whose longest word doesn't fit is shrunk;
+ *  - each Description is also shrunk to stay within two lines, or the tallest other cell in its row.
+ * Cells are sized together in a few rounds so the table is laid out once per round.
+ * Returns false if some word still doesn't fit at the smallest size (the table must shrink).
+ */
+function fitCells(sheet, fs) {
+  const all = $$('.prog tbody .ed, .prog tbody .dt, .prog tbody .patrol', sheet);
+  all.forEach((el) => { el.style.fontSize = ''; });
+  if (!all.length) return true;
+  const minPt = Math.min(fs, Math.max(6, fs * 0.7));
+  const shrinkDesc = state.options.fitDescription;
+  const isDesc = (el) => el.dataset.key === 'description';
+
+  const size = (items) => {
+    const ok = (it) => widthOk(it.el) && (!it.target || it.el.offsetHeight <= it.target);
+    const need = items.filter((it) => !ok(it));
+    need.forEach((it) => { it.lo = minPt; it.hi = fs; it.best = null; });
+    for (let round = 0; round < 6 && need.length; round++) {
+      need.forEach((it) => { it.mid = (it.lo + it.hi) / 2; it.el.style.fontSize = `${it.mid}pt`; });
+      need.forEach((it) => { if (ok(it)) { it.best = it.mid; it.lo = it.mid; } else it.hi = it.mid; });
+    }
+    need.forEach((it) => { it.el.style.fontSize = `${Math.floor((it.best ?? minPt) * 10) / 10}pt`; });
+    return need.every((it) => it.best !== null || widthOk(it.el));
+  };
+
+  // Everything except descriptions first, so descriptions can match the settled row heights.
+  const okOthers = size(all.filter((el) => !isDesc(el)).map((el) => ({ el })));
+  const descs = all.filter(isDesc);
+  let twoLines = 0;
+  if (descs.length) twoLines = 2 * parseFloat(getComputedStyle(descs[0]).lineHeight) + 1;
+  const okDescs = size(descs.map((el) => {
+    if (!shrinkDesc) return { el };
+    let target = twoLines;
+    el.closest('tr').querySelectorAll('td:not(.c-description):not(.c-week)').forEach((td) => {
+      const c = td.firstElementChild;
+      if (c) target = Math.max(target, c.offsetHeight + 1);
+    });
+    return { el, target };
+  }));
+  return okOthers && okDescs;
+}
+
+/** True when an inline-block label fits inside its cell's content box. */
+function overflowsNot(el) {
+  const td = el.parentElement, cs = getComputedStyle(td);
+  return el.offsetWidth <= td.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) + 0.5;
+}
+
+/**
+ * Shrink a set of cells together (headings, or week labels) on their own, down to `minScale`,
+ * until every label inside fits its cell's width. Keeps them one consistent size.
+ */
+function fitLabels(cells, labelSel, minScale) {
+  if (!cells.length) return;
+  cells.forEach((c) => { c.style.fontSize = ''; });
+  const labels = cells.map((c) => c.querySelector(labelSel)).filter(Boolean);
+  if (labels.every(overflowsNot)) return;
+  const setScale = (s) => cells.forEach((c) => { c.style.fontSize = `${s}em`; });
+  let lo = minScale, hi = 1, best = minScale;
+  for (let i = 0; i < 6; i++) {
+    const mid = (lo + hi) / 2;
+    setScale(mid);
+    if (labels.every(overflowsNot)) { best = mid; lo = mid; } else hi = mid;
+  }
+  setScale(Math.floor(best * 100) / 100);
+}
+
 function fit() {
   const sheet = $('#sheet');
   const o = state.options;
@@ -448,13 +624,17 @@ function fit() {
   const status = $('#fitStatus');
   sheet.classList.remove('multi');
   if (table) table.style.height = '';
-  const setFs = (pt) => sheet.style.setProperty('--fs', `${pt}pt`);
-  // Week labels and heading words never break mid-word, so they must also fit their column's width.
-  const weeksOk = () => $$('.c-week .wk, thead .th-l', sheet).every((w) => {
-    const td = w.parentElement, cs = getComputedStyle(td);
-    return w.offsetWidth <= td.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) + 0.5;
-  });
-  const fits = () => sheet.scrollHeight <= sheet.clientHeight + 1 && weeksOk();
+  let cellsOk = true;
+  const setFs = (pt) => {
+    sheet.style.setProperty('--fs', `${pt}pt`);
+    fitColumns(sheet);
+    fitLabels($$('.prog thead th', sheet), '.th-l', 0.7);
+    fitLabels($$('.prog tbody .c-week', sheet), '.wk', 0.75);
+    cellsOk = fitCells(sheet, pt);
+  };
+  // No word may ever break: labels and cells must fit their column's width at the current size.
+  const widthsOk = () => cellsOk && $$('.c-week .wk, thead .th-l', sheet).every(overflowsNot);
+  const fits = () => sheet.scrollHeight <= sheet.clientHeight + 1 && widthsOk();
 
   const max = Math.max(5, +o.maxFont || 11);
   const min = Math.min(max, Math.max(4, +o.minFont || 6.5));
@@ -474,9 +654,9 @@ function fit() {
     } else {
       // Won't fit one page even at the smallest size: keep it readable over several pages.
       fs = max; setFs(max);
-      if (!weeksOk()) {
+      if (!widthsOk()) {
         let lo = min, hi = max;
-        for (let i = 0; i < 9; i++) { const mid = (lo + hi) / 2; setFs(mid); if (weeksOk()) lo = mid; else hi = mid; }
+        for (let i = 0; i < 9; i++) { const mid = (lo + hi) / 2; setFs(mid); if (widthsOk()) lo = mid; else hi = mid; }
         fs = Math.floor(lo * 10) / 10; setFs(fs);
       }
     }
@@ -484,7 +664,8 @@ function fit() {
 
   const one = sheet.scrollHeight <= sheet.clientHeight + 1;
   if (one && o.stretch && table && state.rows.length) {
-    const spare = sheet.clientHeight - sheet.scrollHeight;
+    const last = sheet.lastElementChild;
+    const spare = (sheet.offsetTop + sheet.clientHeight) - (last.offsetTop + last.offsetHeight);
     const grow = Math.min(spare - 6, table.offsetHeight * 0.6);
     if (grow > 4) table.style.height = `${table.offsetHeight + grow}px`;
   }
@@ -670,15 +851,16 @@ function openChoicePopover(td, row, key) {
 
 function openRowMenu(anchor, rowId) {
   const r = rowById(rowId); if (!r) return;
-  const idx = state.rows.indexOf(r);
+  const up = movePlan(rowId, -1), down = movePlan(rowId, 1);
+  const moveLabel = (plan, word) => (plan?.type === 'week' ? `Move to ${esc(groupLabel(plan.target))}` : `Move ${word}`);
   const icon = (d) => `<svg viewBox="0 0 24 24">${d}</svg>`;
   openPopover(anchor, `
     <div class="menu">
       <button data-act="below">${icon('<path d="M12 5v14M5 12h14"/>')}Add activity below <small>same date</small></button>
       <button data-act="above">${icon('<path d="M12 5v14M5 12h14"/>')}Add activity above</button>
       <button data-act="dup">${icon('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>')}Duplicate</button>
-      <button data-act="up" ${idx === 0 ? 'disabled' : ''}>${icon('<path d="m6 15 6-6 6 6"/>')}Move up</button>
-      <button data-act="down" ${idx === state.rows.length - 1 ? 'disabled' : ''}>${icon('<path d="m6 9 6 6 6-6"/>')}Move down</button>
+      <button data-act="up" ${up ? '' : 'disabled'}>${icon('<path d="m6 15 6-6 6 6"/>')}${moveLabel(up, 'up')}</button>
+      <button data-act="down" ${down ? '' : 'disabled'}>${icon('<path d="m6 9 6 6 6-6"/>')}${moveLabel(down, 'down')}</button>
       <div class="menu-sep"></div>
       <div class="menu-label">Highlight</div>
       <div class="swatches">
@@ -701,8 +883,8 @@ function openRowMenu(anchor, rowId) {
         case 'below': state.rows.splice(i + 1, 0, newRow(row.date, { uniform: row.uniform })); break;
         case 'above': state.rows.splice(i, 0, newRow(row.date, { uniform: row.uniform })); break;
         case 'dup': state.rows.splice(i + 1, 0, { ...clone(row), id: uid() }); break;
-        case 'up': [state.rows[i - 1], state.rows[i]] = [state.rows[i], state.rows[i - 1]]; break;
-        case 'down': [state.rows[i + 1], state.rows[i]] = [state.rows[i], state.rows[i + 1]]; break;
+        case 'up': moveRow(rowId, -1); break;
+        case 'down': moveRow(rowId, 1); break;
         case 'del': state.rows.splice(i, 1); toast('Row deleted — Undo to restore.'); break;
         default: break;
       }
