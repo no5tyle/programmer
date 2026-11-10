@@ -137,7 +137,7 @@ function newRow(date = '', patch = {}) {
   return {
     id: uid(), date, endDate: '', dateLabel: '', time: defaultTimeText(),
     activity: '', description: '', uniform: 'Yes', forms: '', where: '', patrol: '',
-    leader: '', cost: '', challenge: '', notes: '', category: '', ...patch,
+    leader: '', cost: '', challenge: '', notes: '', category: '', noMeeting: false, ...patch,
   };
 }
 
@@ -878,7 +878,9 @@ const fitSoon = debounce(fit, 120);
 function applyZoom() {
   const paper = $('#paper'), wrap = $('#paperWrap'), canvas = $('#canvas');
   const w = paper.offsetWidth, h = paper.offsetHeight;
-  const s = zoom === 'fit' ? Math.max(0.4, Math.min(1.5, (canvas.clientWidth - 96) / w)) : +zoom;
+  const cs = getComputedStyle(canvas);
+  const avail = canvas.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const s = zoom === 'fit' ? Math.max(0.15, Math.min(1.5, avail / w)) : +zoom;
   paper.style.transform = `scale(${s})`;
   wrap.style.width = `${w * s}px`;
   wrap.style.height = `${h * s}px`;
@@ -980,8 +982,12 @@ function renderAll() {
   renderLists();
   renderSheet();
   fit();
+  if (typeof renderMobile === 'function') renderMobile();
 }
-function renderDoc() { sortRows(); applyPageSize(); renderSheet(); fit(); }
+function renderDoc() {
+  sortRows(); applyPageSize(); renderSheet(); fit();
+  if (typeof renderMobile === 'function') renderMobile();
+}
 
 /* ---------------------------------------------------------------- popovers */
 
@@ -1198,6 +1204,16 @@ function addActivity() {
   tr?.focus();
 }
 
+/** Add a week off on a date, reusing an untouched generated row on that date if there is one. */
+function addWeekOff(date, text) {
+  pushHistory();
+  const blank = state.rows.find((r) => r.date === date && isBlankRow(r));
+  if (blank) Object.assign(blank, { noMeeting: true, activity: text });
+  else state.rows.push(newRow(date, { noMeeting: true, activity: text, time: '', uniform: '' }));
+  save(); renderDoc();
+  toast(blank ? 'Meeting night marked as a week off.' : 'Week off added.');
+}
+
 /** Toolbar: add a week with no section night (public holiday, school holidays, …). */
 function openBreakPopover(anchor) {
   const used = new Set(state.rows.map((r) => r.date));
@@ -1222,14 +1238,8 @@ function openBreakPopover(anchor) {
     };
   });
   const add = () => {
-    const date = $('#bDate').value, text = $('#bText').value.trim() || `No ${section} this week`;
-    pushHistory();
-    // Reuse an untouched generated row on that date rather than adding a second one.
-    const blank = state.rows.find((r) => r.date === date && isBlankRow(r));
-    if (blank) Object.assign(blank, { noMeeting: true, activity: text });
-    else state.rows.push(newRow(date, { noMeeting: true, activity: text, time: '', uniform: '' }));
-    closePopover(); save(); renderDoc();
-    toast(blank ? 'Meeting night marked as a week off.' : 'Week off added.');
+    addWeekOff($('#bDate').value, $('#bText').value.trim() || `No ${section} this week`);
+    closePopover();
   };
   $('#bDate').addEventListener('input', () => {
     const h = publicHoliday($('#bDate').value);
@@ -1247,7 +1257,19 @@ function programFileName() {
     .replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+let shareFiles = false;   // set by the mobile Share menu for the duration of one export
+
 function downloadFile(name, text, type) {
+  if (shareFiles && navigator.canShare) {
+    const file = new File([text], name, { type });
+    if (navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: name }).catch((e) => {
+        if (e.name !== 'AbortError') toast('Sharing didn’t work here, so the file was downloaded instead.', 'error');
+        if (e.name !== 'AbortError') { shareFiles = false; downloadFile(name, text, type); }
+      });
+      return;
+    }
+  }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([text], { type }));
   a.download = name;
@@ -1648,7 +1670,11 @@ function onListInput(e) {
 }
 
 function bindEvents() {
-  const side = $('#sidebar');
+  const side = {
+    addEventListener: (type, fn) => document.addEventListener(type, (e) => {
+      if (e.target.closest && e.target.closest('#sidebar, .m-settings')) fn(e);
+    }),
+  };
   side.addEventListener('focusin', (e) => { if (e.target.matches('input, select')) pushHistory(); });
   side.addEventListener('input', (e) => { onBoundInput(e); onListInput(e); });
   side.addEventListener('change', (e) => { if (e.target.closest('[data-bind]')) onBoundInput(e); });
