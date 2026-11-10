@@ -909,11 +909,13 @@ const handle = $('#rowHandle');
 let handleRow = null;
 function showHandle(tr) {
   handleRow = tr.dataset.id;
-  const table = tr.closest('table').getBoundingClientRect();
-  const r = tr.getBoundingClientRect();
+  // Anchor to this row's own first cell (normally Date), not the merged Week cell, so the
+  // mouse never has to cross another row's cell to reach the handle.
+  const cell = tr.querySelector('td:not(.c-week)') || tr.firstElementChild;
+  const r = cell.getBoundingClientRect();
   handle.hidden = false;
-  handle.style.top = `${r.top + r.height / 2 - 14}px`;
-  handle.style.left = `${table.left - 34}px`;
+  handle.style.top = `${r.top + r.height / 2 - handle.offsetHeight / 2}px`;
+  handle.style.left = `${r.left - handle.offsetWidth / 2}px`;
 }
 function hideHandle() { handle.hidden = true; handleRow = null; }
 
