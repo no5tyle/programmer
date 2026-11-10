@@ -571,6 +571,9 @@ function cellHTML(col, r) {
   }
   if (k === 'challenge') return `<td class="c-challenge clickable" data-pop="challenge"${align}${tint}>${challengeHTML(r.challenge)}</td>`;
   if (k === 'patrol') return `<td class="c-patrol clickable" data-pop="patrol"${align}${tint}>${patrolHTML(r.patrol)}</td>`;
+  if (k === 'leader') {
+    return `<td class="c-leader clickable" data-pop="leader"${align}${tint}>${r.leader ? `<span class="pick">${esc(r.leader)}</span>` : '<span class="ph">Leader</span>'}</td>`;
+  }
   const ph = { activity: 'Activity', description: 'Add a description' }[k] || '';
   return `<td class="c-${k}"${align}${tint}><div class="ed" contenteditable="plaintext-only" spellcheck="true" data-key="${k}"${ph ? ` data-ph="${ph}"` : ''}>${esc(r[k])}</div></td>`;
 }
@@ -679,7 +682,7 @@ function fitColumns(sheet) {
   if (!table) return;
   const cols = $$('col', table);
   cols.forEach((c) => { c.style.width = `${c.dataset.pct}%`; });
-  $$('.prog .ed, .prog .dt, .prog .patrol, .prog th, .prog .c-week', sheet).forEach((el) => { el.style.fontSize = ''; });
+  $$('.prog .ed, .prog .dt, .prog .patrol, .prog .pick, .prog th, .prog .c-week', sheet).forEach((el) => { el.style.fontSize = ''; });
 
   // Measure every column's narrowest possible content (its longest unbreakable piece). The
   // "preferred" pass also keeps week labels and date lines on one line.
@@ -689,7 +692,7 @@ function fitColumns(sheet) {
     $$('.prog th, .prog td', sheet).forEach((cell) => {
       const key = [...cell.classList].find((c) => c.startsWith('c-'))?.slice(2);
       const content = cell.firstElementChild;
-      if (!key || !content) return;
+      if (!key || !content || content.classList.contains('ph')) return;   // screen-only prompts
       const cs = getComputedStyle(cell);
       const w = content.offsetWidth + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + 1.5;
       need[key] = Math.max(need[key] || 0, w);
@@ -721,7 +724,7 @@ function fitColumns(sheet) {
 
 /** True when a block's text fits its width without any word sticking out. */
 function widthOk(el) {
-  if (el.classList.contains('patrol')) return overflowsNot(el);
+  if (el.classList.contains('patrol') || el.classList.contains('pick')) return overflowsNot(el);
   return el.scrollWidth <= el.clientWidth + 0.5;
 }
 
@@ -733,7 +736,7 @@ function widthOk(el) {
  * Returns false if some word still doesn't fit at the smallest size (the table must shrink).
  */
 function fitCells(sheet, fs) {
-  const all = $$('.prog tbody .ed, .prog tbody .dt, .prog tbody .patrol', sheet);
+  const all = $$('.prog tbody .ed, .prog tbody .dt, .prog tbody .patrol, .prog tbody .pick', sheet);
   all.forEach((el) => { el.style.fontSize = ''; });
   if (!all.length) return true;
   const minPt = Math.min(fs, Math.max(6, fs * 0.7));
@@ -1040,6 +1043,33 @@ function openDatePopover(td, row) {
       closePopover(); sortRows(); save(); renderDoc();
     };
   });
+}
+
+/** The section's leaders (from the Leaders list), then other leaders already used in this program. */
+function leaderChoices() {
+  const section = [...new Set(state.branding.leaders.map((l) => l.name.trim()).filter(Boolean))];
+  const others = [...new Set(state.rows.map((r) => (r.leader || '').trim()).filter((n) => n && !section.includes(n)))].sort();
+  return { section, others };
+}
+
+function openLeaderPopover(td, row) {
+  const { section, others } = leaderChoices();
+  const btn = (name) => `<button class="choice ${row.leader === name ? 'on' : ''}" data-v="${esc(name)}"><span class="dot person"></span><span>${esc(name)}</span></button>`;
+  openPopover(td, `
+    <div class="pop-title">Leader</div>
+    <div class="choice-list">
+      ${section.length ? section.map(btn).join('') : '<p class="hint">Add your section\'s leaders under <strong>Leaders</strong> in the sidebar.</p>'}
+      ${others.length ? `<div class="menu-label">Other leaders in this program</div>${others.map(btn).join('')}` : ''}
+      <button class="choice ${row.leader ? '' : 'on'}" data-v=""><span class="dot none"></span><span>None</span></button>
+    </div>
+    <label class="field"><span>Other leader</span>
+      <span class="inline-add"><input type="text" id="pLeader" placeholder="e.g. Roo (Joeys)" value="${esc(section.includes(row.leader) || others.includes(row.leader) ? '' : row.leader)}"><button class="btn btn-primary btn-sm" id="pLeaderSet">Set</button></span>
+    </label>`, { type: 'leader', id: row.id });
+  const set = (v) => { pushHistory(); const r = rowById(row.id); if (r) r.leader = v; closePopover(); save(); renderDoc(); };
+  pop.querySelectorAll('.choice').forEach((b) => { b.onclick = () => set(b.dataset.v); });
+  const input = $('#pLeader');
+  $('#pLeaderSet').onclick = () => { if (input.value.trim()) set(input.value.trim()); };
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && input.value.trim()) set(input.value.trim()); });
 }
 
 function openChoicePopover(td, row, key) {
@@ -1432,6 +1462,10 @@ function onListInput(e) {
   const arr = list === 'leaders' ? state.branding.leaders : state[list];
   let v = el.type === 'checkbox' ? el.checked : el.value;
   if (field === 'width') { v = parseFloat(v); if (!(v > 0)) return; }
+  if (list === 'leaders' && field === 'name') {
+    const old = arr[i].name.trim();
+    if (old) state.rows.forEach((r) => { if (r.leader === old) r.leader = v.trim(); });
+  }
   if (list === 'patrols' && field === 'name') {
     const old = arr[i].name;
     state.rows.forEach((r) => { if (r.patrol && r.patrol === old) r.patrol = v; });
@@ -1526,6 +1560,7 @@ function bindEvents() {
     const td = e.target.closest('td.clickable'); if (!td) return;
     const r = rowById(td.closest('tr').dataset.id); if (!r) return;
     if (td.dataset.pop === 'date') openDatePopover(td, r);
+    else if (td.dataset.pop === 'leader') openLeaderPopover(td, r);
     else openChoicePopover(td, r, td.dataset.pop);
   });
   sheet.addEventListener('mouseover', (e) => {
