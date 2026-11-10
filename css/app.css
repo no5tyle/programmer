@@ -240,14 +240,14 @@ input[type=color]::-moz-color-swatch { border: 0; border-radius: 5px; }
 /* Row handle */
 .row-handle {
   position: fixed; z-index: 20;
-  width: 26px; height: 28px; padding: 0;
+  width: 18px; height: 26px; padding: 0;
   display: grid; place-items: center;
-  border: 1px solid var(--border-strong); border-radius: 8px;
+  border: 1px solid var(--border-strong); border-radius: 6px;
   background: var(--surface); color: var(--text-2);
   box-shadow: var(--shadow-1); cursor: pointer;
 }
 .row-handle:hover { color: var(--primary); border-color: var(--primary); background: var(--primary-50); }
-.row-handle svg { fill: currentColor; stroke: none; width: 16px; height: 16px; }
+.row-handle svg { fill: currentColor; stroke: none; width: 14px; height: 14px; }
 
 /* Popover & menus */
 .popover {
