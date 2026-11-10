@@ -46,25 +46,30 @@ const DEFAULT_CATEGORIES = [
 ];
 
 const DEFAULT_CHALLENGES = [
-  { id: 'community', label: 'Community',       color: '#2E6FB7', icon: null },
-  { id: 'outdoors',  label: 'Outdoors',        color: '#3A8F2D', icon: null },
-  { id: 'creative',  label: 'Creative',        color: '#D23F6E', icon: null },
-  { id: 'personal',  label: 'Personal Growth', color: '#7A4BA8', icon: null },
+  { id: 'community', label: 'Community',       color: '#212D65', icon: null },
+  { id: 'outdoors',  label: 'Outdoors',        color: '#7FBE41', icon: null },
+  { id: 'creative',  label: 'Creative',        color: '#E22726', icon: null },
+  { id: 'personal',  label: 'Personal Growth', color: '#FEC52E', icon: null },
 ];
+
+/*
+ * Official Scouts Australia Challenge Area icons (resources.scouts.com.au → Program Icons).
+ * Use as provided — do not alter. "named" versions include the area name under the icon.
+ */
+const CHALLENGE_ASSETS = {
+  community: { label: 'Community',       icon: 'assets/challenge-areas/community.png', named: 'assets/challenge-areas/community-named.png' },
+  outdoors:  { label: 'Outdoors',        icon: 'assets/challenge-areas/outdoors.png',  named: 'assets/challenge-areas/outdoors-named.png' },
+  creative:  { label: 'Creative',        icon: 'assets/challenge-areas/creative.png',  named: 'assets/challenge-areas/creative-named.png' },
+  personal:  { label: 'Personal Growth', icon: 'assets/challenge-areas/personal.png',  named: 'assets/challenge-areas/personal-named.png' },
+};
+/* Colours used by earlier versions of this app, migrated to the official ones on load. */
+const OLD_CHALLENGE_COLORS = { community: '#2E6FB7', outdoors: '#3A8F2D', creative: '#D23F6E', personal: '#7A4BA8' };
 
 const DEFAULT_PATROLS = [
   { name: 'Blue',   color: '#1F5FBF' },
   { name: 'Green',  color: '#2E9E44' },
   { name: 'Orange', color: '#F08A24' },
 ];
-
-/* Simple line glyphs drawn inside a ring for the built-in challenge areas. */
-const CHALLENGE_GLYPHS = {
-  community: '<circle cx="9" cy="9.5" r="2.3"/><circle cx="15.3" cy="10" r="1.9"/><path d="M5 16.8c.6-2.4 2.1-3.7 4-3.7s3.4 1.3 4 3.7M13.6 13.7c.5-.3 1.1-.5 1.7-.5 1.6 0 2.8 1.1 3.3 3.2"/>',
-  outdoors:  '<path d="M4.5 17 9.5 9l3 4.5 1.8-2.6L19.5 17z"/><circle cx="16" cy="7.5" r="1.4"/>',
-  creative:  '<path d="M10 17.5h4M10.6 19.5h2.8M12 5a4.8 4.8 0 0 0-3 8.6c.5.5.8 1.1.8 1.9h4.4c0-.8.3-1.4.8-1.9A4.8 4.8 0 0 0 12 5z"/>',
-  personal:  '<path d="M12 19v-6.5M12 12.5c0-3.2-2.3-4.9-5.5-4.9 0 3.2 2.3 4.9 5.5 4.9zM12 14.3c0-2.6 2-4.2 4.8-4.2 0 2.6-2 4.2-4.8 4.2z"/>',
-};
 
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];

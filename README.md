@@ -10,7 +10,7 @@ A small web app for building a term program to share with Scout families. It run
 - **Fits one page.** Text shrinks until the program fits on one A4 or Letter page. If there's spare room, rows stretch to fill it. If it can't fit, it prints over several pages with the table header repeated, and the preview marks where each page break will fall.
 - **Branding.** Group name ("1st" is shown as a superscript), section preset (Joeys, Cubs, Scouts, Venturers, Rovers or custom) with its colour, title template, logo upload, font, leaders and phone numbers, version note and footer.
 - **Columns.** Show or hide, rename, reorder, resize and set the alignment of each column. If you hide *Time*, the time moves into the date cell.
-- **Lists.** Highlight colours with a legend (Scout Hall, Out and About, EVENT, Bring a Friend, …), challenge areas (you can upload your own icons), and duty patrols with colours, which rotate automatically when dates are generated.
+- **Lists.** Highlight colours with a legend (Scout Hall, Out and About, EVENT, Bring a Friend, …), challenge areas using the official Scouts Australia icons (you can upload a different icon for any area), and duty patrols with colours, which rotate automatically when dates are generated.
 - **Saving.** Your work saves automatically in your browser. **Save file** downloads a `.json` copy you can keep or send to another leader, and **Open** loads one back.
 - **Print / PDF.** Uses the browser's print dialog. Choose *Save as PDF*, and turn off the browser's own *Headers and footers* option.
 
@@ -41,5 +41,6 @@ Term dates are in `js/data.js` under `TERM_DATES`, as `[start, end]` pairs for e
 | --- | --- |
 | `index.html` | App layout and sidebar controls |
 | `css/app.css` | App styling, the program document, and print rules |
-| `js/data.js` | Section colours, term dates, default columns and lists, challenge-area icons |
+| `js/data.js` | Section colours, term dates, default columns and lists, challenge-area icon paths |
+| `assets/challenge-areas/` | Official Scouts Australia Challenge Area icons, from the Program Icons page at resources.scouts.com.au, used as provided |
 | `js/app.js` | State, rendering, auto-fit, editing, import/export |
