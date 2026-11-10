@@ -261,6 +261,20 @@ input[type=color]::-moz-color-swatch { border: 0; border-radius: 5px; }
   display: flex; flex-direction: column; gap: 10px;
 }
 .pop-title { font-weight: 700; font-size: 13px; }
+.pop-sub { font-weight: 500; color: var(--text-2); margin-left: 4px; }
+.popover:has(.days) { max-width: 340px; }
+.days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.day {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 6px 0; border: 1px solid var(--border-strong); border-radius: 8px;
+  background: var(--surface); cursor: pointer; font-size: 11.5px; line-height: 1.2;
+}
+.day b { font-weight: 600; }
+.day span { color: var(--text-2); }
+.day:hover { background: var(--primary-50); border-color: #bcaedb; }
+.day.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.day.on span { color: #fff; }
+.day:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .pop-actions { display: flex; justify-content: space-between; }
 .choice-list { display: flex; flex-direction: column; gap: 2px; }
 .choice {

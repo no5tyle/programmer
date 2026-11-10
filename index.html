@@ -75,6 +75,11 @@
               <option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option>
             </select>
           </label>
+          <label class="field"><span>Weeks run</span>
+            <select data-bind="options.weekStart" data-type="number">
+              <option value="1">Monday – Sunday</option><option value="0">Sunday – Saturday</option>
+            </select>
+          </label>
           <div class="grid-2">
             <label class="field"><span>Start time</span><input type="time" data-bind="term.startTime"></label>
             <label class="field"><span>Finish time</span><input type="time" data-bind="term.endTime"></label>
