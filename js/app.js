@@ -347,9 +347,10 @@ function meetingDates() {
 
 /** Public holiday name on a date for the selected region (if enabled), else ''. */
 function publicHoliday(iso) {
-  const fn = state.options.publicHolidays && PUBLIC_HOLIDAYS[state.term.region];
-  if (!fn || !iso) return '';
-  return fn(+iso.slice(0, 4))[iso] || '';
+  const src = state.options.publicHolidays && PUBLIC_HOLIDAYS[state.term.region];
+  const year = iso ? +iso.slice(0, 4) : 0;
+  if (!src || !iso || year > src.to) return '';
+  return src.fn(year)[iso] || '';
 }
 
 function weekOffText(reason) { return `No ${state.branding.sectionName || 'meeting'} – ${reason}`; }
@@ -904,7 +905,9 @@ function syncInputs() {
   const n = meetingDates().length;
   const hols = meetingDates().map((d) => [d, publicHoliday(d)]).filter(([, h]) => h);
   const holText = hols.length ? ` ${hols.map(([d, h]) => `${h} (${formatDate(d)})`).join(', ')} ${hols.length === 1 ? 'is a public holiday' : 'are public holidays'}.` : '';
-  $('#termHint').textContent = `${t.region === 'custom' || !hasPreset ? 'Enter term dates above. ' : ''}${n} ${DAY_LONG[t.meetingDay]} meeting${n === 1 ? '' : 's'} this term.${holText}`;
+  const src = PUBLIC_HOLIDAYS[t.region];
+  const noHols = state.options.publicHolidays && t.region !== 'custom' && (!src || t.year > src.to) ? ' Public holidays aren’t built in for this year, so add any as weeks off.' : '';
+  $('#termHint').textContent = `${t.region === 'custom' || !hasPreset ? 'Enter term dates above. ' : ''}${n} ${DAY_LONG[t.meetingDay]} meeting${n === 1 ? '' : 's'} this term.${holText}${noHols}`;
   $('#logoPreview').innerHTML = logoHTML();
 }
 
@@ -1566,6 +1569,7 @@ function bindEvents() {
 /* ---------------------------------------------------------------- init */
 
 function init() {
+  $('[data-bind="term.region"]').innerHTML = REGIONS.map(([v, label]) => `<option value="${v}">${esc(label)}</option>`).join('');
   const ys = $('#yearSelect');
   const thisYear = new Date().getFullYear();
   for (let y = thisYear - 1; y <= thisYear + 3; y++) ys.insertAdjacentHTML('beforeend', `<option value="${y}">${y}</option>`);
