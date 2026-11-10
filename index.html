@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scout Program Builder</title>
+  <meta name="description" content="Build a one-page term program to share with Scout families.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f2d7f'/%3E%3Cpath d='M8 10h16M8 16h16M8 22h10' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lexend:wght@400;600;700&family=Nunito:wght@400;600;700;800&family=Open+Sans:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+  <style id="pageStyle"></style>
+</head>
+<body>
+  <header class="appbar">
+    <div class="appbar-brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9" /></svg>
+      </span>
+      <div>
+        <div class="brand-title">Program Builder</div>
+        <div class="brand-sub">Term programs for Scout families</div>
+      </div>
+    </div>
+    <div class="appbar-actions">
+      <button class="btn btn-ghost" id="btnUndo" title="Undo (Ctrl+Z)" disabled>
+        <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>Undo
+      </button>
+      <span class="divider"></span>
+      <button class="btn btn-ghost" id="btnNew" title="Start a new program, keeping your branding">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New
+      </button>
+      <button class="btn btn-ghost" id="btnImport" title="Open a saved program file (.json)">
+        <svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>Open
+      </button>
+      <button class="btn btn-ghost" id="btnExport" title="Save this program as a file (.json)">
+        <svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>Save file
+      </button>
+      <button class="btn btn-primary" id="btnPrint" title="Print or save as PDF">
+        <svg viewBox="0 0 24 24"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg>Print / PDF
+      </button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+
+      <details class="card" open>
+        <summary><span class="card-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span>Term &amp; meeting night</summary>
+        <div class="card-body">
+          <div class="grid-3">
+            <label class="field"><span>Region</span>
+              <select data-bind="term.region">
+                <option value="SA">South Australia</option>
+                <option value="custom">Other / custom</option>
+              </select>
+            </label>
+            <label class="field"><span>Year</span><select data-bind="term.year" data-type="number" id="yearSelect"></select></label>
+            <label class="field"><span>Term</span>
+              <select data-bind="term.term" data-type="number">
+                <option value="1">Term 1</option><option value="2">Term 2</option>
+                <option value="3">Term 3</option><option value="4">Term 4</option>
+              </select>
+            </label>
+          </div>
+          <div class="grid-2">
+            <label class="field"><span>Term starts</span><input type="date" data-bind="term.start"></label>
+            <label class="field"><span>Term ends</span><input type="date" data-bind="term.end"></label>
+          </div>
+          <p class="hint" id="termHint"></p>
+          <label class="field"><span>Meeting night</span>
+            <select data-bind="term.meetingDay" data-type="number">
+              <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option>
+              <option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option>
+            </select>
+          </label>
+          <div class="grid-2">
+            <label class="field"><span>Start time</span><input type="time" data-bind="term.startTime"></label>
+            <label class="field"><span>Finish time</span><input type="time" data-bind="term.endTime"></label>
+          </div>
+          <div class="grid-2">
+            <label class="field"><span>Time format</span>
+              <select data-bind="term.timeFormat"><option value="24">18:15</option><option value="12">6:15 PM</option></select>
+            </label>
+            <label class="field"><span>Time layout</span>
+              <select data-bind="term.timeLayout"><option value="inline">One line</option><option value="stacked">Start / finish stacked</option></select>
+            </label>
+          </div>
+          <label class="check"><input type="checkbox" data-bind="options.rotatePatrols"> Rotate duty patrols when generating</label>
+          <button class="btn btn-tonal btn-block" id="btnGenerate2">
+            <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Generate meeting dates
+          </button>
+        </div>
+      </details>
+
+      <details class="card" open>
+        <summary><span class="card-icon"><svg viewBox="0 0 24 24"><path d="M12 3 4 7v6c0 4.5 3.4 7.6 8 8 4.6-.4 8-3.5 8-8V7z"/></svg></span>Branding</summary>
+        <div class="card-body">
+          <label class="field"><span>Group name</span><input type="text" data-bind="branding.groupName" placeholder="1st Example Scout Group"></label>
+          <div class="grid-2">
+            <label class="field"><span>Section</span>
+              <select data-bind="branding.section">
+                <option value="joeys">Joeys</option><option value="cubs">Cubs</option><option value="scouts">Scouts</option>
+                <option value="venturers">Venturers</option><option value="rovers">Rovers</option><option value="custom">Custom</option>
+              </select>
+            </label>
+            <label class="field"><span>Section name</span><input type="text" data-bind="branding.sectionName"></label>
+          </div>
+          <label class="field"><span>Title <em class="muted">— {section} {term} {year} {group}</em></span>
+            <input type="text" data-bind="branding.titleTemplate"></label>
+          <div class="grid-2">
+            <label class="field"><span>Section colour</span>
+              <span class="color-field"><input type="color" data-bind="branding.color"><input type="text" data-bind="branding.color" class="mono"></span>
+            </label>
+            <label class="field"><span>Title colour</span>
+              <select data-bind="branding.titleColor"><option value="auto">Section colour</option><option value="dark">Dark</option></select>
+            </label>
+          </div>
+          <div class="grid-2">
+            <label class="field"><span>Table header</span>
+              <select data-bind="branding.headerStyle"><option value="tint">Tinted</option><option value="solid">Solid colour</option><option value="grey">Grey</option></select>
+            </label>
+            <label class="field"><span>Font</span>
+              <select data-bind="branding.font">
+                <option>Nunito</option><option>Lexend</option><option>Inter</option><option>Open Sans</option><option>Roboto</option><option>Arial</option>
+              </select>
+            </label>
+          </div>
+          <div class="field"><span>Logo</span>
+            <div class="logo-field">
+              <div class="logo-preview" id="logoPreview"></div>
+              <div class="stack">
+                <button class="btn btn-outline btn-sm" id="btnLogo">Upload image</button>
+                <button class="btn btn-text btn-sm" id="btnLogoClear">Use default</button>
+              </div>
+            </div>
+          </div>
+          <label class="field"><span>Version / date note</span><input type="text" data-bind="branding.versionText" placeholder="e.g. Version 1 – 9/10/2026"></label>
+          <label class="field"><span>Footer text</span><input type="text" data-bind="branding.footerText" placeholder="e.g. Program subject to change. Check Facebook for updates."></label>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary><span class="card-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.8.8 3 2.5 3.5 5.2"/></svg></span>Leaders</summary>
+        <div class="card-body">
+          <label class="field"><span>Heading</span><input type="text" data-bind="branding.leadersLabel"></label>
+          <div class="list" id="leadersList"></div>
+          <button class="btn btn-text btn-sm" data-add="leaders">+ Add leader</button>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary><span class="card-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg></span>Columns</summary>
+        <div class="card-body">
+          <p class="hint">Tick to show, rename headings, and set relative widths.</p>
+          <div class="list" id="columnsList"></div>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary><span class="card-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18M3 12h18"/></svg></span>Challenge areas</summary>
+        <div class="card-body">
+          <div class="field"><span>Show as</span>
+            <select data-bind="options.challengeDisplay"><option value="icon">Icon</option><option value="both">Icon + name</option><option value="text">Name only</option></select>
+          </div>
+          <p class="hint">Upload your own icons if you have them.</p>
+          <div class="list" id="challengesList"></div>
+          <button class="btn btn-text btn-sm" data-add="challenges">+ Add challenge area</button>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary><span class="card-icon"><svg viewBox="0 0 24 24"><path d="M4 21V4M4 4h12l-2 4 2 4H4"/></svg></span>Duty patrols</summary>
+        <div class="card-body">
+          <div class="list" id="patrolsList"></div>
+          <button class="btn btn-text btn-sm" data-add="patrols">+ Add patrol</button>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary><span class="card-icon"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.7-.9 1.4-1.8-.3-1 .3-2.2 1.6-2.2H17a4 4 0 0 0 4-4c0-5.5-4-10-9-10z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7" r="1"/></svg></span>Highlights &amp; legend</summary>
+        <div class="card-body">
+          <div class="grid-2">
+            <label class="field"><span>Highlight cells</span>
+              <select data-bind="options.highlight"><option value="date-activity">Date, time &amp; activity</option><option value="activity">Activity only</option><option value="row">Whole row</option></select>
+            </label>
+            <label class="check check-inline"><input type="checkbox" data-bind="options.showLegend"> Show legend</label>
+          </div>
+          <div class="list" id="categoriesList"></div>
+          <button class="btn btn-text btn-sm" data-add="categories">+ Add highlight</button>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary><span class="card-icon"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg></span>Page &amp; layout</summary>
+        <div class="card-body">
+          <div class="grid-3">
+            <label class="field"><span>Paper</span><select data-bind="options.paper"><option value="A4">A4</option><option value="Letter">Letter</option></select></label>
+            <label class="field"><span>Orientation</span><select data-bind="options.orientation"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></label>
+            <label class="field"><span>Margin (mm)</span><input type="number" min="4" max="25" step="1" data-bind="options.margin" data-type="number"></label>
+          </div>
+          <label class="check"><input type="checkbox" data-bind="options.autoFit"> Shrink text to fit on one page</label>
+          <div class="grid-2">
+            <label class="field"><span>Largest text (pt)</span><input type="number" min="6" max="16" step="0.5" data-bind="options.maxFont" data-type="number"></label>
+            <label class="field"><span>Smallest text (pt)</span><input type="number" min="5" max="12" step="0.5" data-bind="options.minFont" data-type="number"></label>
+          </div>
+          <label class="check"><input type="checkbox" data-bind="options.stretch"> Stretch rows to fill the page</label>
+          <div class="grid-2">
+            <label class="field"><span>Week label</span><input type="text" data-bind="options.weekPrefix" placeholder="Week "></label>
+            <label class="field"><span>Date style</span>
+              <select data-bind="options.dateFormat"><option value="short">Tue 13 Oct</option><option value="long">Tuesday 13 October</option><option value="numeric">Tue 13/10</option></select>
+            </label>
+          </div>
+          <button class="btn btn-text btn-sm danger" id="btnReset">Reset everything to defaults</button>
+        </div>
+      </details>
+
+      <p class="sidebar-foot">Your work saves automatically in this browser. Use <strong>Save file</strong> to keep a copy or share it with other leaders.</p>
+    </aside>
+
+    <main class="workspace">
+      <div class="ws-toolbar">
+        <div class="ws-group">
+          <button class="btn btn-tonal" id="btnGenerate">
+            <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Generate dates
+          </button>
+          <button class="btn btn-outline" id="btnAddRow">
+            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add activity
+          </button>
+          <button class="btn btn-outline" id="btnSort">
+            <svg viewBox="0 0 24 24"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></svg>Sort by date
+          </button>
+        </div>
+        <div class="ws-group">
+          <span class="chip" id="fitStatus">—</span>
+          <label class="zoom">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <select id="zoomSelect">
+              <option value="fit">Fit width</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="canvas" id="canvas">
+        <div class="paper-wrap" id="paperWrap">
+          <div class="paper" id="paper">
+            <div class="sheet" id="sheet"></div>
+            <div class="page-guides" id="pageGuides"></div>
+          </div>
+        </div>
+        <p class="canvas-tip">Click any cell to edit. Hover a row and use the <strong>⋮</strong> handle to add, move, highlight or delete it.</p>
+      </div>
+    </main>
+  </div>
+
+  <button class="row-handle" id="rowHandle" hidden title="Row options" aria-label="Row options">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+  </button>
+  <div class="popover" id="popover" hidden></div>
+  <div class="modal-backdrop" id="modal" hidden><div class="modal" role="dialog" aria-modal="true"></div></div>
+  <div class="toasts" id="toasts"></div>
+  <input type="file" id="fileJson" accept="application/json,.json" hidden>
+  <input type="file" id="fileImage" accept="image/*" hidden>
+
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
