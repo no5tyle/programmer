@@ -31,9 +31,10 @@ function formatDate(iso) {
   const d = parseDate(iso);
   if (!d) return '';
   const f = state.options.dateFormat;
-  if (f === 'long') return `${DAY_LONG[d.getDay()]} ${d.getDate()} ${MONTH_LONG[d.getMonth()]}`;
+  // Non-breaking space between day and month: a date may only wrap after the weekday.
+  if (f === 'long') return `${DAY_LONG[d.getDay()]} ${d.getDate()}\u00a0${MONTH_LONG[d.getMonth()]}`;
   if (f === 'numeric') return `${DAY_SHORT[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`;
-  return `${DAY_SHORT[d.getDay()]} ${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`;
+  return `${DAY_SHORT[d.getDay()]} ${d.getDate()}\u00a0${MONTH_SHORT[d.getMonth()]}`;
 }
 
 function formatTime(hhmm) {
@@ -509,7 +510,8 @@ function renderSheet() {
       const tint = cat && !r.noMeeting && o.highlight === 'row' && g.rows.length === 1 ? ` style="background:${esc(cat.color)}"` : '';
       return `<td class="c-week" rowspan="${g.rows.length}"${tint}><span class="wk">${esc(label)}</span></td>`;
     }).join('');
-    return `<tr data-id="${r.id}"${r.noMeeting ? ' class="no-meeting"' : ''}>${cells}</tr>`;
+    const cls = [r.noMeeting && 'no-meeting', i > 0 && cols[0]?.key === 'week' && 'cont'].filter(Boolean).join(' ');
+    return `<tr data-id="${r.id}"${cls ? ` class="${cls}"` : ''}>${cells}</tr>`;
   }).join('')).join('');
 
   sheet.innerHTML = `
@@ -563,35 +565,42 @@ function fitColumns(sheet) {
   cols.forEach((c) => { c.style.width = `${c.dataset.pct}%`; });
   $$('.prog .ed, .prog .dt, .prog .patrol, .prog th, .prog .c-week', sheet).forEach((el) => { el.style.fontSize = ''; });
 
-  // Measure every cell's narrowest possible content (its longest unbreakable piece) in one pass.
-  sheet.classList.add('measuring');
-  const need = {};
-  $$('.prog th, .prog td', sheet).forEach((cell) => {
-    const key = [...cell.classList].find((c) => c.startsWith('c-'))?.slice(2);
-    const content = cell.firstElementChild;
-    if (!key || !content) return;
-    const cs = getComputedStyle(cell);
-    const w = content.offsetWidth + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + 1.5;
-    need[key] = Math.max(need[key] || 0, w);
-  });
-  sheet.classList.remove('measuring');
-
+  // Measure every column's narrowest possible content (its longest unbreakable piece). The
+  // "preferred" pass also keeps week labels and date lines on one line.
+  const measure = (cls) => {
+    sheet.classList.add('measuring', ...(cls ? [cls] : []));
+    const need = {};
+    $$('.prog th, .prog td', sheet).forEach((cell) => {
+      const key = [...cell.classList].find((c) => c.startsWith('c-'))?.slice(2);
+      const content = cell.firstElementChild;
+      if (!key || !content) return;
+      const cs = getComputedStyle(cell);
+      const w = content.offsetWidth + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + 1.5;
+      need[key] = Math.max(need[key] || 0, w);
+    });
+    sheet.classList.remove('measuring', ...(cls ? [cls] : []));
+    return need;
+  };
   const total = table.clientWidth;
-  const items = cols.map((c) => {
-    const cur = (parseFloat(c.dataset.pct) / 100) * total;
-    const min = need[c.dataset.key] || 0;
-    return { c, cur, min };
-  });
-  const deficit = items.reduce((a, it) => a + Math.max(0, it.min - it.cur), 0);
-  if (deficit < 0.5) return;
-  const slack = items.reduce((a, it) => a + Math.max(0, it.cur - it.min), 0);
-  const take = Math.min(1, slack > 0 ? deficit / slack : 0);
-  items.forEach((it) => {
-    it.w = it.cur < it.min ? it.min : it.cur - (it.cur - it.min) * take;
-  });
+  const base = cols.map((c) => ({ c, cur: (parseFloat(c.dataset.pct) / 100) * total }));
+
+  // Give each column at least `need`, taking the room from columns with spare, in proportion.
+  const solve = (need) => {
+    const items = base.map((b) => ({ ...b, min: need[b.c.dataset.key] || 0 }));
+    const deficit = items.reduce((a, it) => a + Math.max(0, it.min - it.cur), 0);
+    const slack = items.reduce((a, it) => a + Math.max(0, it.cur - it.min), 0);
+    const take = Math.min(1, slack > 0 ? deficit / slack : 0);
+    items.forEach((it) => { it.w = it.cur < it.min ? it.min : it.cur - (it.cur - it.min) * take; });
+    return { items, deficit, fits: deficit <= slack };
+  };
+
+  // Prefer week labels and dates on one line; let them wrap ("Week / 1", "Tue / 2 Feb") only if needed.
+  let plan = solve(measure('measure-oneline'));
+  if (!plan.fits) plan = solve(measure());
+  if (plan.deficit < 0.5) return;
   // If there wasn't enough spare room, scale everything back to the table width (text shrinks after).
-  const sum = items.reduce((a, it) => a + it.w, 0);
-  items.forEach((it) => { it.c.style.width = `${(it.w / sum) * 100}%`; });
+  const sum = plan.items.reduce((a, it) => a + it.w, 0);
+  plan.items.forEach((it) => { it.c.style.width = `${(it.w / sum) * 100}%`; });
 }
 
 /** True when a block's text fits its width without any word sticking out. */
