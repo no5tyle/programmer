@@ -178,6 +178,7 @@ function normalise(raw) {
   const saved = Array.isArray(raw.columns) ? raw.columns.filter((c) => DEFAULT_COLUMNS.some((dc) => dc.key === c.key)) : [];
   s.columns = saved.map((c) => ({ ...DEFAULT_COLUMNS.find((dc) => dc.key === c.key), ...c }));
   DEFAULT_COLUMNS.forEach((dc) => { if (!s.columns.some((c) => c.key === dc.key)) s.columns.push(clone(dc)); });
+  s.challenges.forEach((c) => { if (OLD_CHALLENGE_COLORS[c.id] && c.color?.toUpperCase() === OLD_CHALLENGE_COLORS[c.id]) c.color = DEFAULT_CHALLENGES.find((d) => d.id === c.id).color; });
   s.rows = Array.isArray(raw.rows) ? raw.rows.map((r) => ({ ...newRowShape(), ...r, id: r.id || uid() })) : [];
   return s;
 }
@@ -290,15 +291,21 @@ function challengeHTML(id) {
   const c = state.challenges.find((x) => x.id === id);
   if (!c) return '';
   const mode = state.options.challengeDisplay;
+  const official = CHALLENGE_ASSETS[c.id];
   let icon = '';
+  let named = false;
   if (mode !== 'text') {
     if (c.icon) icon = `<img class="ch-icon" src="${c.icon}" alt="${esc(c.label)}">`;
-    else {
-      const glyph = CHALLENGE_GLYPHS[c.id] ||
-        `<text x="12" y="15.6" text-anchor="middle" font-size="9" font-weight="700" fill="${esc(c.color)}" stroke="none">${esc((c.label || '?')[0])}</text>`;
-      icon = `<svg class="ch-icon" viewBox="0 0 24 24" style="fill:none;stroke:${esc(c.color)};stroke-width:1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="${esc(c.label)}"><circle cx="12" cy="12" r="10.6"/>${glyph}</svg>`;
+    else if (official) {
+      // The official "named" artwork already carries the name; only use it if the label is unchanged.
+      named = mode === 'both' && c.label === official.label;
+      icon = `<img class="ch-icon${named ? ' ch-named' : ''}" src="${named ? official.named : official.icon}" alt="${esc(c.label)}">`;
+    } else {
+      icon = `<svg class="ch-icon" viewBox="0 0 24 24" style="fill:none;stroke:${esc(c.color)};stroke-width:1.5" role="img" aria-label="${esc(c.label)}"><circle cx="12" cy="12" r="10.6"/>`
+        + `<text x="12" y="15.6" text-anchor="middle" font-size="9" font-weight="700" style="fill:${esc(c.color)};stroke:none">${esc((c.label || '?')[0])}</text></svg>`;
     }
   }
+  if (named) return `<span class="ch">${icon}</span>`;
   const label = mode !== 'icon' ? `<span class="ch-label" style="color:${esc(c.color)}">${esc(c.label)}</span>` : '';
   return `<span class="ch">${icon}${label}</span>`;
 }
@@ -554,7 +561,7 @@ function renderLists() {
       ${colorInput('challenges', i, 'color', c.color)}
       <span class="ch-preview">${challengeIconOnly(c)}</span>
       <input type="text" value="${esc(c.label)}" data-list="challenges" data-i="${i}" data-field="label">
-      <button class="btn btn-text btn-xs" data-icon="${i}">${c.icon ? 'Clear icon' : 'Icon…'}</button>
+      <button class="btn btn-text btn-xs" data-icon="${i}" title="${c.icon ? 'Go back to the default icon' : 'Upload your own icon'}">${c.icon ? 'Reset icon' : 'Icon…'}</button>
       ${delBtn('challenges', i)}
     </div>`).join('');
 
