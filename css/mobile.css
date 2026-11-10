@@ -159,6 +159,13 @@ body.mobile.m-preview .prog .ph, body.mobile.m-preview .prog .ed:empty::before, 
 .m-actions { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
 .m-actions .btn { width: 100%; height: 46px; white-space: normal; }
 .m-editor .days .day { padding: 8px 0; font-size: 12.5px; }
+.m-busy { padding: 18px 8px; text-align: center; color: var(--text-2); }
+.m-busy p { margin: 8px 0 0; }
+.m-spinner {
+  display: inline-block; width: 28px; height: 28px; border-radius: 50%;
+  border: 3px solid var(--primary-100); border-top-color: var(--primary); animation: m-spin .8s linear infinite;
+}
+@keyframes m-spin { to { transform: rotate(360deg); } }
 
 /* Touch sizes; 16px text in inputs stops iOS zooming in when one is focused */
 body.mobile input[type=text], body.mobile input[type=date], body.mobile input[type=time],

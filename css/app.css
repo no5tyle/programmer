@@ -511,6 +511,10 @@ input[type=color]::-moz-color-swatch { border: 0; border-radius: 5px; }
 }
 
 /* ================================================================ Print */
+/* While the app draws the sheet into a PDF: no screen-only prompts, plain week-off shading. */
+.sheet.capture .prog .ph, .sheet.capture .prog .ed:empty::before, .sheet.capture .doc-group .ph { display: none !important; }
+.sheet.capture .prog tr.no-meeting td.c-break { background: #ececec; }
+
 @media print {
   html, body { height: auto; overflow: visible; background: #fff; }
   .appbar, .sidebar, .ws-toolbar, .canvas-tip, .row-handle, .popover, .modal-backdrop, .toasts, .page-guides { display: none !important; }
@@ -520,4 +524,19 @@ input[type=color]::-moz-color-swatch { border: 0; border-radius: 5px; }
   .sheet:not(.multi) { height: calc(var(--paper-h) - 2 * var(--margin) - 1mm); overflow: hidden; }
   .prog .ed:empty::before, .prog .ph, .doc-group .ph { content: none; display: none; }
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+}
+/*
+ * Browsers that ignore the requested page orientation (e.g. iPhone Safari) print a landscape
+ * program on a portrait page. Then turn the sheet sideways and shrink it to fit one page.
+ */
+@media print and (orientation: portrait) {
+  .paper.is-landscape {
+    width: calc((var(--paper-h) - 2 * var(--margin)) * .86) !important;
+    height: calc((var(--paper-w) - 2 * var(--margin)) * .86);
+    overflow: hidden;
+  }
+  .paper.is-landscape .sheet:not(.multi) {
+    transform-origin: top left;
+    transform: translateX(calc((var(--paper-h) - 2 * var(--margin)) * .86)) rotate(90deg) scale(.86);
+  }
 }

@@ -23,6 +23,7 @@ A small web app for building a term program to share with Scout families. It run
 
   **Open** accepts either. A spreadsheet's activities can replace the current program's activities or start a new program with the same branding.
 - **Calendar file.** **Calendar** downloads an `.ics` file that families can open to add the program to Google, Apple or Outlook calendars. Each meeting has its times (read from the Time cell), location (*Where*) and details. Untimed items are all-day events, and weeks off are included as free all-day entries.
+- **PDF made in the app.** **Save file → PDF** builds the PDF itself, so it's identical in every browser. iPhone and iPad Safari ignore a page's print orientation and add their own margins, so on those devices **Print** opens this PDF instead, and iOS's viewer prints it correctly. (The first PDF loads two small libraries from cdnjs, so it needs to be online.)
 - **Print / PDF.** Uses the browser's print dialog. Choose *Save as PDF* (the file is named after the program, e.g. "Cubs Program - Term 4 2026"), and turn off the browser's own *Headers and footers* option.
 
 ### On phones and tablets
@@ -34,7 +35,7 @@ Phones and tablets get a touch-friendly view instead of editing the sheet direct
 - **Add.** Adds an activity on the next free meeting night, or a week off.
 - **Menu.** Programs, new, open, generate dates and undo, plus every settings section from the desktop sidebar, each on its own screen.
 - **Preview.** Shows the real printed sheet (pinch to zoom) and whether it fits one page.
-- **Share.** Print or save as PDF; from the print screen you can also send the PDF by email or message. You can also send the calendar file, activities spreadsheet or full program through the phone's share menu.
+- **Share.** **Program PDF** makes the PDF in the app (always the right page size and orientation, on one page when it fits), then opens the share menu so you can print, email, message or save it. You can also send the calendar file, activities spreadsheet or full program file.
 
 The menu's *Use the desktop editor* switches back to the sheet editor, and *Switch to the mobile view* (bottom of the desktop sidebar) does the reverse.
 
