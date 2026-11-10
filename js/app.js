@@ -155,7 +155,7 @@ function defaultState() {
     challenges: clone(DEFAULT_CHALLENGES),
     patrols: clone(DEFAULT_PATROLS),
     options: {
-      highlight: 'date-activity', challengeDisplay: 'icon', weekPrefix: 'Week ', dateFormat: 'short',
+      highlight: 'date-activity', challengeDisplay: 'icon', weekPrefix: 'Week ', holidayLabel: 'Hols', dateFormat: 'short',
       paper: 'A4', orientation: 'landscape', margin: 8, autoFit: true, maxFont: 11, minFont: 6.5,
       stretch: true, showLegend: true, rotatePatrols: true, fitDescription: true, weekStart: 1,
     },
@@ -187,7 +187,7 @@ function normalise(raw) {
 }
 function newRowShape() {
   return { id: '', date: '', endDate: '', dateLabel: '', time: '', activity: '', description: '', uniform: '', forms: '',
-    where: '', patrol: '', leader: '', cost: '', challenge: '', notes: '', category: '' };
+    where: '', patrol: '', leader: '', cost: '', challenge: '', notes: '', category: '', noMeeting: false };
 }
 
 function save() {
@@ -305,7 +305,7 @@ function weekGroups() {
   const groups = [];
   let prevKey = Symbol('start');
   state.rows.forEach((r, i) => {
-    const key = r.date ? (weekOf(r.date) ?? `out-${r.date}`) : prevKey;
+    const key = r.date ? (weekOf(r.date) ?? `out-${toISO(startOfWeek(parseDate(r.date)))}`) : prevKey;
     if (groups.length && key === prevKey) groups[groups.length - 1].rows.push(r);
     else groups.push({ key, start: i, rows: [r] });
     prevKey = key;
@@ -414,12 +414,12 @@ function cellHTML(col, r) {
   const k = col.key;
   const cat = state.categories.find((c) => c.id === r.category);
   const hl = state.options.highlight;
-  const tint = cat && (hl === 'row' || (HL_KEYS[hl] || []).includes(k)) ? ` style="background:${esc(cat.color)}"` : '';
+  const tint = cat && !r.noMeeting && (hl === 'row' || (HL_KEYS[hl] || []).includes(k)) ? ` style="background:${esc(cat.color)}"` : '';
   const align = ` data-align="${col.align || 'center'}"`;
   const timeHidden = !state.columns.find((c) => c.key === 'time')?.visible;
 
   if (k === 'date') {
-    const txt = dateText(r, timeHidden);
+    const txt = dateText(r, timeHidden && !r.noMeeting);
     return `<td class="c-date clickable" data-pop="date"${align}${tint}><div class="dt">${txt ? esc(txt) : '<span class="ph">Set date</span>'}</div></td>`;
   }
   if (k === 'challenge') return `<td class="c-challenge clickable" data-pop="challenge"${align}${tint}>${challengeHTML(r.challenge)}</td>`;
@@ -465,14 +465,21 @@ function renderSheet() {
 
   const body = groups.map((g) => g.rows.map((r, i) => {
     const cat = state.categories.find((c) => c.id === r.category);
+    const spanCols = cols.filter((c) => c.key !== 'week' && c.key !== 'date').length;
+    let spanned = false;
     const cells = cols.map((c) => {
+      if (r.noMeeting && c.key !== 'week' && c.key !== 'date') {
+        if (spanned) return '';
+        spanned = true;
+        return `<td class="c-break" colspan="${spanCols}" data-align="center"><div class="ed" contenteditable="plaintext-only" spellcheck="true" data-key="activity" data-ph="No meeting">${esc(r.activity)}</div></td>`;
+      }
       if (c.key !== 'week') return cellHTML(c, r);
       if (i > 0) return '';
-      const label = typeof g.key === 'number' ? `${o.weekPrefix || ''}${g.key}` : '–';
-      const tint = cat && o.highlight === 'row' && g.rows.length === 1 ? ` style="background:${esc(cat.color)}"` : '';
+      const label = typeof g.key === 'number' ? `${o.weekPrefix || ''}${g.key}` : (o.holidayLabel || '–');
+      const tint = cat && !r.noMeeting && o.highlight === 'row' && g.rows.length === 1 ? ` style="background:${esc(cat.color)}"` : '';
       return `<td class="c-week" rowspan="${g.rows.length}"${tint}><span class="wk">${esc(label)}</span></td>`;
     }).join('');
-    return `<tr data-id="${r.id}">${cells}</tr>`;
+    return `<tr data-id="${r.id}"${r.noMeeting ? ' class="no-meeting"' : ''}>${cells}</tr>`;
   }).join('')).join('');
 
   sheet.innerHTML = `
@@ -893,6 +900,7 @@ function openRowMenu(anchor, rowId) {
     <div class="menu">
       <button data-act="below">${icon('<path d="M12 5v14M5 12h14"/>')}Add activity below <small>same date</small></button>
       <button data-act="above">${icon('<path d="M12 5v14M5 12h14"/>')}Add activity above</button>
+      <button data-act="break">${icon(r.noMeeting ? '<path d="M3 12h4l3-8 4 16 3-8h4"/>' : '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M9 14l6 5M15 14l-6 5"/>')}${r.noMeeting ? 'Turn back into an activity' : 'Mark as no meeting'}</button>
       <button data-act="dup">${icon('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>')}Duplicate</button>
       <button data-act="up" ${up ? '' : 'disabled'}>${icon('<path d="m6 15 6-6 6 6"/>')}${moveLabel(up, 'up')}</button>
       <button data-act="down" ${down ? '' : 'disabled'}>${icon('<path d="m6 9 6 6 6-6"/>')}${moveLabel(down, 'down')}</button>
@@ -918,6 +926,10 @@ function openRowMenu(anchor, rowId) {
         case 'below': state.rows.splice(i + 1, 0, newRow(row.date, { uniform: row.uniform })); break;
         case 'above': state.rows.splice(i, 0, newRow(row.date, { uniform: row.uniform })); break;
         case 'dup': state.rows.splice(i + 1, 0, { ...clone(row), id: uid() }); break;
+        case 'break':
+          row.noMeeting = !row.noMeeting;
+          if (row.noMeeting && !row.activity.trim()) row.activity = `No ${state.branding.sectionName || 'meeting'} this week`;
+          break;
         case 'up': moveRow(rowId, -1); break;
         case 'down': moveRow(rowId, 1); break;
         case 'del': state.rows.splice(i, 1); toast('Row deleted — Undo to restore.'); break;
@@ -984,6 +996,44 @@ function addActivity() {
   save(); renderDoc();
   const tr = $(`tr[data-id="${state.rows[state.rows.length - 1].id}"] .ed[data-key="activity"]`);
   tr?.focus();
+}
+
+/** Toolbar: add a week with no section night (public holiday, school holidays, …). */
+function openBreakPopover(anchor) {
+  const used = new Set(state.rows.map((r) => r.date));
+  const firstFree = meetingDates().find((d) => !used.has(d)) || meetingDates()[0] || state.term.start || '';
+  const section = state.branding.sectionName || 'meeting';
+  const reasons = ['Public holiday', 'School holidays', 'No meeting this week'];
+  const textFor = (reason) => (reason.startsWith('No meeting') ? `No ${section} this week` : `No ${section} – ${reason}`);
+  openPopover(anchor, `
+    <div class="pop-title">Add a week off</div>
+    <label class="field"><span>Date</span><input type="date" id="bDate" value="${esc(firstFree)}"></label>
+    <div class="field"><span>Reason</span>
+      <div class="reason-chips">${reasons.map((r, i) => `<button class="swatch none ${i === 0 ? 'on' : ''}" data-reason="${esc(r)}"><span>${esc(r)}</span></button>`).join('')}</div>
+    </div>
+    <label class="field"><span>Text shown</span><input type="text" id="bText" value="${esc(textFor(reasons[0]))}"></label>
+    <p class="hint">If there's an empty meeting row on that date, it's replaced.</p>
+    <div class="pop-actions"><span></span><button class="btn btn-primary btn-sm" id="bAdd">Add week off</button></div>`,
+  { type: 'break' });
+  pop.querySelectorAll('[data-reason]').forEach((b) => {
+    b.onclick = () => {
+      pop.querySelectorAll('[data-reason]').forEach((x) => x.classList.toggle('on', x === b));
+      $('#bText').value = textFor(b.dataset.reason);
+    };
+  });
+  const add = () => {
+    const date = $('#bDate').value, text = $('#bText').value.trim() || `No ${section} this week`;
+    pushHistory();
+    // Reuse an untouched generated row on that date rather than adding a second one.
+    const blank = state.rows.find((r) => r.date === date && !r.noMeeting &&
+      !['activity', 'description', 'notes', 'leader', 'cost', 'where'].some((k) => (r[k] || '').trim()) && !r.challenge && !r.category);
+    if (blank) Object.assign(blank, { noMeeting: true, activity: text });
+    else state.rows.push(newRow(date, { noMeeting: true, activity: text, time: '', uniform: '' }));
+    closePopover(); save(); renderDoc();
+    toast(blank ? 'Meeting night marked as a week off.' : 'Week off added.');
+  };
+  $('#bAdd').onclick = add;
+  $('#bText').addEventListener('keydown', (e) => { if (e.key === 'Enter') add(); });
 }
 
 function exportJson() {
@@ -1199,6 +1249,7 @@ function bindEvents() {
   $('#btnGenerate').onclick = generateDates;
   $('#btnGenerate2').onclick = generateDates;
   $('#btnAddRow').onclick = addActivity;
+  $('#btnAddBreak').onclick = (e) => openBreakPopover(e.currentTarget);
   $('#btnUndo').onclick = undo;
   $('#btnNew').onclick = newProgram;
   $('#btnImport').onclick = importJson;

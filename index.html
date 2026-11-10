@@ -214,6 +214,7 @@
           <label class="check"><input type="checkbox" data-bind="options.stretch"> Stretch rows to fill the page</label>
           <div class="grid-2">
             <label class="field"><span>Week label</span><input type="text" data-bind="options.weekPrefix" placeholder="Week "></label>
+            <label class="field"><span>Outside term label</span><input type="text" data-bind="options.holidayLabel" placeholder="Hols"></label>
             <label class="field"><span>Date style</span>
               <select data-bind="options.dateFormat"><option value="short">Tue 13 Oct</option><option value="long">Tuesday 13 October</option><option value="numeric">Tue 13/10</option></select>
             </label>
@@ -233,6 +234,9 @@
           </button>
           <button class="btn btn-outline" id="btnAddRow">
             <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add activity
+          </button>
+          <button class="btn btn-outline" id="btnAddBreak" title="Add a week with no section night, e.g. a public holiday or school holidays">
+            <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M10 14l4 4M14 14l-4 4"/></svg>Add week off
           </button>
         </div>
         <div class="ws-group">
