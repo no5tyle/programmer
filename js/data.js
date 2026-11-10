@@ -25,7 +25,7 @@ const TERM_DATES = {
     2025: [['2025-01-28', '2025-04-11'], ['2025-04-28', '2025-07-04'], ['2025-07-21', '2025-09-26'], ['2025-10-13', '2025-12-12']],
     2026: [['2026-01-27', '2026-04-10'], ['2026-04-27', '2026-07-03'], ['2026-07-20', '2026-09-25'], ['2026-10-12', '2026-12-11']],
     2027: [['2027-01-27', '2027-04-09'], ['2027-04-26', '2027-07-02'], ['2027-07-19', '2027-09-24'], ['2027-10-11', '2027-12-10']],
-    2028: [['2028-01-31', '2028-04-13'], ['2028-05-01', '2028-07-07'], ['2028-07-24', '2028-09-29'], null],
+    2028: [['2028-01-31', '2028-04-13'], ['2028-05-01', '2028-07-07'], ['2028-07-24', '2028-09-29'], ['2028-10-16', '2028-12-15']],
   },
 };
 
@@ -84,3 +84,56 @@ const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 const MONTH_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 const PAPER_MM = { A4: [297, 210], Letter: [279.4, 215.9] };
+
+/** SA_HOLIDAYS_START */
+/**
+ * South Australian public holidays for a year, as { 'YYYY-MM-DD': name }.
+ * Rules follow the Holidays Act 1910 (SA), checked against data.gov.au (2021–2025) and
+ * SafeWork SA's "South Australia public holidays 2025 – 2028" list, including the
+ * 7pm–midnight part-day holidays on Christmas Eve and New Year's Eve.
+ */
+function saPublicHolidays(year) {
+  const out = {};
+  const pad = (n) => String(n).padStart(2, '0');
+  const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const day = (m, d) => new Date(year, m - 1, d);
+  const plus = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  const add = (d, name) => { out[iso(d)] = name; };
+  const nthMonday = (m, n) => { const first = day(m, 1); return plus(first, ((8 - first.getDay()) % 7) + (n - 1) * 7); };
+  // Easter Sunday (anonymous Gregorian algorithm).
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100, d = Math.floor(b / 4), e = b % 4;
+  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const easter = day(Math.floor((h + l - 7 * m + 114) / 31), ((h + l - 7 * m + 114) % 31) + 1);
+
+  const ny = day(1, 1);
+  // Weekend New Year's Day gets an additional Monday; before 2023 a Saturday one moved to Monday.
+  if (!(ny.getDay() === 6 && year < 2023)) add(ny, "New Year's Day");
+  if (ny.getDay() === 6) add(day(1, 3), "New Year's Day");
+  if (ny.getDay() === 0) add(day(1, 2), "New Year's Day");
+  const aus = day(1, 26);
+  add(aus.getDay() === 0 ? day(1, 27) : aus.getDay() === 6 ? day(1, 28) : aus, 'Australia Day');
+  add(nthMonday(3, 2), 'Adelaide Cup Day');
+  add(plus(easter, -2), 'Good Friday');
+  add(plus(easter, -1), 'Easter Saturday');
+  if (year >= 2025) add(easter, 'Easter Sunday');
+  add(plus(easter, 1), 'Easter Monday');
+  const anzac = day(4, 25);
+  add(anzac, 'Anzac Day');
+  if (anzac.getDay() === 0 && year < 2023) add(day(4, 26), 'Anzac Day');   // no Monday since 2023
+  add(nthMonday(6, 2), "King's Birthday");
+  add(nthMonday(10, 1), 'Labour Day');
+  add(day(12, 24), 'Christmas Eve');
+  const xmas = day(12, 25), dow = xmas.getDay();
+  add(xmas, 'Christmas Day');
+  add(day(12, 26), 'Proclamation Day');
+  if (dow === 5) add(day(12, 28), 'Proclamation Day');                                   // 26th is a Saturday
+  if (dow === 6) { add(day(12, 27), 'Christmas Day'); add(day(12, 28), 'Proclamation Day'); }
+  if (dow === 0) add(day(12, 27), 'Christmas Day');
+  add(day(12, 31), "New Year's Eve");
+  return out;
+}
+/** SA_HOLIDAYS_END */
+
+/* Public holiday sources per term-date region. */
+const PUBLIC_HOLIDAYS = { SA: saPublicHolidays };

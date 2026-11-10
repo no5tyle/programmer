@@ -157,7 +157,7 @@ function defaultState() {
     options: {
       highlight: 'date-activity', challengeDisplay: 'icon', weekPrefix: 'Week ', holidayLabel: 'Hols', dateFormat: 'short',
       paper: 'A4', orientation: 'landscape', margin: 8, autoFit: true, maxFont: 11, minFont: 6.5,
-      stretch: true, showLegend: true, rotatePatrols: true, fitDescription: true, weekStart: 1,
+      stretch: true, showLegend: true, rotatePatrols: true, fitDescription: true, weekStart: 1, publicHolidays: true,
     },
     rows: [],
   };
@@ -187,7 +187,7 @@ function normalise(raw) {
 }
 function newRowShape() {
   return { id: '', date: '', endDate: '', dateLabel: '', time: '', activity: '', description: '', uniform: '', forms: '',
-    where: '', patrol: '', leader: '', cost: '', challenge: '', notes: '', category: '', noMeeting: false };
+    where: '', patrol: '', leader: '', cost: '', challenge: '', notes: '', category: '', noMeeting: false, autoHoliday: false };
 }
 
 function save() {
@@ -229,12 +229,41 @@ function meetingDates() {
   return out;
 }
 
+/** Public holiday name on a date for the selected region (if enabled), else ''. */
+function publicHoliday(iso) {
+  const fn = state.options.publicHolidays && PUBLIC_HOLIDAYS[state.term.region];
+  if (!fn || !iso) return '';
+  return fn(+iso.slice(0, 4))[iso] || '';
+}
+
+function weekOffText(reason) { return `No ${state.branding.sectionName || 'meeting'} – ${reason}`; }
+
+/** A row nobody has typed into yet (as made by Generate dates). */
+function isBlankRow(r) {
+  return !r.noMeeting && !['activity', 'description', 'notes', 'leader', 'cost', 'where'].some((k) => (r[k] || '').trim())
+    && !r.challenge && !r.category;
+}
+
+/**
+ * One row per meeting night. Nights on a public holiday become weeks off and don't use up a
+ * duty patrol turn. With `existing` rows, only missing dates are returned (and blank existing
+ * rows on a public holiday are turned into weeks off).
+ */
 function generateRows(existing = []) {
   const usedDates = new Set(existing.map((r) => r.date));
   const patrols = state.patrols.filter((p) => p.name);
-  return meetingDates().map((date, i) => {
+  let turn = 0;
+  return meetingDates().map((date) => {
+    const holiday = publicHoliday(date);
+    if (holiday) {
+      const blank = existing.find((r) => r.date === date && isBlankRow(r));
+      if (blank) Object.assign(blank, { noMeeting: true, autoHoliday: true, activity: weekOffText(holiday) });
+      if (usedDates.has(date)) return null;
+      return newRow(date, { noMeeting: true, autoHoliday: true, activity: weekOffText(holiday), time: '', uniform: '' });
+    }
+    const patrol = state.options.rotatePatrols && patrols.length ? patrols[turn % patrols.length].name : '';
+    turn++;
     if (usedDates.has(date)) return null;
-    const patrol = state.options.rotatePatrols && patrols.length ? patrols[i % patrols.length].name : '';
     return newRow(date, { patrol });
   }).filter(Boolean);
 }
@@ -294,8 +323,9 @@ function applyTermPreset() {
   return !!preset;
 }
 
+/** True once someone has entered anything (automatic public holiday rows don't count). */
 function rowsHaveContent() {
-  return state.rows.some((r) => ['activity', 'description', 'notes', 'leader', 'cost', 'where'].some((k) => (r[k] || '').trim()) || r.challenge || r.category);
+  return state.rows.some((r) => !r.autoHoliday && !isBlankRow(r));
 }
 
 /* ---------------------------------------------------------------- sheet rendering */
@@ -738,7 +768,9 @@ function syncInputs() {
   const t = state.term;
   const hasPreset = !!TERM_DATES[t.region]?.[t.year]?.[t.term - 1];
   const n = meetingDates().length;
-  $('#termHint').textContent = `${t.region === 'custom' || !hasPreset ? 'Enter term dates above. ' : ''}${n} ${DAY_LONG[t.meetingDay]} meeting${n === 1 ? '' : 's'} this term.`;
+  const hols = meetingDates().map((d) => [d, publicHoliday(d)]).filter(([, h]) => h);
+  const holText = hols.length ? ` ${hols.map(([d, h]) => `${h} (${formatDate(d)})`).join(', ')} ${hols.length === 1 ? 'is a public holiday' : 'are public holidays'}.` : '';
+  $('#termHint').textContent = `${t.region === 'custom' || !hasPreset ? 'Enter term dates above. ' : ''}${n} ${DAY_LONG[t.meetingDay]} meeting${n === 1 ? '' : 's'} this term.${holText}`;
   $('#logoPreview').innerHTML = logoHTML();
 }
 
@@ -928,6 +960,7 @@ function openRowMenu(anchor, rowId) {
         case 'dup': state.rows.splice(i + 1, 0, { ...clone(row), id: uid() }); break;
         case 'break':
           row.noMeeting = !row.noMeeting;
+          row.autoHoliday = false;
           if (row.noMeeting && !row.activity.trim()) row.activity = `No ${state.branding.sectionName || 'meeting'} this week`;
           break;
         case 'up': moveRow(rowId, -1); break;
@@ -1025,13 +1058,16 @@ function openBreakPopover(anchor) {
     const date = $('#bDate').value, text = $('#bText').value.trim() || `No ${section} this week`;
     pushHistory();
     // Reuse an untouched generated row on that date rather than adding a second one.
-    const blank = state.rows.find((r) => r.date === date && !r.noMeeting &&
-      !['activity', 'description', 'notes', 'leader', 'cost', 'where'].some((k) => (r[k] || '').trim()) && !r.challenge && !r.category);
+    const blank = state.rows.find((r) => r.date === date && isBlankRow(r));
     if (blank) Object.assign(blank, { noMeeting: true, activity: text });
     else state.rows.push(newRow(date, { noMeeting: true, activity: text, time: '', uniform: '' }));
     closePopover(); save(); renderDoc();
     toast(blank ? 'Meeting night marked as a week off.' : 'Week off added.');
   };
+  $('#bDate').addEventListener('input', () => {
+    const h = publicHoliday($('#bDate').value);
+    if (h) $('#bText').value = weekOffText(h);
+  });
   $('#bAdd').onclick = add;
   $('#bText').addEventListener('keydown', (e) => { if (e.key === 'Enter') add(); });
 }
@@ -1119,7 +1155,7 @@ function onBoundInput(e) {
     state.branding.titleColor = luminance(SECTIONS[v].color) < 0.45 ? 'auto' : 'dark';
   }
   if (['term.region', 'term.year', 'term.term'].includes(path)) applyTermPreset();
-  const datesChanged = ['term.region', 'term.year', 'term.term', 'term.start', 'term.end', 'term.meetingDay'].includes(path);
+  const datesChanged = ['term.region', 'term.year', 'term.term', 'term.start', 'term.end', 'term.meetingDay', 'options.publicHolidays'].includes(path);
 
   // Rows still showing the old default time follow the new default.
   const nextDefaultTime = defaultTimeText();
@@ -1225,6 +1261,7 @@ function bindEvents() {
     const ed = e.target.closest('.ed'); if (!ed) return;
     const r = rowById(ed.closest('tr').dataset.id); if (!r) return;
     r[ed.dataset.key] = ed.innerText.replace(/\n$/, '');
+    r.autoHoliday = false;
     saveSoon(); fitSoon();
   });
   sheet.addEventListener('paste', (e) => {
