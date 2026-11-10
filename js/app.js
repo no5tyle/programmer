@@ -157,7 +157,7 @@ function defaultState() {
     options: {
       highlight: 'date-activity', challengeDisplay: 'icon', weekPrefix: 'Week ', dateFormat: 'short',
       paper: 'A4', orientation: 'landscape', margin: 8, autoFit: true, maxFont: 11, minFont: 6.5,
-      stretch: true, showLegend: true, rotatePatrols: true, fitDescription: true,
+      stretch: true, showLegend: true, rotatePatrols: true, fitDescription: true, weekStart: 1,
     },
     rows: [],
   };
@@ -239,12 +239,27 @@ function generateRows(existing = []) {
   }).filter(Boolean);
 }
 
+/** First day of the week: 1 = weeks run Monday–Sunday, 0 = Sunday–Saturday. */
+function weekStartDay() { return state.options.weekStart === 0 ? 0 : 1; }
+function startOfWeek(d) { return addDays(d, -((d.getDay() - weekStartDay() + 7) % 7)); }
+
 function weekOf(iso) {
   const d = parseDate(iso), s = parseDate(state.term.start), e = parseDate(state.term.end);
   if (!d || !s) return null;
   if (d < s || (e && d > e)) return null;
-  const monday = addDays(s, -((s.getDay() + 6) % 7));
-  return Math.floor(dayDiff(monday, d) / 7) + 1;
+  return Math.floor(dayDiff(startOfWeek(s), d) / 7) + 1;
+}
+
+/** The first day of the week a row belongs to: its own date's week, else the week it sits in. */
+function rowWeekStart(row) {
+  const d = parseDate(row.date);
+  if (d) return startOfWeek(d);
+  const g = weekGroups().find((x) => x.rows.includes(row));
+  const s = parseDate(state.term.start);
+  if (g && typeof g.key === 'number' && s) return addDays(startOfWeek(s), (g.key - 1) * 7);
+  const dated = g?.rows.find((r) => r.date);
+  if (dated) return startOfWeek(parseDate(dated.date));
+  return s ? startOfWeek(s) : null;
 }
 
 /** Stable sort by date; undated rows travel with the row above them. */
@@ -812,8 +827,16 @@ function closePopover() { pop.hidden = true; pop.onclick = null; popCtx = null; 
 function rowById(id) { return state.rows.find((r) => r.id === id); }
 
 function openDatePopover(td, row) {
+  const ws = rowWeekStart(row);
+  const days = ws ? Array.from({ length: 7 }, (_, i) => addDays(ws, i)) : [];
+  const wk = ws ? weekOf(toISO(ws)) ?? weekOf(toISO(addDays(ws, 6))) : null;
+  const range = days.length ? `${days[0].getDate()} ${MONTH_SHORT[days[0].getMonth()]} – ${days[6].getDate()} ${MONTH_SHORT[days[6].getMonth()]}` : '';
   openPopover(td, `
-    <div class="pop-title">Date</div>
+    <div class="pop-title">Date${days.length ? ` <span class="pop-sub">${wk ? `${esc(groupLabel({ key: wk }))} · ` : ''}${range}</span>` : ''}</div>
+    ${days.length ? `<div class="days">${days.map((d) => {
+      const iso = toISO(d);
+      return `<button class="day ${iso === row.date ? 'on' : ''}" data-date="${iso}" title="${DAY_LONG[d.getDay()]} ${d.getDate()} ${MONTH_LONG[d.getMonth()]}"><b>${DAY_SHORT[d.getDay()]}</b><span>${d.getDate()}</span></button>`;
+    }).join('')}</div>` : ''}
     <label class="field"><span>Date</span><input type="date" id="pDate" value="${esc(row.date)}"></label>
     <label class="field"><span>Ends (multi-day, optional)</span><input type="date" id="pEnd" value="${esc(row.endDate)}"></label>
     <label class="field"><span>Custom text (replaces date)</span><input type="text" id="pLabel" value="${esc(row.dateLabel)}" placeholder="e.g. Sat or Sun 7 or 8 Nov"></label>
@@ -829,6 +852,17 @@ function openDatePopover(td, row) {
   $('#pLabel').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#pDone').click(); });
   $('#pClear').onclick = () => { $('#pDate').value = ''; $('#pEnd').value = ''; $('#pLabel').value = ''; apply(); };
   $('#pDone').onclick = () => { closePopover(); sortRows(); save(); renderDoc(); };
+  pop.querySelectorAll('.day').forEach((b) => {
+    b.onclick = () => {
+      const r = rowById(row.id); if (!r) return;
+      const old = parseDate(r.date), next = b.dataset.date;
+      // A multi-day activity keeps its length.
+      if (r.endDate && old) r.endDate = toISO(addDays(parseDate(r.endDate), dayDiff(old, parseDate(next))));
+      r.date = next;
+      r.dateLabel = '';
+      closePopover(); sortRows(); save(); renderDoc();
+    };
+  });
 }
 
 function openChoicePopover(td, row, key) {
