@@ -419,7 +419,8 @@ function openShare() {
       const canShare = !!navigator.canShare;
       body.innerHTML = `
         <div class="m-group">
-          ${item('print', '<svg viewBox="0 0 24 24"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg>', 'Print or save as PDF', 'From the print screen you can also send the PDF by email or message')}
+          ${item('pdf', '<svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>', 'Program PDF', 'Print, email, message or save it, always on one correctly turned page')}
+          ${isIOS ? '' : item('print', '<svg viewBox="0 0 24 24"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg>', 'Print from the browser', 'Uses the browser’s own print screen')}
         </div>
         <div class="m-group-label">${canShare ? 'Send a file' : 'Download a file'}</div>
         <div class="m-group">
@@ -432,6 +433,7 @@ function openShare() {
         if (!b) return;
         const kind = b.dataset.share;
         if (kind === 'print') { closeAllPanels(); printProgram(); return; }
+        if (kind === 'pdf') { preparePdf(body); return; }
         shareFiles = true;   // send through the device's share menu where it has one
         try {
           if (kind === 'ics') exportCalendar();
@@ -442,6 +444,39 @@ function openShare() {
       };
     },
   });
+}
+
+/**
+ * Make the PDF, then offer it. The share menu has to be opened by a tap, and making the PDF
+ * takes a moment, so it is offered on a second button once it's ready.
+ */
+async function preparePdf(body) {
+  body.onclick = null;
+  body.innerHTML = '<div class="m-busy"><span class="m-spinner"></span><p>Making the PDF…</p></div>';
+  let blob;
+  try { blob = await buildPdf(); } catch (err) {
+    console.warn(err);
+    body.innerHTML = '<div class="m-busy"><p>The PDF couldn’t be made. Check you’re online, or use <strong>Print from the browser</strong>.</p></div>';
+    return;
+  }
+  const name = `${programFileName()}.pdf`;
+  const file = new File([blob], name, { type: 'application/pdf' });
+  const canShare = !!navigator.canShare && navigator.canShare({ files: [file] });
+  body.innerHTML = `
+    <div class="m-busy"><p><strong>${esc(name)}</strong> is ready.</p></div>
+    <div class="m-actions">
+      ${canShare ? '<button class="btn btn-primary" data-pdf="share">Share PDF</button><p class="hint">Choose Print, Mail, Messages or Save to Files.</p>' : ''}
+      <button class="btn ${canShare ? 'btn-outline' : 'btn-primary'}" data-pdf="save">${canShare ? 'Download instead' : 'Download PDF'}</button>
+    </div>`;
+  body.onclick = (e) => {
+    const b = e.target.closest('[data-pdf]');
+    if (!b) return;
+    if (b.dataset.pdf === 'share') {
+      navigator.share({ files: [file], title: titleText() || 'Program' })
+        .then(() => closeAllPanels())
+        .catch((err) => { if (err.name !== 'AbortError') downloadFile(name, blob, 'application/pdf'); });
+    } else { downloadFile(name, blob, 'application/pdf'); closeAllPanels(); }
+  };
 }
 
 /* ---------------------------------------------------------------- wiring */

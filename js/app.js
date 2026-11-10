@@ -68,6 +68,15 @@ function luminance(hex) {
 }
 const readableOn = (hex) => (luminance(hex) > 0.4 ? '#1d1d1f' : '#ffffff');
 
+/** `hex` at `amount` (0–1) over white, as #rrggbb. */
+function mixWithWhite(hex, amount) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return '#eeeeee';
+  const n = parseInt(m[1], 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => Math.round(v * amount + 255 * (1 - amount)));
+  return `#${ch.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}
+
 function getPath(obj, path) { return path.split('.').reduce((o, k) => (o == null ? o : o[k]), obj); }
 function setPath(obj, path, val) {
   const keys = path.split('.'); const last = keys.pop();
@@ -587,7 +596,7 @@ function renderSheet() {
   const accent = b.color || '#4f2d7f';
   const headBg = b.headerStyle === 'solid' ? accent
     : b.headerStyle === 'grey' ? '#e6e6e6'
-      : `color-mix(in srgb, ${accent} 42%, white)`;
+      : mixWithWhite(accent, 0.42);
   const headFg = b.headerStyle === 'solid' ? readableOn(accent) : '#1d1d1f';
   const titleColor = b.titleColor === 'auto' && luminance(accent) < 0.45 ? accent : '#1d1d1f';
   sheet.style.setProperty('--accent', accent);
@@ -668,6 +677,7 @@ function applyPageSize() {
   paper.style.setProperty('--paper-w', `${w}mm`);
   paper.style.setProperty('--paper-h', `${h}mm`);
   paper.style.setProperty('--margin', `${m}mm`);
+  paper.classList.toggle('is-landscape', w > h);
   $('#pageStyle').textContent =
     `@page { size: ${state.options.paper === 'Letter' ? 'letter' : 'A4'} ${state.options.orientation}; margin: ${m}mm; }`;
 }
@@ -1271,7 +1281,7 @@ function downloadFile(name, text, type) {
     }
   }
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.href = URL.createObjectURL(text instanceof Blob ? text : new Blob([text], { type }));
   a.download = name;
   a.hidden = true;
   document.body.appendChild(a);   // some browsers ignore the file name on a detached link
@@ -1534,15 +1544,116 @@ async function importCsv(text, fileName) {
   toast(`${rows.length} activit${rows.length === 1 ? 'y' : 'ies'} imported.${unread ? ` ${unread} date${unread === 1 ? '' : 's'} couldn't be read and ${unread === 1 ? 'is' : 'are'} shown as text — click to set ${unread === 1 ? 'it' : 'them'}.` : ''}`);
 }
 
+/* ---------------------------------------------------------------- PDF made in the app */
+
+/*
+ * Some browsers (notably iPhone and iPad Safari) ignore the page size and orientation a page
+ * asks for when printing. So the app can also make the PDF itself: the sheet is drawn to an
+ * image at print resolution and placed on pages of the right size and orientation. A landscape
+ * PDF then prints correctly from the share menu (AirPrint rotates it to fit the paper).
+ */
+const PDF_LIBS = [
+  'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+];
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if ([...document.scripts].some((s) => s.src === src && s.dataset.loaded)) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = () => { s.dataset.loaded = '1'; resolve(); };
+    s.onerror = () => reject(new Error(`Could not load ${src}`));
+    document.head.appendChild(s);
+  });
+}
+
+/** Build the program as a PDF Blob, split over pages at row boundaries if it doesn't fit one. */
+async function buildPdf() {
+  for (const src of PDF_LIBS) await loadScript(src);
+  closePopover(); hideHandle();
+  document.activeElement?.blur?.();
+  fit();
+  if (document.fonts?.ready) await document.fonts.ready;
+  const sheet = $('#sheet'), paper = $('#paper');
+  const scale = 3;   // about 290 dpi on A4
+  const canvas = await window.html2canvas(sheet, {
+    scale, backgroundColor: '#ffffff', logging: false, useCORS: true, windowWidth: 1600, windowHeight: 1200,
+    onclone(doc) {
+      doc.body.classList.remove('mobile', 'm-preview');
+      const p = doc.querySelector('#paper');
+      p.style.transform = 'none';
+      doc.querySelector('#sheet').classList.add('capture');
+    },
+  });
+
+  const [pw, ph] = paperDims();
+  const m = Math.min(25, Math.max(4, +state.options.margin || 8));
+  const innerW = pw - 2 * m, innerH = ph - 2 * m;
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: pw > ph ? 'landscape' : 'portrait', unit: 'mm', format: state.options.paper === 'Letter' ? 'letter' : 'a4', compress: true });
+  pdf.setProperties({ title: titleText() || 'Program', creator: 'Scout Program Builder' });
+  const pxPerMm = canvas.width / innerW;
+  const pageH = Math.floor(innerH * pxPerMm);
+
+  if (canvas.height <= pageH + 4) {
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', m, m, innerW, canvas.height / pxPerMm);
+  } else {
+    // Row bottoms and the heading, in canvas pixels, from the live layout.
+    const k = paper.getBoundingClientRect().width / paper.offsetWidth || 1;
+    const top = sheet.getBoundingClientRect().top;
+    const toPx = (y) => Math.round(((y - top) / k) * scale);
+    const bottoms = $$('.prog tbody tr', sheet).map((tr) => toPx(tr.getBoundingClientRect().bottom));
+    const head = $('.prog thead', sheet).getBoundingClientRect();
+    const headTop = toPx(head.top), headH = toPx(head.bottom) - headTop;
+    let start = 0, first = true;
+    while (start < canvas.height - 2) {
+      const room = first ? pageH : pageH - headH;
+      let end = Math.min(canvas.height, start + room);
+      const fitRows = bottoms.filter((b) => b > start + 10 && b <= end);
+      if (end < canvas.height && fitRows.length) end = fitRows[fitRows.length - 1] + 2;
+      const slice = document.createElement('canvas');
+      const extra = first ? 0 : headH;
+      slice.width = canvas.width;
+      slice.height = end - start + extra;
+      const ctx = slice.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, slice.width, slice.height);
+      if (!first) ctx.drawImage(canvas, 0, headTop, canvas.width, headH, 0, 0, canvas.width, headH);   // repeat heading
+      ctx.drawImage(canvas, 0, start, canvas.width, end - start, 0, extra, canvas.width, end - start);
+      if (!first) pdf.addPage();
+      pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', m, m, innerW, slice.height / pxPerMm);
+      start = end; first = false;
+    }
+  }
+  return pdf.output('blob');
+}
+
+async function downloadPdf() {
+  toast('Making the PDF…');
+  try {
+    const blob = await buildPdf();
+    downloadFile(`${programFileName()}.pdf`, blob, 'application/pdf');
+  } catch (err) {
+    console.warn(err);
+    toast('The PDF couldn’t be made (are you offline?). Use Print instead.', 'error');
+  }
+}
+
 function openSavePopover(anchor) {
   openPopover(anchor, `
     <div class="menu">
+      <button data-save="pdf"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>PDF <small>.pdf</small></button>
       <button data-save="csv"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>Activities spreadsheet <small>.csv</small></button>
       <button data-save="json"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>Full program <small>.json</small></button>
     </div>
     <p class="hint">A spreadsheet holds the activities, for editing in Excel or Google Sheets. A full program also keeps branding, leaders and settings.</p>`, { type: 'save' });
   pop.querySelectorAll('[data-save]').forEach((b) => {
-    b.onclick = () => { closePopover(); if (b.dataset.save === 'csv') exportCsv(); else exportJson(); };
+    b.onclick = () => {
+      closePopover();
+      if (b.dataset.save === 'pdf') downloadPdf();
+      else if (b.dataset.save === 'csv') exportCsv();
+      else exportJson();
+    };
   });
 }
 
@@ -1604,11 +1715,33 @@ async function resetAll() {
   save(); renderAll();
 }
 
+/** iPhone and iPad (including iPads that report themselves as a Mac). */
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
 function printProgram() {
   closePopover(); hideHandle();
   document.activeElement?.blur();
   fit();
+  // iOS ignores the page size and orientation and adds its own margins, so a landscape program
+  // prints portrait and spills onto a second page. Open the app-made PDF instead: iOS's PDF
+  // viewer prints it on the right page, and can share or save it too.
+  if (isIOS) { openPdfForPrinting(); return; }
   window.print();
+}
+
+function openPdfForPrinting() {
+  const win = window.open('', '_blank');   // opened now, while the tap still counts, filled in once ready
+  if (win) win.document.write('<p style="font:16px system-ui;padding:24px;color:#555">Making the PDF…</p>');
+  buildPdf().then((blob) => {
+    const url = URL.createObjectURL(blob);
+    if (win) win.location.href = url;
+    else downloadFile(`${programFileName()}.pdf`, blob, 'application/pdf');
+    setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
+  }).catch((err) => {
+    console.warn(err);
+    if (win) win.close();
+    toast('The PDF couldn’t be made (are you offline?).', 'error');
+  });
 }
 
 /* ---------------------------------------------------------------- events */
