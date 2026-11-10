@@ -16,7 +16,8 @@ A small web app for building a term program to share with Scout families. It run
 - **Columns.** Show or hide, rename, reorder, resize and set the alignment of each column. If you hide *Time*, the time moves into the date cell.
 - **Lists.** Highlight colours with a legend (Scout Hall, Out and About, EVENT, Bring a Friend, …), challenge areas using the official Scouts Australia icons (you can upload a different icon for any area), and duty patrols with colours, which rotate automatically when dates are generated.
 - **Saving.** Your work saves automatically in your browser. **Save file** downloads a `.json` copy you can keep or send to another leader, and **Open** loads one back.
-- **Print / PDF.** Uses the browser's print dialog. Choose *Save as PDF*, and turn off the browser's own *Headers and footers* option.
+- **Calendar file.** **Calendar** downloads an `.ics` file that families can open to add the program to Google, Apple or Outlook calendars. Each meeting has its times (read from the Time cell), location (*Where*) and details. Untimed items are all-day events, and weeks off are included as free all-day entries.
+- **Print / PDF.** Uses the browser's print dialog. Choose *Save as PDF* (the file is named after the program, e.g. "Cubs Program - Term 4 2026"), and turn off the browser's own *Headers and footers* option.
 
 Built for desktop browsers (current Chrome, Edge, Firefox or Safari).
 

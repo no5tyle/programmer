@@ -1081,14 +1081,121 @@ function openBreakPopover(anchor) {
   $('#bText').addEventListener('keydown', (e) => { if (e.key === 'Enter') add(); });
 }
 
-function exportJson() {
-  const name = `${state.branding.sectionName || 'Program'} Program Term ${state.term.term} ${state.term.year}`.replace(/[^\w\- ]+/g, '').trim();
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+/** A file-name-safe program name, e.g. "Cubs Program - Term 4 2026". */
+function programFileName() {
+  return (titleText() || `${state.branding.sectionName || 'Program'} Term ${state.term.term} ${state.term.year}`)
+    // Plain ASCII only: some browsers drop a download's name if it has e.g. an en dash.
+    .replace(/[\u2012-\u2015]/g, '-').normalize('NFKD').replace(/[^\x20-\x7e]/g, '')
+    .replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function downloadFile(name, text, type) {
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `${name}.json`;
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  a.hidden = true;
+  document.body.appendChild(a);   // some browsers ignore the file name on a detached link
   a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+function exportJson() {
+  downloadFile(`${programFileName()}.json`, JSON.stringify(state, null, 2), 'application/json');
+}
+
+/* ---------------------------------------------------------------- calendar (.ics) export */
+
+/**
+ * Start and finish times (minutes after midnight) in a Time cell: "18:15–19:45",
+ * "6:30 PM\n8:30 PM", "6:15–7:45 PM", "9 AM Sat\n4 PM Sun". Missing ones are null.
+ */
+function timesIn(text) {
+  const found = [];
+  const re = /(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?/gi;
+  let m;
+  while ((m = re.exec(text || '')) && found.length < 2) {
+    if (!m[2] && !m[3]) continue;
+    const h = +m[1], min = +(m[2] || 0);
+    if (h > 23 || min > 59) continue;
+    found.push({ h, min, ap: m[3] && m[3].toLowerCase() });
+  }
+  // "6:15–7:45 PM": the start takes the finish's AM/PM.
+  if (found.length === 2 && !found[0].ap && found[1].ap && found[0].h <= 12) found[0].ap = found[1].ap;
+  const toMin = (t) => {
+    if (!t) return null;
+    let h = t.h;
+    if (t.ap) h = (h % 12) + (t.ap === 'pm' ? 12 : 0);
+    return h * 60 + t.min;
+  };
+  return [toMin(found[0]), toMin(found[1])];
+}
+
+function icsText(s) {
+  return String(s ?? '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+}
+
+/** Fold a content line to 75 octets, as iCalendar requires. */
+function icsFold(line) {
+  const enc = new TextEncoder();
+  const out = [];
+  let cur = '', bytes = 0;
+  for (const ch of line) {
+    const n = enc.encode(ch).length;
+    if (bytes + n > (out.length ? 74 : 75)) { out.push(cur); cur = ''; bytes = 0; }
+    cur += ch; bytes += n;
+  }
+  out.push(cur);
+  return out.join('\r\n ');
+}
+
+function exportCalendar() {
+  const pad = (n) => String(n).padStart(2, '0');
+  const ymd = (d) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+  const at = (d, mins) => `${ymd(d)}T${pad(Math.floor(mins / 60) % 24)}${pad(mins % 60)}00`;
+  const now = new Date();
+  const stamp = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`;
+  const [ds, de] = [state.term.startTime, state.term.endTime].map((t) => (t ? timesIn(t)[0] : null));
+  const defaultLength = ds != null && de != null && de > ds ? de - ds : 120;
+  const section = state.branding.sectionName || 'Scouts';
+  const group = state.branding.groupName.trim();
+
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Scout Program Builder//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    `X-WR-CALNAME:${icsText([group, titleText()].filter(Boolean).join(' – '))}`];
+  let count = 0;
+  state.rows.forEach((r) => {
+    const start = parseDate(r.date);
+    if (!start) return;
+    const end = parseDate(r.endDate) && parseDate(r.endDate) >= start ? parseDate(r.endDate) : start;
+    const [s, e] = r.noMeeting ? [null, null] : timesIn(r.time);
+    const ev = ['BEGIN:VEVENT', `UID:${r.id}@scout-program-builder`, `DTSTAMP:${stamp}`];
+    if (s != null) {
+      // Times are local ("floating"), so they show as written wherever the family is.
+      let finishDay = end, finish = e;
+      if (finish == null) finish = s + defaultLength;
+      if (finishDay === start && finish <= s) finish = s + defaultLength;
+      if (finish >= 24 * 60) { finishDay = addDays(finishDay, Math.floor(finish / (24 * 60))); finish %= 24 * 60; }
+      ev.push(`DTSTART:${at(start, s)}`, `DTEND:${at(finishDay, finish)}`);
+    } else {
+      ev.push(`DTSTART;VALUE=DATE:${ymd(start)}`, `DTEND;VALUE=DATE:${ymd(addDays(end, 1))}`);
+    }
+    const title = r.noMeeting ? (r.activity || `No ${section} this week`) : `${section}: ${r.activity || 'Meeting'}`;
+    ev.push(`SUMMARY:${icsText(title)}`);
+    if (r.noMeeting) ev.push('TRANSP:TRANSPARENT');
+    else {
+      if (r.where) ev.push(`LOCATION:${icsText(r.where)}`);
+      const patrol = r.patrol ? `Duty patrol: ${r.patrol}` : '';
+      const details = [r.description, r.uniform && `Uniform: ${r.uniform}`, r.forms && r.forms !== '-' && `Forms: ${r.forms}`,
+        r.cost && r.cost !== '-' && `Cost: ${r.cost}`, r.leader && `Leader: ${r.leader}`, patrol, r.notes].filter((x) => x && x.trim());
+      if (details.length) ev.push(`DESCRIPTION:${icsText(details.join('\n'))}`);
+    }
+    ev.push('END:VEVENT');
+    lines.push(...ev);
+    count++;
+  });
+  lines.push('END:VCALENDAR');
+  if (!count) { toast('Add some dated activities first.', 'error'); return; }
+  downloadFile(`${programFileName()}.ics`, lines.map(icsFold).join('\r\n') + '\r\n', 'text/calendar');
+  toast(`Calendar file with ${count} event${count === 1 ? '' : 's'} saved. Families can open it to add the program to their calendar.`);
 }
 
 function importJson() {
@@ -1300,6 +1407,7 @@ function bindEvents() {
   $('#btnNew').onclick = newProgram;
   $('#btnImport').onclick = importJson;
   $('#btnExport').onclick = exportJson;
+  $('#btnCalendar').onclick = exportCalendar;
   $('#btnPrint').onclick = printProgram;
   $('#btnReset').onclick = resetAll;
   $('#zoomSelect').onchange = (e) => { zoom = e.target.value; applyZoom(); };
@@ -1311,7 +1419,13 @@ function bindEvents() {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); printProgram(); }
   });
   window.addEventListener('resize', debounce(() => { applyZoom(); hideHandle(); }, 100));
-  window.addEventListener('beforeprint', () => { closePopover(); hideHandle(); });
+  // Browsers name a saved PDF after the page title, so use the program's title while printing.
+  const appTitle = document.title;
+  window.addEventListener('beforeprint', () => {
+    closePopover(); hideHandle();
+    document.title = programFileName() || appTitle;
+  });
+  window.addEventListener('afterprint', () => { document.title = appTitle; });
 }
 
 /* ---------------------------------------------------------------- init */
