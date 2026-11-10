@@ -21,7 +21,7 @@ Built for desktop browsers (current Chrome, Edge, Firefox or Safari).
 1. Merge into `main`.
 2. In the repository, go to **Settings → Pages**.
 3. Under **Build and deployment**, choose **Deploy from a branch**, then **`main`** and **`/ (root)`**.
-4. After a minute the site is live at `https://<user>.github.io/programmer/`.
+4. After a minute the site is live at [https://no5tyle.github.io/programmer/](https://no5tyle.github.io/programmer/).
 
 ## Running locally
 
