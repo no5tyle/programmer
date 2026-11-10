@@ -397,7 +397,7 @@ function renderSheet() {
       if (i > 0) return '';
       const label = typeof g.key === 'number' ? `${o.weekPrefix || ''}${g.key}` : '–';
       const tint = cat && o.highlight === 'row' && g.rows.length === 1 ? ` style="background:${esc(cat.color)}"` : '';
-      return `<td class="c-week" rowspan="${g.rows.length}"${tint}>${esc(label)}</td>`;
+      return `<td class="c-week" rowspan="${g.rows.length}"${tint}><span class="wk">${esc(label)}</span></td>`;
     }).join('');
     return `<tr data-id="${r.id}">${cells}</tr>`;
   }).join('')).join('');
@@ -417,7 +417,7 @@ function renderSheet() {
     ${legendHTML}
     <table class="prog">
       <colgroup>${cols.map((c) => `<col style="width:${((+c.width || 1) / totalW) * 100}%">`).join('')}</colgroup>
-      <thead><tr>${cols.map((c) => `<th>${esc(c.label)}</th>`).join('')}</tr></thead>
+      <thead><tr>${cols.map((c) => `<th><span class="th-l">${esc(c.label)}</span></th>`).join('')}</tr></thead>
       <tbody>${body || `<tr class="empty-row"><td colspan="${cols.length}">No activities yet — use <b>Generate dates</b> or <b>Add activity</b>.</td></tr>`}</tbody>
     </table>
     ${b.footerText ? `<div class="doc-footer">${esc(b.footerText)}</div>` : ''}`;
@@ -449,7 +449,12 @@ function fit() {
   sheet.classList.remove('multi');
   if (table) table.style.height = '';
   const setFs = (pt) => sheet.style.setProperty('--fs', `${pt}pt`);
-  const fits = () => sheet.scrollHeight <= sheet.clientHeight + 1;
+  // Week labels and heading words never break mid-word, so they must also fit their column's width.
+  const weeksOk = () => $$('.c-week .wk, thead .th-l', sheet).every((w) => {
+    const td = w.parentElement, cs = getComputedStyle(td);
+    return w.offsetWidth <= td.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) + 0.5;
+  });
+  const fits = () => sheet.scrollHeight <= sheet.clientHeight + 1 && weeksOk();
 
   const max = Math.max(5, +o.maxFont || 11);
   const min = Math.min(max, Math.max(4, +o.minFont || 6.5));
@@ -469,10 +474,15 @@ function fit() {
     } else {
       // Won't fit one page even at the smallest size: keep it readable over several pages.
       fs = max; setFs(max);
+      if (!weeksOk()) {
+        let lo = min, hi = max;
+        for (let i = 0; i < 9; i++) { const mid = (lo + hi) / 2; setFs(mid); if (weeksOk()) lo = mid; else hi = mid; }
+        fs = Math.floor(lo * 10) / 10; setFs(fs);
+      }
     }
   }
 
-  const one = fits();
+  const one = sheet.scrollHeight <= sheet.clientHeight + 1;
   if (one && o.stretch && table && state.rows.length) {
     const spare = sheet.clientHeight - sheet.scrollHeight;
     const grow = Math.min(spare - 6, table.offsetHeight * 0.6);
