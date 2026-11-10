@@ -1356,6 +1356,174 @@ function exportCalendar() {
   toast(`Calendar file with ${count} event${count === 1 ? '' : 's'} saved. Families can open it to add the program to their calendar.`);
 }
 
+/* ---------------------------------------------------------------- spreadsheet (.csv) */
+
+/* Columns of the activities spreadsheet, in order. Week is written for reference only. */
+const CSV_FIELDS = [
+  ['week', 'Week'], ['date', 'Date'], ['endDate', 'End date'], ['dateLabel', 'Date text'], ['time', 'Time'],
+  ['activity', 'Activity'], ['description', 'Description'], ['uniform', 'Uniform'], ['forms', 'Forms'],
+  ['where', 'Where'], ['patrol', 'Duty Patrol'], ['leader', 'Leader'], ['cost', 'Cost'],
+  ['challenge', 'Challenge Area'], ['notes', 'Notes'], ['category', 'Highlight'], ['noMeeting', 'No meeting'],
+];
+const CSV_ALIASES = {
+  week: 'week', date: 'date', enddate: 'endDate', ends: 'endDate', finishdate: 'endDate', datetext: 'dateLabel',
+  time: 'time', times: 'time', startfinish: 'time', startfinishtime: 'time', activity: 'activity',
+  description: 'description', uniform: 'uniform', forms: 'forms', where: 'where', location: 'where',
+  dutypatrol: 'patrol', patrol: 'patrol', leader: 'leader', leaders: 'leader', cost: 'cost',
+  challengearea: 'challenge', challenge: 'challenge', notes: 'notes', highlight: 'category', category: 'category',
+  nomeeting: 'noMeeting', weekoff: 'noMeeting',
+};
+const headerKey = (h) => String(h || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+function csvCell(v) {
+  const s = String(v ?? '');
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/** A date spreadsheets leave alone (a weekday prefix stops Excel turning it into a number). */
+function csvDate(iso) {
+  const d = parseDate(iso);
+  return d ? `${DAY_SHORT[d.getDay()]} ${d.getDate()} ${MONTH_SHORT[d.getMonth()]} ${d.getFullYear()}` : '';
+}
+
+function exportCsv() {
+  const weekLabel = new Map();
+  weekGroups().forEach((g) => g.rows.forEach((r) => {
+    weekLabel.set(r.id, typeof g.key === 'number' ? `${state.options.weekPrefix || ''}${g.key}`.trim() : (r.date ? state.options.holidayLabel || '' : ''));
+  }));
+  const value = (r, k) => {
+    if (k === 'week') return weekLabel.get(r.id) || '';
+    if (k === 'date' || k === 'endDate') return csvDate(r[k]);
+    if (k === 'challenge') return state.challenges.find((c) => c.id === r.challenge)?.label || '';
+    if (k === 'category') return state.categories.find((c) => c.id === r.category)?.label || '';
+    if (k === 'noMeeting') return r.noMeeting ? 'Yes' : '';
+    return r[k] ?? '';
+  };
+  const lines = [CSV_FIELDS.map(([, h]) => h), ...state.rows.map((r) => CSV_FIELDS.map(([k]) => value(r, k)))];
+  // A byte-order mark so Excel reads it as UTF-8 (en dashes, apostrophes, emoji).
+  downloadFile(`${programFileName()} - activities.csv`, '﻿' + lines.map((l) => l.map(csvCell).join(',')).join('\r\n') + '\r\n', 'text/csv');
+  toast('Spreadsheet saved. Edit it in Excel, Google Sheets or Numbers, save as CSV, then use Open.');
+}
+
+/** RFC 4180 parsing, with the delimiter (comma, semicolon or tab) taken from the header row. */
+function parseCsv(text) {
+  text = text.replace(/^﻿/, '');
+  const head = text.split(/\r?\n/, 1)[0];
+  const delim = [',', ';', '\t'].sort((a, b) => head.split(b).length - head.split(a).length)[0];
+  const rows = [];
+  let row = [], cell = '', quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"' && cell === '') quoted = true;
+    else if (ch === delim) { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(cell); rows.push(row); row = []; cell = '';
+    } else cell += ch;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+
+/** Read a date as typed or as a spreadsheet saved it: "Tue 13 Oct 2026", "13/10/2026", "2026-10-13", "13 Oct". */
+function parseLooseDate(text) {
+  const t = String(text || '').trim();
+  if (!t) return '';
+  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(t);
+  const iso = (y, mo, d) => {
+    const dt = new Date(y, mo - 1, d);
+    return dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d ? toISO(dt) : '';
+  };
+  if (m) return iso(+m[1], +m[2], +m[3]);
+  m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$/.exec(t);                 // Australian day/month/year
+  if (m) return iso(m[3].length === 2 ? 2000 + +m[3] : +m[3], +m[2], +m[1]);
+  m = /(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]{3,})\.?,?(?:\s+(\d{4}))?/i.exec(t.replace(/^[a-z]+,?\s+/i, (w) => (/^\d/.test(w) ? w : '')));
+  if (m) {
+    const mo = MONTH_SHORT.findIndex((x) => m[2].toLowerCase().startsWith(x.toLowerCase())) + 1;
+    if (mo) return iso(m[3] ? +m[3] : state.term.year, mo, +m[1]);
+  }
+  return '';
+}
+
+/** Turn a spreadsheet into rows. Returns { rows, unread } or throws if there's no usable header. */
+function rowsFromCsv(text) {
+  const table = parseCsv(text).filter((r) => r.some((c) => c.trim()));
+  if (table.length < 1) throw new Error('empty');
+  const byLabel = {};
+  state.columns.forEach((c) => { byLabel[headerKey(c.label)] = c.key; });
+  const keys = table[0].map((h) => CSV_ALIASES[headerKey(h)] || byLabel[headerKey(h)] || null);
+  if (!keys.includes('activity') && !keys.includes('date')) throw new Error('no header');
+  const find = (list, v) => list.find((x) => [x.id, x.label].some((y) => headerKey(y) === headerKey(v)))?.id || '';
+  let unread = 0;
+  const rows = table.slice(1).map((cells) => {
+    const r = newRow('');
+    keys.forEach((k, i) => {
+      const v = (cells[i] ?? '').trim();
+      if (!k || k === 'week') return;
+      if (k === 'date' || k === 'endDate') {
+        const d = parseLooseDate(v);
+        if (v && !d && k === 'date') { r.dateLabel = r.dateLabel || v; unread++; }
+        // Wording beyond a plain date ("Sat or Sun 7 or 8 Nov") is kept as the date's text.
+        const plain = /^(?:[a-z]+,?\s+)?\d{1,2}(?:st|nd|rd|th)?\s+[a-z]+\.?(?:\s+\d{4})?$|^\d{4}-\d{1,2}-\d{1,2}|^\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}$/i;
+        if (v && d && k === 'date' && !plain.test(v)) r.dateLabel = r.dateLabel || v;
+        r[k] = d;
+      } else if (k === 'challenge') r.challenge = v ? find(state.challenges, v) : '';
+      else if (k === 'category') r.category = v ? find(state.categories, v) : '';
+      else if (k === 'noMeeting') r.noMeeting = /^(y|yes|true|1|x|✓)$/i.test(v);
+      else if (k === 'dateLabel') { if (v) r.dateLabel = v; }
+      else r[k] = v;
+    });
+    if (r.noMeeting && !keys.includes('time')) r.time = '';
+    return r;
+  });
+  return { rows, unread };
+}
+
+async function importCsv(text, fileName) {
+  let parsed;
+  try { parsed = rowsFromCsv(text); } catch {
+    toast('That spreadsheet needs a header row with at least Date or Activity.', 'error');
+    return;
+  }
+  const { rows, unread } = parsed;
+  if (!rows.length) { toast('That spreadsheet has no activities.', 'error'); return; }
+  const choice = await modal({
+    title: 'Open spreadsheet',
+    body: `<p><strong>${rows.length}</strong> activit${rows.length === 1 ? 'y' : 'ies'} found in <strong>${esc(fileName)}</strong>. Branding, leaders and settings stay as they are in this program.</p>`,
+    buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' },
+      { label: 'As a new program', value: 'new', cls: 'btn-outline' },
+      { label: 'Replace these activities', value: 'replace', cls: 'btn-primary' }],
+  });
+  if (!choice) return;
+  if (choice === 'new') {
+    const c = copyOf(state);
+    c.rows = rows;
+    c.branding.versionText = '';
+    addProgram(c);
+  } else {
+    pushHistory();
+    state.rows = rows;
+    save(); renderDoc();
+  }
+  toast(`${rows.length} activit${rows.length === 1 ? 'y' : 'ies'} imported.${unread ? ` ${unread} date${unread === 1 ? '' : 's'} couldn't be read and ${unread === 1 ? 'is' : 'are'} shown as text — click to set ${unread === 1 ? 'it' : 'them'}.` : ''}`);
+}
+
+function openSavePopover(anchor) {
+  openPopover(anchor, `
+    <div class="menu">
+      <button data-save="csv"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>Activities spreadsheet <small>.csv</small></button>
+      <button data-save="json"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>Full program <small>.json</small></button>
+    </div>
+    <p class="hint">A spreadsheet holds the activities, for editing in Excel or Google Sheets. A full program also keeps branding, leaders and settings.</p>`, { type: 'save' });
+  pop.querySelectorAll('[data-save]').forEach((b) => {
+    b.onclick = () => { closePopover(); if (b.dataset.save === 'csv') exportCsv(); else exportJson(); };
+  });
+}
+
 function importJson() {
   const input = $('#fileJson');
   input.value = '';
@@ -1363,12 +1531,14 @@ function importJson() {
     const f = input.files[0]; if (!f) return;
     const fr = new FileReader();
     fr.onload = () => {
+      const text = String(fr.result);
+      if (/\.(csv|tsv|txt)$/i.test(f.name) || !/^\s*[\[{]/.test(text.replace(/^\ufeff/, ''))) { importCsv(text, f.name); return; }
       try {
-        const data = JSON.parse(fr.result);
+        const data = JSON.parse(text);
         if (!data || typeof data !== 'object' || !data.branding) throw new Error('bad');
         addProgram(copyOf(normalise(data)));
         toast('Program opened. It is saved alongside your others under Programs.');
-      } catch { toast('That file is not a saved program.', 'error'); }
+      } catch { toast('That file is not a saved program or spreadsheet.', 'error'); }
     };
     fr.readAsText(f);
   };
@@ -1579,7 +1749,7 @@ function bindEvents() {
   $('#btnNew').onclick = newProgram;
   $('#btnPrograms').onclick = (e) => openProgramsMenu(e.currentTarget);
   $('#btnImport').onclick = importJson;
-  $('#btnExport').onclick = exportJson;
+  $('#btnExport').onclick = (e) => openSavePopover(e.currentTarget);
   $('#btnCalendar').onclick = exportCalendar;
   $('#btnPrint').onclick = printProgram;
   $('#btnReset').onclick = resetAll;
