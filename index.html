@@ -34,10 +34,10 @@
       <button class="btn btn-ghost" id="btnNew" title="Start a new program, keeping your branding">
         <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New
       </button>
-      <button class="btn btn-ghost" id="btnImport" title="Open a saved program file (.json)">
+      <button class="btn btn-ghost" id="btnImport" title="Open a saved program (.json) or an activities spreadsheet (.csv)">
         <svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>Open
       </button>
-      <button class="btn btn-ghost" id="btnExport" title="Save this program as a file (.json)">
+      <button class="btn btn-ghost" id="btnExport" title="Save the activities as a spreadsheet (.csv) or the whole program (.json)">
         <svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>Save file
       </button>
       <button class="btn btn-ghost" id="btnCalendar" title="Download a calendar file (.ics) families can add to Google, Apple or Outlook calendars">
@@ -271,7 +271,7 @@
   <div class="popover" id="popover" hidden></div>
   <div class="modal-backdrop" id="modal" hidden><div class="modal" role="dialog" aria-modal="true"></div></div>
   <div class="toasts" id="toasts"></div>
-  <input type="file" id="fileJson" accept="application/json,.json" hidden>
+  <input type="file" id="fileJson" accept=".json,.csv,application/json,text/csv" hidden>
   <input type="file" id="fileImage" accept="image/*" hidden>
 
   <script src="js/data.js"></script>
