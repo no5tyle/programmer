@@ -176,7 +176,7 @@ input[type=color]::-moz-color-swatch { border: 0; border-radius: 5px; }
   border: 1px dashed var(--border-strong);
   display: grid; place-items: center; overflow: hidden; background: #fafafa;
 }
-.logo-preview img { max-width: 56px; max-height: 56px; }
+.logo-preview img { max-width: 56px; max-height: 56px; object-fit: contain; }
 .logo-preview .logo-glyph { font-size: 42px; line-height: 1; }
 
 /* Editable lists */
@@ -351,7 +351,7 @@ input[type=color]::-moz-color-swatch { border: 0; border-radius: 5px; }
   margin-bottom: 3mm;
 }
 .doc-logo { height: 21mm; min-width: 16mm; display: flex; align-items: center; }
-.doc-logo img { max-height: 21mm; max-width: 40mm; }
+.doc-logo img { max-height: 21mm; max-width: 40mm; object-fit: contain; }
 .doc-logo .logo-glyph { font-size: 17mm; line-height: 1; }
 .doc-titles { text-align: center; }
 .doc-group { font-size: 2.05em; font-weight: 800; line-height: 1.1; letter-spacing: -.01em; }
@@ -368,14 +368,16 @@ input[type=color]::-moz-color-swatch { border: 0; border-radius: 5px; }
 .doc-legend { display: flex; justify-content: flex-end; gap: 1.5mm; margin: -1mm 0 1.6mm; font-size: max(7pt, calc(var(--fs) * .85)); }
 .doc-legend span { padding: .2em .9em; border: .5pt solid rgba(0, 0, 0, .35); font-weight: 600; }
 
-.prog { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.prog { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--fs); }
 .prog th, .prog td {
   border: .75pt solid #2b2b2b;
   padding: .28em .4em;
   vertical-align: middle;
   line-height: 1.22;
   text-align: center;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
 }
 .prog [data-align=left] { text-align: left; }
 .prog thead th {
@@ -386,22 +388,33 @@ input[type=color]::-moz-color-swatch { border: 0; border-radius: 5px; }
 .prog tr { break-inside: avoid; page-break-inside: avoid; }
 .prog .c-week { font-weight: 800; white-space: nowrap; }
 .prog .c-week .wk, .prog th .th-l { display: inline-block; }
-.prog thead th { overflow-wrap: normal; }
 .prog .c-date { white-space: pre-line; }
+.prog .c-date .dt { white-space: pre; } /* each date line stays together */
 .prog .c-activity .ed { font-weight: 600; }
 .prog .ed {
   white-space: pre-wrap;
+  /* Editable text gets break-word from the browser; words must never break. */
+  overflow-wrap: normal !important;
+  word-break: normal;
+  line-break: auto;
   outline: none;
   min-height: 1.2em;
   border-radius: 2px;
 }
-.prog .ed:empty::before { content: attr(data-ph); color: #b3b3b3; font-weight: 400; font-style: italic; }
-.prog .patrol { font-weight: 700; }
+/* Placeholders sit on top so they never change the layout (which must match the printout). */
+.prog .ed { position: relative; }
+.prog .ed:empty::before {
+  content: attr(data-ph); color: #b3b3b3; font-weight: 400; font-style: italic;
+  position: absolute; inset: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* While measuring column needs, contents shrink to their longest unbreakable piece. */
+.sheet.measuring .prog td > *, .sheet.measuring .prog th > * { width: min-content !important; display: inline-block; }
+.prog .patrol { font-weight: 700; display: inline-block; max-width: 100%; }
 .prog .ch { display: inline-flex; flex-direction: column; align-items: center; gap: .1em; vertical-align: middle; }
 .prog .ch-icon { width: 2.3em; height: 2.3em; display: block; object-fit: contain; }
 .prog .ch-icon.ch-named { width: 3.1em; height: 3.1em; }
 .prog .ch-label { font-size: .82em; font-weight: 700; line-height: 1.1; }
-.prog .ph { color: #b3b3b3; font-style: italic; }
+.prog .ph, .doc-group .ph { color: #b3b3b3; font-style: italic; }
 .empty-row td { padding: 8mm; color: #888; font-style: italic; }
 .doc-footer { margin-top: 2mm; font-size: max(7pt, calc(var(--fs) * .85)); color: #444; }
 
@@ -422,6 +435,6 @@ input[type=color]::-moz-color-swatch { border: 0; border-radius: 5px; }
   .paper-wrap { width: auto !important; height: auto !important; margin: 0; }
   .paper { position: static; transform: none !important; box-shadow: none; padding: 0; min-height: 0; width: auto; border-radius: 0; }
   .sheet:not(.multi) { height: calc(var(--paper-h) - 2 * var(--margin) - 1mm); overflow: hidden; }
-  .prog .ed:empty::before, .prog .ph { content: none; display: none; }
+  .prog .ed:empty::before, .prog .ph, .doc-group .ph { content: none; display: none; }
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 }
