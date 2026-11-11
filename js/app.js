@@ -823,7 +823,10 @@ function placeLegend(sheet) {
     const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.25;
     return el.scrollWidth <= el.clientWidth + 1 && el.offsetHeight < lh * 1.5;
   };
-  if (!(oneLine($('.doc-group', sheet)) && oneLine($('.doc-title', sheet)))) {
+  // It must really sit to the left of the leaders (not stacked above them), with the titles unwrapped.
+  const leaders = $('.doc-leaders', sheet);
+  const sideBySide = !leaders || legend.getBoundingClientRect().right <= leaders.getBoundingClientRect().left + 1;
+  if (!(sideBySide && oneLine($('.doc-group', sheet)) && oneLine($('.doc-title', sheet)))) {
     legend.classList.remove('beside');
     header.after(legend);
   }

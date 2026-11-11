@@ -56,6 +56,10 @@ Open `index.html` directly, or serve the folder:
 python3 -m http.server 8000
 ```
 
+## Publishing changes
+
+GitHub Pages lets browsers keep each file for up to 10 minutes. The CSS and JS links in `index.html` carry a `?v=` tag so browsers fetch all files together. Bump it whenever you change those files.
+
 ## Updating term dates and holidays
 
 Term dates are in `js/data.js` under `TERM_DATES`, as `[start, end]` pairs for each term (students' first and last days). Regions are listed in `REGIONS`, and public holiday rules are `saPublicHolidays` and `auPublicHolidays`, wired up in `PUBLIC_HOLIDAYS`.
