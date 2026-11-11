@@ -779,7 +779,8 @@ function fitColumns(sheet) {
 /** True when a block's text fits its width without any word sticking out. */
 function widthOk(el) {
   if (el.classList.contains('patrol') || el.classList.contains('pick')) return overflowsNot(el);
-  return el.scrollWidth <= el.clientWidth + 0.5;
+  // Allow a pixel of rounding: scrollWidth rounds up, clientWidth down, and a fraction of a pixel never shows.
+  return el.scrollWidth <= el.clientWidth + 1;
 }
 
 /**
@@ -829,7 +830,7 @@ function fitCells(sheet, fs) {
 /** True when an inline-block label fits inside its cell's content box. */
 function overflowsNot(el) {
   const td = el.parentElement, cs = getComputedStyle(td);
-  return el.offsetWidth <= td.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) + 0.5;
+  return el.offsetWidth <= td.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) + 1;
 }
 
 /**

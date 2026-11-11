@@ -41,12 +41,12 @@ test.describe('sheet', () => {
       renderAll();
     });
     const broken = await page.evaluate(() => [
-      ...[...document.querySelectorAll('.prog .ed, .prog .dt')].filter((e) => e.scrollWidth > e.clientWidth + 0.5),
+      ...[...document.querySelectorAll('.prog .ed, .prog .dt')].filter((e) => e.scrollWidth > e.clientWidth + 1),
       ...[...document.querySelectorAll('.prog .pick, .prog .patrol, .prog .wk, .prog .th-l')].filter((e) => !overflowsNot(e)),
     ].map((e) => e.textContent));
     // Details to help if this fails on another machine (fonts, sizes, widths).
     const details = await page.evaluate(() => {
-      const e = [...document.querySelectorAll('.prog .ed, .prog .dt')].find((x) => x.scrollWidth > x.clientWidth + 0.5);
+      const e = [...document.querySelectorAll('.prog .ed, .prog .dt')].find((x) => x.scrollWidth > x.clientWidth + 1);
       return JSON.stringify({
         status: document.querySelector('#fitStatus').textContent,
         nunito: document.fonts.check('12px Nunito'),
