@@ -19,7 +19,18 @@ async function openApp(page) {
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await page.goto('/');
   await page.waitForFunction(() => typeof state === 'object' && document.querySelector('#fitStatus')?.textContent !== '—');
+  await fontsLoaded(page);
   return errors;
+}
+
+/** Load every style of the page fonts first, so layout doesn't depend on download speed. */
+async function fontsLoaded(page) {
+  await page.evaluate(async () => {
+    const faces = ['400', '600', '700', '800'].flatMap((w) => [`${w} 12px Nunito`, `italic ${w} 12px Nunito`, `${w} 12px Inter`]);
+    await Promise.all(faces.map((f) => document.fonts.load(f).catch(() => null)));
+    await document.fonts.ready;
+    fit();
+  });
 }
 
 /** Fill a program much like a real Cubs term. */
@@ -50,4 +61,4 @@ function pdfPageSize(buf) {
   return m ? [+m[3] - +m[1], +m[4] - +m[2]] : null;
 }
 
-module.exports = { loadData, openApp, fillCubs, pdfPages, pdfPageSize };
+module.exports = { loadData, openApp, fontsLoaded, fillCubs, pdfPages, pdfPageSize };
