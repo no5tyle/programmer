@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lexend:wght@400;600;700&family=Nunito:wght@400;600;700;800&family=Open+Sans:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <!-- ?v= tags make browsers fetch all files together after an update; bump on each change -->
-  <link rel="stylesheet" href="css/app.css?v=20261111-1">
-  <link rel="stylesheet" href="css/mobile.css?v=20261111-1">
+  <link rel="stylesheet" href="css/app.css?v=20261111-3">
+  <link rel="stylesheet" href="css/mobile.css?v=20261111-3">
   <style id="pageStyle"></style>
 </head>
 <body>
@@ -162,6 +162,19 @@
       </details>
 
       <details class="card">
+        <summary><span class="card-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M7 14h4M7 17h7"/></svg></span>Dates &amp; notes</summary>
+        <div class="card-body">
+          <p class="hint">Shown under the program: other dates for families' calendars, like fundraisers, camps and group events, and any notes.</p>
+          <label class="field"><span>Dates heading</span><input type="text" data-bind="extras.datesTitle" placeholder="Dates for your calendar"></label>
+          <div class="list" id="datesList"></div>
+          <button class="btn btn-text btn-sm" data-add="dates">+ Add date</button>
+          <label class="field"><span>Notes heading (optional)</span><input type="text" data-bind="extras.notesTitle" placeholder="e.g. Please note"></label>
+          <div class="list" id="notesList"></div>
+          <button class="btn btn-text btn-sm" data-add="notes">+ Add note</button>
+        </div>
+      </details>
+
+      <details class="card">
         <summary><span class="card-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg></span>Columns</summary>
         <div class="card-body">
           <p class="hint">Tick to show, rename headings, and set relative widths.</p>
@@ -301,8 +314,8 @@
   <input type="file" id="fileJson" accept=".json,.csv,application/json,text/csv" hidden>
   <input type="file" id="fileImage" accept="image/*" hidden>
 
-  <script src="js/data.js?v=20261111-1"></script>
-  <script src="js/app.js?v=20261111-1"></script>
-  <script src="js/mobile.js?v=20261111-1"></script>
+  <script src="js/data.js?v=20261111-3"></script>
+  <script src="js/app.js?v=20261111-3"></script>
+  <script src="js/mobile.js?v=20261111-3"></script>
 </body>
 </html>
