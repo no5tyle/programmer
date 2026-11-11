@@ -2,6 +2,28 @@
 
 A small web app for building a term program to share with Scout families. It runs entirely in the browser and is hosted on GitHub Pages. There's no server and no build step.
 
+**Use it:** [no5tyle.github.io/programmer](https://no5tyle.github.io/programmer/)
+
+## Example
+
+![An example Cubs program for Term 1 2027, made with the app](docs/example-program.png)
+
+This example was made in the app. The group, leaders and activities are made up, and the phone numbers are from the 0491 570 range that ACMA reserves for fiction. It shows:
+
+- **Generated meeting nights:** Mondays for SA Term 1 2027. The first meeting is in Week 2 because the term starts on a Wednesday. Adelaide Cup Day and Easter Monday became weeks off automatically.
+- **Duty patrols** rotating Blue, Green, Orange, skipping the weeks off.
+- **A weekend camp over two days** (Pack Holiday, Saturday to Sunday) and a **Sunday community event**, each grouped into its week.
+- **Highlight colours and challenge areas:** all four of each, with the legend.
+- **The leader picker,** including a visiting leader from another section, "Platypus (Scouts)".
+- **Uniform** as Yes, No or Camp, plus **Forms** and **Cost**.
+- **Red text** for a changed finish time.
+- **A heading note** and **version note** beside the leaders.
+- **Dates for your calendar and notes** under the table. The dated lines also go into the calendar file.
+
+To try it, download [`examples/example-program.json`](examples/example-program.json) and use **Open** in the app.
+
+<img src="docs/example-phone.png" alt="The same program in the phone view" width="300">
+
 ## Features
 
 - **Generates meeting dates automatically.** Pick the region, year, term and meeting night, and you get one row per meeting with its term week number. Weeks can run Monday–Sunday or Sunday–Saturday. Meeting nights on a public holiday automatically become weeks off, such as "No Cubs – Labour Day", and don't use up a duty patrol turn.

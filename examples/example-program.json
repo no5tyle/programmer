@@ -1,0 +1,505 @@
+{
+  "v": 1,
+  "branding": {
+    "groupName": "1st Wattle Creek Scout Group",
+    "section": "cubs",
+    "sectionName": "Cubs",
+    "color": "#FFC82E",
+    "titleTemplate": "{section} Program – Term {term} {year}",
+    "titleColor": "dark",
+    "headerStyle": "tint",
+    "font": "Nunito",
+    "logo": null,
+    "versionText": "Version 1 – 18/01/2027",
+    "footerText": "",
+    "headerNote": "Times and costs can change. No Cub misses out because of cost, so please speak to Wombat in confidence.",
+    "leadersLabel": "Leaders:",
+    "leaders": [
+      {
+        "name": "Wombat",
+        "phone": "0491 570 156"
+      },
+      {
+        "name": "Kookaburra",
+        "phone": "0491 570 157"
+      },
+      {
+        "name": "Echidna",
+        "phone": "0491 570 158"
+      },
+      {
+        "name": "Bilby",
+        "phone": "0491 570 159"
+      }
+    ]
+  },
+  "term": {
+    "region": "SA",
+    "year": 2027,
+    "term": 1,
+    "start": "2027-01-27",
+    "end": "2027-04-09",
+    "meetingDay": 1,
+    "startTime": "18:30",
+    "endTime": "20:00",
+    "timeFormat": "24",
+    "timeLayout": "inline"
+  },
+  "columns": [
+    {
+      "key": "week",
+      "label": "Week",
+      "visible": true,
+      "width": 6,
+      "align": "center"
+    },
+    {
+      "key": "date",
+      "label": "Date",
+      "visible": true,
+      "width": 8,
+      "align": "center"
+    },
+    {
+      "key": "time",
+      "label": "Time",
+      "visible": true,
+      "width": 8,
+      "align": "center"
+    },
+    {
+      "key": "activity",
+      "label": "Activity",
+      "visible": true,
+      "width": 13,
+      "align": "center"
+    },
+    {
+      "key": "description",
+      "label": "Description",
+      "visible": true,
+      "width": 19,
+      "align": "center"
+    },
+    {
+      "key": "uniform",
+      "label": "Uniform",
+      "visible": true,
+      "width": 6,
+      "align": "center"
+    },
+    {
+      "key": "forms",
+      "label": "Forms",
+      "visible": true,
+      "width": 6,
+      "align": "center"
+    },
+    {
+      "key": "where",
+      "label": "Where",
+      "visible": false,
+      "width": 8,
+      "align": "center"
+    },
+    {
+      "key": "patrol",
+      "label": "Duty Patrol",
+      "visible": true,
+      "width": 6,
+      "align": "center"
+    },
+    {
+      "key": "leader",
+      "label": "Leader",
+      "visible": true,
+      "width": 7,
+      "align": "center"
+    },
+    {
+      "key": "cost",
+      "label": "Cost",
+      "visible": true,
+      "width": 5,
+      "align": "center"
+    },
+    {
+      "key": "challenge",
+      "label": "Challenge Area",
+      "visible": true,
+      "width": 7,
+      "align": "center"
+    },
+    {
+      "key": "notes",
+      "label": "Notes",
+      "visible": true,
+      "width": 16,
+      "align": "left"
+    }
+  ],
+  "categories": [
+    {
+      "id": "hall",
+      "label": "Scout Hall",
+      "color": "#C9EBC4"
+    },
+    {
+      "id": "out",
+      "label": "Out and About",
+      "color": "#BFD9F2"
+    },
+    {
+      "id": "event",
+      "label": "EVENT",
+      "color": "#F6C9EC"
+    },
+    {
+      "id": "friend",
+      "label": "Bring a Friend",
+      "color": "#FFF0A6"
+    }
+  ],
+  "challenges": [
+    {
+      "id": "community",
+      "label": "Community",
+      "color": "#212D65",
+      "icon": null
+    },
+    {
+      "id": "outdoors",
+      "label": "Outdoors",
+      "color": "#7FBE41",
+      "icon": null
+    },
+    {
+      "id": "creative",
+      "label": "Creative",
+      "color": "#E22726",
+      "icon": null
+    },
+    {
+      "id": "personal",
+      "label": "Personal Growth",
+      "color": "#FEC52E",
+      "icon": null
+    }
+  ],
+  "patrols": [
+    {
+      "name": "Blue",
+      "color": "#1F5FBF"
+    },
+    {
+      "name": "Green",
+      "color": "#2E9E44"
+    },
+    {
+      "name": "Orange",
+      "color": "#F08A24"
+    }
+  ],
+  "options": {
+    "highlight": "date-activity",
+    "challengeDisplay": "icon",
+    "weekPrefix": "Week ",
+    "holidayLabel": "Hols",
+    "dateFormat": "short",
+    "paper": "A4",
+    "orientation": "landscape",
+    "margin": 8,
+    "autoFit": true,
+    "maxFont": 11,
+    "minFont": 6.5,
+    "stretch": true,
+    "showLegend": true,
+    "rotatePatrols": true,
+    "fitDescription": true,
+    "weekStart": 1,
+    "publicHolidays": true
+  },
+  "extras": {
+    "datesTitle": "Dates for your calendar",
+    "dates": [
+      {
+        "id": "bbq",
+        "what": "Bunnings sausage sizzle (fundraiser)",
+        "when": "",
+        "date": "2027-02-20",
+        "endDate": ""
+      },
+      {
+        "id": "agm",
+        "what": "Group AGM, all families welcome",
+        "when": "",
+        "date": "2027-03-03",
+        "endDate": ""
+      },
+      {
+        "id": "t2",
+        "what": "Term 2 starts",
+        "when": "",
+        "date": "2027-04-26",
+        "endDate": ""
+      }
+    ],
+    "notesTitle": "",
+    "notes": [
+      {
+        "heading": "Term fees",
+        "text": "Invoices go out in Week 2 and are due by Week 5. Payment plans are available."
+      },
+      {
+        "heading": "Parent helpers",
+        "text": "We need two adults for the Pack Holiday and for Clean Up Australia Day. Please let Kookaburra know if you can help."
+      }
+    ]
+  },
+  "rows": [
+    {
+      "id": "welsoy1x",
+      "date": "2027-02-01",
+      "endDate": "",
+      "dateLabel": "",
+      "time": "18:30–20:00",
+      "activity": "Welcome Back Games",
+      "description": "Catch up after the holidays with pack games and plan the term together.",
+      "uniform": "Yes",
+      "forms": "-",
+      "where": "",
+      "patrol": "Blue",
+      "leader": "Wombat",
+      "cost": "-",
+      "challenge": "personal",
+      "notes": "",
+      "category": "hall",
+      "noMeeting": false,
+      "red": []
+    },
+    {
+      "id": "aw774bhw",
+      "date": "2027-02-08",
+      "endDate": "",
+      "dateLabel": "",
+      "time": "18:30–20:00",
+      "activity": "Knots for Camp",
+      "description": "Reef knot, clove hitch and round turn with two half hitches, ready for Pack Holiday.",
+      "uniform": "Yes",
+      "forms": "-",
+      "where": "",
+      "patrol": "Green",
+      "leader": "Echidna",
+      "cost": "-",
+      "challenge": "outdoors",
+      "notes": "",
+      "category": "hall",
+      "noMeeting": false,
+      "red": []
+    },
+    {
+      "id": "hhm59fk7",
+      "date": "2027-02-15",
+      "endDate": "",
+      "dateLabel": "",
+      "time": "18:30–20:00",
+      "activity": "Bike Safety Night",
+      "description": "Bring your bike and helmet. We check brakes and lights, then ride a skills course.",
+      "uniform": "Yes",
+      "forms": "Consent2Go",
+      "where": "",
+      "patrol": "Orange",
+      "leader": "Platypus (Scouts)",
+      "cost": "-",
+      "challenge": "personal",
+      "notes": "Meet at the oval car park.",
+      "category": "out",
+      "noMeeting": false,
+      "red": []
+    },
+    {
+      "id": "07k4xf87",
+      "date": "2027-02-22",
+      "endDate": "",
+      "dateLabel": "",
+      "time": "18:30–20:30",
+      "activity": "Fire Lighting & Damper",
+      "description": "Light a safe campfire and cook damper on a stick. Bring a jumper.",
+      "uniform": "Yes",
+      "forms": "-",
+      "where": "",
+      "patrol": "Blue",
+      "leader": "Kookaburra",
+      "cost": "-",
+      "challenge": "outdoors",
+      "notes": "Later finish: 8:30 pm.",
+      "category": "hall",
+      "noMeeting": false,
+      "red": [
+        "time"
+      ]
+    },
+    {
+      "id": "p3n11guy",
+      "date": "2027-03-01",
+      "endDate": "",
+      "dateLabel": "",
+      "time": "18:30–20:00",
+      "activity": "Backyard Olympics",
+      "description": "Sack races, egg-and-spoon and a giant tug of war. Bring a friend to try Cubs!",
+      "uniform": "Yes",
+      "forms": "-",
+      "where": "",
+      "patrol": "Green",
+      "leader": "Bilby",
+      "cost": "-",
+      "challenge": "community",
+      "notes": "",
+      "category": "friend",
+      "noMeeting": false,
+      "red": []
+    },
+    {
+      "id": "k1nqmqe2",
+      "date": "2027-03-07",
+      "endDate": "",
+      "dateLabel": "",
+      "time": "9:00–12:00",
+      "activity": "Clean Up Australia Day",
+      "description": "Join the community clean-up along Wattle Creek. Gloves and bags supplied.",
+      "uniform": "No",
+      "forms": "Consent2Go",
+      "where": "",
+      "patrol": "",
+      "leader": "Bilby",
+      "cost": "-",
+      "challenge": "community",
+      "notes": "Old clothes, a hat and closed shoes.",
+      "category": "event",
+      "noMeeting": false,
+      "red": []
+    },
+    {
+      "id": "7hmp87e4",
+      "date": "2027-03-08",
+      "endDate": "",
+      "dateLabel": "",
+      "time": "",
+      "activity": "No Cubs – Adelaide Cup Day",
+      "description": "",
+      "uniform": "",
+      "forms": "",
+      "where": "",
+      "patrol": "",
+      "leader": "",
+      "cost": "",
+      "challenge": "",
+      "notes": "",
+      "category": "",
+      "noMeeting": true,
+      "red": [],
+      "autoHoliday": true
+    },
+    {
+      "id": "s9ht59xa",
+      "date": "2027-03-13",
+      "endDate": "2027-03-14",
+      "dateLabel": "",
+      "time": "9 AM Sat\n2 PM Sun",
+      "activity": "Pack Holiday",
+      "description": "Our first camp of the year at the Scout campsite: hikes, a campfire and a night under canvas.",
+      "uniform": "Camp",
+      "forms": "Consent2Go",
+      "where": "",
+      "patrol": "",
+      "leader": "Wombat",
+      "cost": "$65",
+      "challenge": "outdoors",
+      "notes": "Packing list on Consent2Go.",
+      "category": "event",
+      "noMeeting": false,
+      "red": []
+    },
+    {
+      "id": "33rfiwq0",
+      "date": "2027-03-15",
+      "endDate": "",
+      "dateLabel": "",
+      "time": "18:30–20:00",
+      "activity": "Camp Photos & Badges",
+      "description": "Share photos from Pack Holiday and present the badges earned on camp.",
+      "uniform": "Yes",
+      "forms": "-",
+      "where": "",
+      "patrol": "Orange",
+      "leader": "Wombat",
+      "cost": "-",
+      "challenge": "creative",
+      "notes": "",
+      "category": "hall",
+      "noMeeting": false,
+      "red": []
+    },
+    {
+      "id": "9gats9ag",
+      "date": "2027-03-22",
+      "endDate": "",
+      "dateLabel": "",
+      "time": "18:30–20:00",
+      "activity": "Kite Making",
+      "description": "Build a simple kite from bamboo and paper, then test it on the oval.",
+      "uniform": "Yes",
+      "forms": "-",
+      "where": "",
+      "patrol": "Blue",
+      "leader": "Echidna",
+      "cost": "$3",
+      "challenge": "creative",
+      "notes": "",
+      "category": "hall",
+      "noMeeting": false,
+      "red": []
+    },
+    {
+      "id": "h08lgetc",
+      "date": "2027-03-29",
+      "endDate": "",
+      "dateLabel": "",
+      "time": "",
+      "activity": "No Cubs – Easter Monday",
+      "description": "",
+      "uniform": "",
+      "forms": "",
+      "where": "",
+      "patrol": "",
+      "leader": "",
+      "cost": "",
+      "challenge": "",
+      "notes": "",
+      "category": "",
+      "noMeeting": true,
+      "red": [],
+      "autoHoliday": true
+    },
+    {
+      "id": "fjiwyrmj",
+      "date": "2027-04-05",
+      "endDate": "",
+      "dateLabel": "",
+      "time": "18:30–20:00",
+      "activity": "Easter Egg Hunt",
+      "description": "A map and compass egg hunt around the hall grounds, then a term wrap-up.",
+      "uniform": "Yes",
+      "forms": "-",
+      "where": "",
+      "patrol": "Green",
+      "leader": "Kookaburra",
+      "cost": "-",
+      "challenge": "outdoors",
+      "notes": "",
+      "category": "hall",
+      "noMeeting": false,
+      "red": []
+    }
+  ]
+}
