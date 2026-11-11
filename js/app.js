@@ -2088,6 +2088,8 @@ function init() {
   renderAll();
   // Fonts change text metrics — refit once they're ready.
   if (document.fonts?.ready) document.fonts.ready.then(() => fit());
+  // Bold and italic styles can arrive later and change text widths, so refit whenever one loads.
+  document.fonts?.addEventListener?.('loadingdone', () => fitSoon());
 }
 
 init();
