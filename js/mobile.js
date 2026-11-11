@@ -213,7 +213,7 @@ function editorHTML(r) {
   const wk = ws ? weekOf(toISO(ws)) ?? weekOf(toISO(addDays(ws, 6))) : null;
   const label = (k) => state.columns.find((c) => c.key === k)?.label || FIELD_LABELS[k];
   const cols = state.columns.filter((c) => c.visible && !['week', 'date'].includes(c.key)).map((c) => c.key);
-  const datalists = { uniform: ['Yes', 'No', 'Camp', 'Full'], forms: ['-', 'C2G', 'MyScout', 'Event form'] };
+  const datalists = { forms: ['-', 'C2G', 'MyScout', 'Event form'] };
 
   const field = (k) => {
     const v = r[k] || '';
@@ -221,12 +221,13 @@ function editorHTML(r) {
       const opts = state.patrols.filter((p) => p.name).map((p) => ({ value: p.name, html: `<span class="dot" style="background:${esc(p.color)}"></span>${esc(p.name)}` }));
       return `<div class="m-field"><span>${esc(label(k))}</span>${chips('patrol', [...opts, { value: '', html: 'None' }], v)}</div>`;
     }
-    if (k === 'leader') {
-      const { section, others } = leaderChoices();
+    if (k === 'leader' || k === 'uniform') {
+      const cfg = PICKERS[k];
+      const { section, others } = cfg.choices();
       const opts = [...section, ...others].map((n) => ({ value: n, html: esc(n) }));
       const isOther = v && !section.includes(v) && !others.includes(v);
-      return `<div class="m-field"><span>${esc(label(k))}</span>${chips('leader', [...opts, { value: '', html: 'None' }], v)}
-        <input type="text" data-f="leader" class="m-other" placeholder="Other leader, e.g. Roo (Joeys)" value="${isOther ? esc(v) : ''}"></div>`;
+      return `<div class="m-field"><span>${esc(label(k))}</span>${chips(k, [...opts, { value: '', html: 'None' }], v)}
+        <input type="text" data-f="${k}" class="m-other" placeholder="${esc(cfg.otherLabel)}, ${esc(cfg.placeholder)}" value="${isOther ? esc(v) : ''}"></div>`;
     }
     if (k === 'challenge') {
       const opts = state.challenges.map((c) => ({ value: c.id, html: `${challengeIconOnly(c)}${esc(c.label)}` }));
@@ -285,7 +286,7 @@ function wireEditor(body, id, draw) {
     }
     r[f] = el.value;
     r.autoHoliday = false;
-    if (f === 'leader') body.querySelectorAll('[data-chips="leader"] .m-chip').forEach((c) => c.classList.toggle('on', c.dataset.v === el.value));
+    if (el.classList.contains('m-other')) body.querySelectorAll(`[data-chips="${f}"] .m-chip`).forEach((c) => c.classList.toggle('on', c.dataset.v === el.value));
     if (f === 'date' || f === 'endDate') { if (f === 'date' && r.dateLabel && el.value) r.dateLabel = ''; saveSoon(); draw(); return; }
     saveSoon();
   });

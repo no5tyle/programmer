@@ -580,8 +580,9 @@ function cellHTML(col, r) {
   }
   if (k === 'challenge') return `<td class="c-challenge clickable" data-pop="challenge"${align}${tint}>${challengeHTML(r.challenge)}</td>`;
   if (k === 'patrol') return `<td class="c-patrol clickable" data-pop="patrol"${align}${tint}>${patrolHTML(r.patrol)}</td>`;
-  if (k === 'leader') {
-    return `<td class="c-leader clickable" data-pop="leader"${align}${tint}>${r.leader ? `<span class="pick">${esc(r.leader)}</span>` : '<span class="ph">Leader</span>'}</td>`;
+  if (k === 'leader' || k === 'uniform') {
+    const prompt = k === 'leader' ? 'Leader' : 'Uniform';
+    return `<td class="c-${k} clickable" data-pop="${k}"${align}${tint}>${r[k] ? `<span class="pick">${esc(r[k])}</span>` : `<span class="ph">${prompt}</span>`}</td>`;
   }
   const ph = { activity: 'Activity', description: 'Add a description' }[k] || '';
   return `<td class="c-${k}"${align}${tint}><div class="ed" contenteditable="plaintext-only" spellcheck="true" data-key="${k}"${ph ? ` data-ph="${ph}"` : ''}>${esc(r[k])}</div></td>`;
@@ -814,7 +815,7 @@ function fitLabels(cells, labelSel, minScale) {
 function placeLegend(sheet) {
   const legend = $('.doc-legend', sheet), row = $('.doc-side-row', sheet), header = $('.doc-header', sheet);
   if (!legend || !row || !header) return;
-  row.appendChild(legend);
+  row.prepend(legend);
   legend.classList.add('beside');
   const oneLine = (el) => {
     if (!el || !el.textContent.trim()) return true;
@@ -1090,23 +1091,40 @@ function leaderChoices() {
   return { section, others };
 }
 
-function openLeaderPopover(td, row) {
-  const { section, others } = leaderChoices();
-  const btn = (name) => `<button class="choice ${row.leader === name ? 'on' : ''}" data-v="${esc(name)}"><span class="dot person"></span><span>${esc(name)}</span></button>`;
+/** Uniform: Yes or No, then any other values already used in this program (e.g. Camp). */
+function uniformChoices() {
+  const section = ['Yes', 'No'];
+  const others = [...new Set(state.rows.map((r) => (r.uniform || '').trim()).filter((v) => v && !section.includes(v)))].sort();
+  return { section, others };
+}
+
+const PICKERS = {
+  leader: { title: 'Leader', choices: leaderChoices, othersLabel: 'Other leaders in this program', otherLabel: 'Other leader',
+    placeholder: 'e.g. Roo (Joeys)', empty: 'Add your section\'s leaders under <strong>Leaders</strong> in the sidebar.', dot: 'person' },
+  uniform: { title: 'Uniform', choices: uniformChoices, othersLabel: 'Also used in this program', otherLabel: 'Other',
+    placeholder: 'e.g. Camp, Full uniform', empty: '', dot: 'person' },
+};
+
+/** A single-choice list (leader, uniform) with an "Other" box for anything not listed. */
+function openPickPopover(td, row, key) {
+  const cfg = PICKERS[key];
+  const { section, others } = cfg.choices();
+  const cur = row[key] || '';
+  const btn = (v) => `<button class="choice ${cur === v ? 'on' : ''}" data-v="${esc(v)}"><span class="dot ${cfg.dot}"></span><span>${esc(v)}</span></button>`;
   openPopover(td, `
-    <div class="pop-title">Leader</div>
+    <div class="pop-title">${cfg.title}</div>
     <div class="choice-list">
-      ${section.length ? section.map(btn).join('') : '<p class="hint">Add your section\'s leaders under <strong>Leaders</strong> in the sidebar.</p>'}
-      ${others.length ? `<div class="menu-label">Other leaders in this program</div>${others.map(btn).join('')}` : ''}
-      <button class="choice ${row.leader ? '' : 'on'}" data-v=""><span class="dot none"></span><span>None</span></button>
+      ${section.length ? section.map(btn).join('') : `<p class="hint">${cfg.empty}</p>`}
+      ${others.length ? `<div class="menu-label">${cfg.othersLabel}</div>${others.map(btn).join('')}` : ''}
+      <button class="choice ${cur ? '' : 'on'}" data-v=""><span class="dot none"></span><span>None</span></button>
     </div>
-    <label class="field"><span>Other leader</span>
-      <span class="inline-add"><input type="text" id="pLeader" placeholder="e.g. Roo (Joeys)" value="${esc(section.includes(row.leader) || others.includes(row.leader) ? '' : row.leader)}"><button class="btn btn-primary btn-sm" id="pLeaderSet">Set</button></span>
-    </label>`, { type: 'leader', id: row.id });
-  const set = (v) => { pushHistory(); const r = rowById(row.id); if (r) r.leader = v; closePopover(); save(); renderDoc(); };
+    <label class="field"><span>${cfg.otherLabel}</span>
+      <span class="inline-add"><input type="text" id="pPick" placeholder="${esc(cfg.placeholder)}" value="${esc(section.includes(cur) || others.includes(cur) ? '' : cur)}"><button class="btn btn-primary btn-sm" id="pPickSet">Set</button></span>
+    </label>`, { type: key, id: row.id });
+  const set = (v) => { pushHistory(); const r = rowById(row.id); if (r) r[key] = v; closePopover(); save(); renderDoc(); };
   pop.querySelectorAll('.choice').forEach((b) => { b.onclick = () => set(b.dataset.v); });
-  const input = $('#pLeader');
-  $('#pLeaderSet').onclick = () => { if (input.value.trim()) set(input.value.trim()); };
+  const input = $('#pPick');
+  $('#pPickSet').onclick = () => { if (input.value.trim()) set(input.value.trim()); };
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && input.value.trim()) set(input.value.trim()); });
 }
 
@@ -1911,7 +1929,7 @@ function bindEvents() {
     const td = e.target.closest('td.clickable'); if (!td) return;
     const r = rowById(td.closest('tr').dataset.id); if (!r) return;
     if (td.dataset.pop === 'date') openDatePopover(td, r);
-    else if (td.dataset.pop === 'leader') openLeaderPopover(td, r);
+    else if (PICKERS[td.dataset.pop]) openPickPopover(td, r, td.dataset.pop);
     else openChoicePopover(td, r, td.dataset.pop);
   });
   sheet.addEventListener('mouseover', (e) => {
