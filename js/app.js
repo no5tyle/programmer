@@ -146,7 +146,7 @@ function newRow(date = '', patch = {}) {
   return {
     id: uid(), date, endDate: '', dateLabel: '', time: defaultTimeText(),
     activity: '', description: '', uniform: 'Yes', forms: '', where: '', patrol: '',
-    leader: '', cost: '', challenge: '', notes: '', category: '', noMeeting: false, ...patch,
+    leader: '', cost: '', challenge: '', notes: '', category: '', noMeeting: false, red: [], ...patch,
   };
 }
 
@@ -156,7 +156,7 @@ function defaultState() {
     branding: {
       groupName: '', section: 'cubs', sectionName: 'Cubs', color: SECTIONS.cubs.color,
       titleTemplate: '{section} Program – Term {term} {year}', titleColor: 'dark', headerStyle: 'tint',
-      font: 'Nunito', logo: null, versionText: '', footerText: '', leadersLabel: 'Leaders:',
+      font: 'Nunito', logo: null, versionText: '', footerText: '', headerNote: '', leadersLabel: 'Leaders:',
       leaders: [{ name: 'Leader name', phone: '0400 000 000' }, { name: 'Leader name', phone: '0400 000 000' }],
     },
     term: {
@@ -189,6 +189,7 @@ function normalise(raw) {
   s.options = { ...d.options, ...(raw.options || {}) };
   s.extras = { ...d.extras, ...(raw.extras || {}) };
   if (!Array.isArray(s.extras.dates)) s.extras.dates = [];
+  s.extras.dates.forEach((d) => { d.id = d.id || uid(); d.date = d.date || ''; d.endDate = d.endDate || ''; });
   if (!Array.isArray(s.extras.notes)) s.extras.notes = [];
   ['categories', 'challenges', 'patrols'].forEach((k) => { if (!Array.isArray(s[k])) s[k] = d[k]; });
   if (!Array.isArray(s.branding.leaders)) s.branding.leaders = [];
@@ -571,7 +572,13 @@ function dateText(r, includeTime) {
 
 const HL_KEYS = { 'date-activity': ['date', 'time', 'activity'], activity: ['activity'] };
 
+/** A cell, in red bold if the row marks it ("red text" in the row menu). */
 function cellHTML(col, r) {
+  const html = cellInner(col, r);
+  return (r.red || []).includes(col.key) ? html.replace('<td class="', '<td class="red ') : html;
+}
+
+function cellInner(col, r) {
   const k = col.key;
   const cat = state.categories.find((c) => c.id === r.category);
   const hl = state.options.highlight;
@@ -593,10 +600,20 @@ function cellHTML(col, r) {
   return `<td class="c-${k}"${align}${tint}><div class="ed" contenteditable="plaintext-only" spellcheck="true" data-key="${k}"${ph ? ` data-ph="${ph}"` : ''}>${esc(r[k])}</div></td>`;
 }
 
+/** "Friday 6 November", "23–25 October" or "30 October – 1 November". */
+function rangeText(a, b) {
+  const s = parseDate(a), e = parseDate(b);
+  if (!s) return '';
+  if (!e || e <= s) return `${DAY_LONG[s.getDay()]} ${s.getDate()} ${MONTH_LONG[s.getMonth()]}`;
+  if (s.getMonth() === e.getMonth()) return `${s.getDate()}–${e.getDate()} ${MONTH_LONG[s.getMonth()]}`;
+  return `${s.getDate()} ${MONTH_LONG[s.getMonth()]} – ${e.getDate()} ${MONTH_LONG[e.getMonth()]}`;
+}
+
 /** Under the table: "Dates for your calendar" on the left and a box of notes on the right. */
 function extrasHTML() {
   const x = state.extras;
-  const dates = x.dates.filter((d) => (d.what || '').trim() || (d.when || '').trim());
+  const dates = x.dates.filter((d) => (d.what || '').trim() || (d.when || '').trim() || d.date)
+    .map((d) => ({ ...d, when: (d.when || '').trim() || rangeText(d.date, d.endDate) }));
   const notes = x.notes.filter((n) => (n.heading || '').trim() || (n.text || '').trim());
   if (!dates.length && !notes.length) return '';
   const datesHTML = dates.length ? `
@@ -675,10 +692,11 @@ function renderSheet() {
         <div class="doc-title">${esc(titleText())}</div>
       </div>
       <div class="doc-side">
-        <div class="doc-side-row">${leadersHTML}</div>
+        <div class="doc-side-row">${leadersHTML}${b.headerNote ? `<div class="doc-note">${esc(b.headerNote)}</div>` : ''}</div>
         ${b.versionText ? `<div class="doc-version">${esc(b.versionText)}</div>` : ''}
       </div>
     </div>
+    <div class="doc-strip"></div>
     ${legendHTML}
     <table class="prog">
       <colgroup>${cols.map((c) => `<col data-key="${c.key}" data-pct="${((+c.width || 1) / totalW) * 100}" style="width:${((+c.width || 1) / totalW) * 100}%">`).join('')}</colgroup>
@@ -839,21 +857,31 @@ function fitLabels(cells, labelSel, minScale) {
  */
 function placeLegend(sheet) {
   const legend = $('.doc-legend', sheet), row = $('.doc-side-row', sheet), header = $('.doc-header', sheet);
-  if (!legend || !row || !header) return;
-  row.prepend(legend);
-  legend.classList.add('beside');
+  const note = $('.doc-note', sheet), strip = $('.doc-strip', sheet);
+  if (!row || !header) return;
   const oneLine = (el) => {
     if (!el || !el.textContent.trim()) return true;
     const cs = getComputedStyle(el);
     const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.25;
     return el.scrollWidth <= el.clientWidth + 1 && el.offsetHeight < lh * 1.5;
   };
+  const titlesOk = () => oneLine($('.doc-group', sheet)) && oneLine($('.doc-title', sheet));
+  // A heading note goes beside the leaders, or in the strip under the heading if it won't fit.
+  if (note) {
+    row.appendChild(note);
+    note.classList.remove('below');
+    if (!titlesOk()) { note.classList.add('below'); strip.appendChild(note); }
+  }
+  if (!legend) return;
+  row.prepend(legend);
+  legend.classList.add('beside');
   // It must really sit to the left of the leaders (not stacked above them), with the titles unwrapped.
   const leaders = $('.doc-leaders', sheet);
   const sideBySide = !leaders || legend.getBoundingClientRect().right <= leaders.getBoundingClientRect().left + 1;
-  if (!(sideBySide && oneLine($('.doc-group', sheet)) && oneLine($('.doc-title', sheet)))) {
+  if (!(sideBySide && titlesOk())) {
     legend.classList.remove('beside');
-    header.after(legend);
+    if (note && note.parentElement === strip) strip.appendChild(legend);   // note left, legend right
+    else header.after(legend);
   }
 }
 
@@ -985,10 +1013,15 @@ const delBtn = (list, i) => `<button class="icon-btn" data-del="${list}" data-i=
 function renderLists() {
   const b = state.branding;
   $('#datesList').innerHTML = state.extras.dates.map((x, i) => `
-    <div class="list-row">
-      <input type="text" placeholder="What, e.g. Joey camp" value="${esc(x.what)}" data-list="dates" data-i="${i}" data-field="what">
-      <input type="text" placeholder="When, e.g. 23–25 Oct" value="${esc(x.when)}" data-list="dates" data-i="${i}" data-field="when" class="w-when">
+    <div class="list-row note-row">
+      <input type="text" placeholder="What, e.g. ROONKA (Family Camp)" value="${esc(x.what)}" data-list="dates" data-i="${i}" data-field="what">
       ${delBtn('dates', i)}
+      <span class="date-pair" title="Dates for the families' calendar file">
+        <input type="date" value="${esc(x.date)}" data-list="dates" data-i="${i}" data-field="date" aria-label="From">
+        <span>to</span>
+        <input type="date" value="${esc(x.endDate)}" data-list="dates" data-i="${i}" data-field="endDate" aria-label="To (optional)">
+      </span>
+      <input type="text" placeholder="Text shown (blank: from the dates)" value="${esc(x.when)}" data-list="dates" data-i="${i}" data-field="when" class="w-full">
     </div>`).join('') || '<p class="hint">No other dates yet.</p>';
   $('#notesList').innerHTML = state.extras.notes.map((x, i) => `
     <div class="list-row note-row">
@@ -1206,16 +1239,24 @@ function openRowMenu(anchor, rowId) {
         <button class="swatch none ${r.category ? '' : 'on'}" data-cat="" title="No highlight"><span>None</span></button>
       </div>
       <div class="menu-sep"></div>
+      <div class="menu-label">Red text</div>
+      <div class="swatches">
+        ${state.columns.filter((c) => c.visible && c.key !== 'week' && (!r.noMeeting || c.key === 'date' || c.key === 'activity')).map((c) => `<button class="swatch none red-swatch ${(r.red || []).includes(c.key) ? 'on' : ''}" data-red="${c.key}"><span>${esc(c.label)}</span></button>`).join('')}
+      </div>
+      <div class="menu-sep"></div>
       <button data-act="del" class="danger">${icon('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>')}Delete</button>
     </div>`, { type: 'row', id: rowId });
 
   pop.onclick = (e) => {
-    const btn = e.target.closest('[data-act],[data-cat]');
+    const btn = e.target.closest('[data-act],[data-cat],[data-red]');
     if (!btn || btn.disabled) return;
     pushHistory();
     const i = state.rows.findIndex((x) => x.id === rowId);
     const row = state.rows[i];
-    if (btn.dataset.cat !== undefined) row.category = btn.dataset.cat;
+    if (btn.dataset.red) {
+      const k = btn.dataset.red;
+      row.red = (row.red || []).includes(k) ? row.red.filter((x) => x !== k) : [...(row.red || []), k];
+    } else if (btn.dataset.cat !== undefined) row.category = btn.dataset.cat;
     else {
       switch (btn.dataset.act) {
         case 'below': state.rows.splice(i + 1, 0, newRow(row.date, { uniform: row.uniform })); break;
@@ -1462,6 +1503,18 @@ function exportCalendar() {
     lines.push(...ev);
     count++;
   });
+  // Other dates under the program (fundraisers, camps) with a real date: all-day events.
+  state.extras.dates.forEach((x) => {
+    const start = parseDate(x.date);
+    if (!start) return;
+    const end = parseDate(x.endDate) && parseDate(x.endDate) >= start ? parseDate(x.endDate) : start;
+    lines.push('BEGIN:VEVENT', `UID:extra-${x.id}@scout-program-builder`, `DTSTAMP:${stamp}`,
+      `DTSTART;VALUE=DATE:${ymd(start)}`, `DTEND;VALUE=DATE:${ymd(addDays(end, 1))}`,
+      `SUMMARY:${icsText(x.what || group || 'Scout event')}`);
+    if ((x.when || '').trim()) lines.push(`DESCRIPTION:${icsText(x.when)}`);
+    lines.push('END:VEVENT');
+    count++;
+  });
   lines.push('END:VCALENDAR');
   if (!count) { toast('Add some dated activities first.', 'error'); return; }
   downloadFile(`${programFileName()}.ics`, lines.map(icsFold).join('\r\n') + '\r\n', 'text/calendar');
@@ -1475,7 +1528,7 @@ const CSV_FIELDS = [
   ['week', 'Week'], ['date', 'Date'], ['endDate', 'End date'], ['dateLabel', 'Date text'], ['time', 'Time'],
   ['activity', 'Activity'], ['description', 'Description'], ['uniform', 'Uniform'], ['forms', 'Forms'],
   ['where', 'Where'], ['patrol', 'Duty Patrol'], ['leader', 'Leader'], ['cost', 'Cost'],
-  ['challenge', 'Challenge Area'], ['notes', 'Notes'], ['category', 'Highlight'], ['noMeeting', 'No meeting'],
+  ['challenge', 'Challenge Area'], ['notes', 'Notes'], ['category', 'Highlight'], ['noMeeting', 'No meeting'], ['red', 'Red text'],
 ];
 const CSV_ALIASES = {
   week: 'week', date: 'date', enddate: 'endDate', ends: 'endDate', finishdate: 'endDate', datetext: 'dateLabel',
@@ -1483,7 +1536,7 @@ const CSV_ALIASES = {
   description: 'description', uniform: 'uniform', forms: 'forms', where: 'where', location: 'where',
   dutypatrol: 'patrol', patrol: 'patrol', leader: 'leader', leaders: 'leader', cost: 'cost',
   challengearea: 'challenge', challenge: 'challenge', notes: 'notes', highlight: 'category', category: 'category',
-  nomeeting: 'noMeeting', weekoff: 'noMeeting',
+  nomeeting: 'noMeeting', weekoff: 'noMeeting', redtext: 'red', red: 'red',
 };
 const headerKey = (h) => String(h || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -1509,6 +1562,7 @@ function exportCsv() {
     if (k === 'challenge') return state.challenges.find((c) => c.id === r.challenge)?.label || '';
     if (k === 'category') return state.categories.find((c) => c.id === r.category)?.label || '';
     if (k === 'noMeeting') return r.noMeeting ? 'Yes' : '';
+    if (k === 'red') return (r.red || []).map((key) => state.columns.find((c) => c.key === key)?.label || key).join(', ');
     return r[k] ?? '';
   };
   const lines = [CSV_FIELDS.map(([, h]) => h), ...state.rows.map((r) => CSV_FIELDS.map(([k]) => value(r, k)))];
@@ -1586,6 +1640,11 @@ function rowsFromCsv(text) {
       } else if (k === 'challenge') r.challenge = v ? find(state.challenges, v) : '';
       else if (k === 'category') r.category = v ? find(state.categories, v) : '';
       else if (k === 'noMeeting') r.noMeeting = /^(y|yes|true|1|x|✓)$/i.test(v);
+      else if (k === 'red') {
+        r.red = v.split(/[,;]/).map((x) => headerKey(x)).filter(Boolean)
+          .map((h) => state.columns.find((c) => headerKey(c.label) === h || headerKey(c.key) === h)?.key || CSV_ALIASES[h])
+          .filter((key) => key && state.columns.some((c) => c.key === key));
+      }
       else if (k === 'dateLabel') { if (v) r.dateLabel = v; }
       else r[k] = v;
     });
@@ -1907,7 +1966,7 @@ function bindEvents() {
       pushHistory();
       const k = add.dataset.add;
       if (k === 'leaders') state.branding.leaders.push({ name: '', phone: '' });
-      if (k === 'dates') state.extras.dates.push({ what: '', when: '' });
+      if (k === 'dates') state.extras.dates.push({ id: uid(), what: '', when: '', date: '', endDate: '' });
       if (k === 'notes') state.extras.notes.push({ heading: '', text: '' });
       if (k === 'patrols') state.patrols.push({ name: '', color: '#555555' });
       if (k === 'categories') state.categories.push({ id: uid(), label: 'New highlight', color: '#FFE0B2' });

@@ -258,6 +258,9 @@ function editorHTML(r) {
     : `<div class="m-card">${cols.map(field).join('')}</div>
       <div class="m-card"><div class="m-field"><span>Highlight</span>
         ${chips('category', [...state.categories.map((c) => ({ value: c.id, html: `<span class="dot" style="background:${esc(c.color)}"></span>${esc(c.label)}` })), { value: '', html: 'None' }], r.category)}
+      </div>
+      <div class="m-field"><span>Red text</span>
+        <div class="m-chips" data-red-chips>${state.columns.filter((c) => c.visible && c.key !== 'week').map((c) => `<button class="m-chip red ${(r.red || []).includes(c.key) ? 'on' : ''}" data-red="${c.key}">${esc(c.label)}</button>`).join('')}</div>
       </div></div>`}
     <div class="m-actions">
       <button class="btn btn-outline" data-act="add">Add another activity this week</button>
@@ -293,6 +296,12 @@ function wireEditor(body, id, draw) {
   body.addEventListener('click', (e) => {
     const r = rowById(id);
     if (!r) return;
+    const redChip = e.target.closest('[data-red]');
+    if (redChip) {
+      const k = redChip.dataset.red;
+      r.red = (r.red || []).includes(k) ? r.red.filter((x) => x !== k) : [...(r.red || []), k];
+      saveSoon(); draw(); return;
+    }
     const chip = e.target.closest('.m-chip');
     if (chip) {
       const key = chip.parentElement.dataset.chips;
