@@ -59,9 +59,37 @@ Open `index.html` directly, or serve the folder:
 python3 -m http.server 8000
 ```
 
-## Publishing changes
+## Publishing and tests
 
-GitHub Pages lets browsers keep each file for up to 10 minutes. The CSS and JS links in `index.html` carry a `?v=` tag so browsers fetch all files together. Bump it whenever you change those files.
+Every push to `main` runs the tests, then publishes the site (`.github/workflows/pages.yml`). If a test fails, the site isn't updated. Pushes to other branches and pull requests just run the tests (`test.yml`).
+
+When publishing, the `?v=` tags on the CSS and JS links in `index.html` are set to the commit, so browsers always load matching files after an update. GitHub Pages lets browsers keep files for 10 minutes.
+
+**One-time setup:** in the repository's **Settings → Pages**, set **Source** to **GitHub Actions**.
+
+To run the tests yourself (needs Node.js):
+
+```bash
+npm install
+```
+
+```bash
+npx playwright install chromium
+```
+
+```bash
+npm test
+```
+
+To view the site locally, run `npm run serve` and open http://localhost:8765/.
+
+The tests cover:
+- fitting the page and printing on one landscape page;
+- no word broken across lines;
+- editing, rows, weeks, sorting and pickers;
+- public holidays and term dates, checked against official data in `tests/fixtures/`;
+- spreadsheet, calendar and PDF files, and saved programs;
+- the phone view.
 
 ## Updating term dates and holidays
 
@@ -78,3 +106,5 @@ Term dates are in `js/data.js` under `TERM_DATES`, as `[start, end]` pairs for e
 | `assets/challenge-areas/` | Official Scouts Australia Challenge Area icons, from the Program Icons page at resources.scouts.com.au, used as provided |
 | `js/app.js` | State, rendering, auto-fit, editing, import/export |
 | `js/mobile.js`, `css/mobile.css` | Phone and tablet view |
+| `tests/`, `playwright.config.js` | Automated tests (`npm test`) |
+| `.github/workflows/` | Tests on every push; publishing to GitHub Pages |

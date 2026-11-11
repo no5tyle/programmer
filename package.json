@@ -1,0 +1,12 @@
+{
+  "name": "scout-program-builder",
+  "private": true,
+  "description": "Term program builder for Scout families. A static site; npm is only used for the tests.",
+  "scripts": {
+    "serve": "node tests/serve.js",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}
