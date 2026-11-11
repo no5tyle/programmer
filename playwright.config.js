@@ -10,6 +10,7 @@ module.exports = defineConfig({
   use: {
     baseURL: 'http://localhost:8765/',
     trace: 'off',
+    screenshot: 'only-on-failure',
     ...devices['Desktop Chrome'],
     viewport: { width: 1600, height: 1000 },
   },

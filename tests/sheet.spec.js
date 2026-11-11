@@ -44,7 +44,16 @@ test.describe('sheet', () => {
       ...[...document.querySelectorAll('.prog .ed, .prog .dt')].filter((e) => e.scrollWidth > e.clientWidth + 0.5),
       ...[...document.querySelectorAll('.prog .pick, .prog .patrol, .prog .wk, .prog .th-l')].filter((e) => !overflowsNot(e)),
     ].map((e) => e.textContent));
-    expect(broken).toEqual([]);
+    // Details to help if this fails on another machine (fonts, sizes, widths).
+    const details = await page.evaluate(() => {
+      const e = [...document.querySelectorAll('.prog .ed, .prog .dt')].find((x) => x.scrollWidth > x.clientWidth + 0.5);
+      return JSON.stringify({
+        status: document.querySelector('#fitStatus').textContent,
+        nunito: document.fonts.check('12px Nunito'),
+        cell: e && { text: e.textContent, fontSize: e.style.fontSize || getComputedStyle(e).fontSize, scrollW: e.scrollWidth, clientW: e.clientWidth, colW: e.closest('td').getBoundingClientRect().width },
+      });
+    });
+    expect(broken, details).toEqual([]);
   });
 
   test('typing in a cell edits the program', async ({ page }) => {
