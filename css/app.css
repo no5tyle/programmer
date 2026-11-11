@@ -386,6 +386,13 @@ input[type=color]::-moz-color-swatch { border: 0; border-radius: 5px; }
 
 .doc-legend { display: flex; justify-content: flex-end; gap: 1.5mm; margin: -1mm 0 1.6mm; font-size: max(7pt, calc(var(--fs) * .85)); }
 .doc-legend span { padding: .2em .9em; border: .5pt solid rgba(0, 0, 0, .35); font-weight: 600; }
+.doc-side-row { display: flex; align-items: flex-start; gap: 4mm; }
+/* Beside the leaders: a two-column grid at the heading's own text size. */
+.doc-legend.beside {
+  display: grid; grid-template-columns: repeat(2, auto); gap: 1.2mm;
+  margin: 0; font-size: .7em; align-self: center;
+}
+.doc-legend.beside span { text-align: center; white-space: nowrap; }
 
 /*
  * Grid lines are drawn in a layer above every cell background, not as cell borders.
