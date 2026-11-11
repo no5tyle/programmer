@@ -650,7 +650,7 @@ function renderSheet() {
         <div class="doc-title">${esc(titleText())}</div>
       </div>
       <div class="doc-side">
-        ${leadersHTML}
+        <div class="doc-side-row">${leadersHTML}</div>
         ${b.versionText ? `<div class="doc-version">${esc(b.versionText)}</div>` : ''}
       </div>
     </div>
@@ -807,6 +807,27 @@ function fitLabels(cells, labelSel, minScale) {
   setScale(Math.floor(best * 100) / 100);
 }
 
+/**
+ * Put the legend in a two-column grid beside the leaders when the heading has room for it (the
+ * group name and title each stay on one line); otherwise in its own row under the heading.
+ */
+function placeLegend(sheet) {
+  const legend = $('.doc-legend', sheet), row = $('.doc-side-row', sheet), header = $('.doc-header', sheet);
+  if (!legend || !row || !header) return;
+  row.appendChild(legend);
+  legend.classList.add('beside');
+  const oneLine = (el) => {
+    if (!el || !el.textContent.trim()) return true;
+    const cs = getComputedStyle(el);
+    const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.25;
+    return el.scrollWidth <= el.clientWidth + 1 && el.offsetHeight < lh * 1.5;
+  };
+  if (!(oneLine($('.doc-group', sheet)) && oneLine($('.doc-title', sheet)))) {
+    legend.classList.remove('beside');
+    header.after(legend);
+  }
+}
+
 function fit() {
   const sheet = $('#sheet');
   const o = state.options;
@@ -814,6 +835,7 @@ function fit() {
   const status = $('#fitStatus');
   sheet.classList.remove('multi');
   if (table) table.style.height = '';
+  placeLegend(sheet);
   let cellsOk = true;
   const setFs = (pt) => {
     sheet.style.setProperty('--fs', `${pt}pt`);
