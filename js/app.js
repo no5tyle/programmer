@@ -172,6 +172,8 @@ function defaultState() {
       paper: 'A4', orientation: 'landscape', margin: 8, autoFit: true, maxFont: 11, minFont: 6.5,
       stretch: true, showLegend: true, rotatePatrols: true, fitDescription: true, weekStart: 1, publicHolidays: true,
     },
+    // Under the table: other dates for families' calendars (fundraisers, camps) and notes.
+    extras: { datesTitle: 'Dates for your calendar', dates: [], notesTitle: '', notes: [] },
     rows: [],
   };
   return s;
@@ -185,6 +187,9 @@ function normalise(raw) {
   s.branding = { ...d.branding, ...(raw.branding || {}) };
   s.term = { ...d.term, ...(raw.term || {}) };
   s.options = { ...d.options, ...(raw.options || {}) };
+  s.extras = { ...d.extras, ...(raw.extras || {}) };
+  if (!Array.isArray(s.extras.dates)) s.extras.dates = [];
+  if (!Array.isArray(s.extras.notes)) s.extras.notes = [];
   ['categories', 'challenges', 'patrols'].forEach((k) => { if (!Array.isArray(s[k])) s[k] = d[k]; });
   if (!Array.isArray(s.branding.leaders)) s.branding.leaders = [];
   // Columns: keep saved order/labels, add any new built-in columns.
@@ -588,6 +593,25 @@ function cellHTML(col, r) {
   return `<td class="c-${k}"${align}${tint}><div class="ed" contenteditable="plaintext-only" spellcheck="true" data-key="${k}"${ph ? ` data-ph="${ph}"` : ''}>${esc(r[k])}</div></td>`;
 }
 
+/** Under the table: "Dates for your calendar" on the left and a box of notes on the right. */
+function extrasHTML() {
+  const x = state.extras;
+  const dates = x.dates.filter((d) => (d.what || '').trim() || (d.when || '').trim());
+  const notes = x.notes.filter((n) => (n.heading || '').trim() || (n.text || '').trim());
+  if (!dates.length && !notes.length) return '';
+  const datesHTML = dates.length ? `
+    <div class="doc-dates">
+      ${x.datesTitle ? `<div class="doc-extras-title">${esc(x.datesTitle)}</div>` : ''}
+      ${dates.map((d) => `<div class="doc-date"><b>${esc(d.what)}</b>${d.what && d.when ? ' – ' : ''}${esc(d.when)}</div>`).join('')}
+    </div>` : '';
+  const notesHTML = notes.length ? `
+    <div class="doc-notes">
+      ${x.notesTitle ? `<div class="doc-extras-title">${esc(x.notesTitle)}</div>` : ''}
+      ${notes.map((n) => `<p>${n.heading ? `<b>${esc(n.heading)}</b> ` : ''}${esc(n.text)}</p>`).join('')}
+    </div>` : '';
+  return `<div class="doc-extras ${dates.length && notes.length ? '' : 'single'}">${datesHTML}${notesHTML}</div>`;
+}
+
 function renderSheet() {
   const b = state.branding, o = state.options;
   const sheet = $('#sheet');
@@ -661,6 +685,7 @@ function renderSheet() {
       <thead><tr>${cols.map((c) => `<th class="c-${c.key}"><span class="th-l">${esc(c.label)}</span></th>`).join('')}</tr></thead>
       <tbody>${body || `<tr class="empty-row"><td colspan="${cols.length}">No activities yet — use <b>Generate dates</b> or <b>Add activity</b>.</td></tr>`}</tbody>
     </table>
+    ${extrasHTML()}
     ${b.footerText ? `<div class="doc-footer">${esc(b.footerText)}</div>` : ''}`;
 }
 
@@ -959,6 +984,18 @@ const delBtn = (list, i) => `<button class="icon-btn" data-del="${list}" data-i=
 
 function renderLists() {
   const b = state.branding;
+  $('#datesList').innerHTML = state.extras.dates.map((x, i) => `
+    <div class="list-row">
+      <input type="text" placeholder="What, e.g. Joey camp" value="${esc(x.what)}" data-list="dates" data-i="${i}" data-field="what">
+      <input type="text" placeholder="When, e.g. 23–25 Oct" value="${esc(x.when)}" data-list="dates" data-i="${i}" data-field="when" class="w-when">
+      ${delBtn('dates', i)}
+    </div>`).join('') || '<p class="hint">No other dates yet.</p>';
+  $('#notesList').innerHTML = state.extras.notes.map((x, i) => `
+    <div class="list-row note-row">
+      <input type="text" placeholder="Heading, e.g. Friday 6 Nov – Bunnings BBQ" value="${esc(x.heading)}" data-list="notes" data-i="${i}" data-field="heading">
+      ${delBtn('notes', i)}
+      <textarea rows="2" placeholder="Details" data-list="notes" data-i="${i}" data-field="text">${esc(x.text)}</textarea>
+    </div>`).join('') || '<p class="hint">No notes yet.</p>';
   $('#leadersList').innerHTML = b.leaders.map((l, i) => `
     <div class="list-row">
       <input type="text" placeholder="Name" value="${esc(l.name)}" data-list="leaders" data-i="${i}" data-field="name">
@@ -1735,6 +1772,7 @@ async function newProgram() {
   const c = copyOf(state);
   c.branding.versionText = '';
   c.rows = [];
+  c.extras = { ...c.extras, dates: [], notes: [] };
   save();
   const prev = state;
   state = c;
@@ -1823,11 +1861,15 @@ function onBoundInput(e) {
   renderDoc();
 }
 
+function listArray(name) {
+  return { leaders: state.branding.leaders, dates: state.extras.dates, notes: state.extras.notes }[name] || state[name];
+}
+
 function onListInput(e) {
   const el = e.target.closest('[data-list]');
   if (!el) return;
   const list = el.dataset.list, i = +el.dataset.i, field = el.dataset.field;
-  const arr = list === 'leaders' ? state.branding.leaders : state[list];
+  const arr = listArray(list);
   let v = el.type === 'checkbox' ? el.checked : el.value;
   if (field === 'width') { v = parseFloat(v); if (!(v > 0)) return; }
   if (list === 'leaders' && field === 'name') {
@@ -1851,7 +1893,7 @@ function bindEvents() {
       if (e.target.closest && e.target.closest('#sidebar, .m-settings')) fn(e);
     }),
   };
-  side.addEventListener('focusin', (e) => { if (e.target.matches('input, select')) pushHistory(); });
+  side.addEventListener('focusin', (e) => { if (e.target.matches('input, select, textarea')) pushHistory(); });
   side.addEventListener('input', (e) => { onBoundInput(e); onListInput(e); });
   side.addEventListener('change', (e) => { if (e.target.closest('[data-bind]')) onBoundInput(e); });
 
@@ -1865,6 +1907,8 @@ function bindEvents() {
       pushHistory();
       const k = add.dataset.add;
       if (k === 'leaders') state.branding.leaders.push({ name: '', phone: '' });
+      if (k === 'dates') state.extras.dates.push({ what: '', when: '' });
+      if (k === 'notes') state.extras.notes.push({ heading: '', text: '' });
       if (k === 'patrols') state.patrols.push({ name: '', color: '#555555' });
       if (k === 'categories') state.categories.push({ id: uid(), label: 'New highlight', color: '#FFE0B2' });
       if (k === 'challenges') state.challenges.push({ id: uid(), label: 'New area', color: '#555555', icon: null });
@@ -1874,7 +1918,7 @@ function bindEvents() {
     } else if (del) {
       pushHistory();
       const k = del.dataset.del, i = +del.dataset.i;
-      (k === 'leaders' ? state.branding.leaders : state[k]).splice(i, 1);
+      listArray(k).splice(i, 1);
       save(); renderAll();
     } else if (mv) {
       pushHistory();
