@@ -1,0 +1,53 @@
+# On every push to main: run the tests, then publish the site to GitHub Pages.
+# The ?v= tags on the CSS and JS links are set to the commit, so browsers always load
+# matching files after an update. Needs Settings → Pages → Source: "GitHub Actions".
+name: Test and publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the site folder with version tags from the commit
+        run: |
+          mkdir _site
+          cp -r index.html css js assets .nojekyll _site/
+          sed -i -E "s/\?v=[^\"']*/?v=${GITHUB_SHA::8}/g" _site/index.html
+          grep -o '?v=[a-f0-9]*' _site/index.html | sort -u
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
