@@ -10,8 +10,11 @@ test.describe('sheet', () => {
   test('the page loads its styles and scripts', async ({ page }) => {
     // Guards against a broken published index.html (e.g. a damaged tag hiding the stylesheets).
     const sheets = await page.evaluate(() => [...document.styleSheets].map((x) => (x.href || '').split('/').pop().split('?')[0]).filter(Boolean));
-    expect(sheets).toEqual(expect.arrayContaining(['app.css', 'mobile.css']));
+    expect(sheets).toEqual(expect.arrayContaining(['no5tyle.css', 'app.css', 'mobile.css']));
     await expect(page.locator('.appbar')).toHaveCSS('height', '60px');
+    // The shared look (no5tyle.github.io/shared/no5tyle.css) supplies the colours
+    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(242, 242, 247)');
+    await expect(page.locator('#btnPrint')).toHaveCSS('background-color', 'rgb(0, 122, 255)');
     await expect(page.locator('#sheet .prog')).toHaveCount(1);
   });
 
