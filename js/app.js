@@ -700,7 +700,7 @@ function renderSheet() {
     ${legendHTML}
     <table class="prog">
       <colgroup>${cols.map((c) => `<col data-key="${c.key}" data-pct="${((+c.width || 1) / totalW) * 100}" style="width:${((+c.width || 1) / totalW) * 100}%">`).join('')}</colgroup>
-      <thead><tr>${cols.map((c) => `<th class="c-${c.key}"><span class="th-l">${esc(c.label)}</span></th>`).join('')}</tr></thead>
+      <thead><tr>${cols.map((c, i) => `<th class="c-${c.key}"><span class="th-l">${esc(c.label)}</span>${i < cols.length - 1 ? `<span class="col-grip" data-col="${i}" title="Drag to resize"></span>` : ''}</th>`).join('')}</tr></thead>
       <tbody>${body || `<tr class="empty-row"><td colspan="${cols.length}">No activities yet — use <b>Generate dates</b> or <b>Add activity</b>.</td></tr>`}</tbody>
     </table>
     ${extrasHTML()}
@@ -727,6 +727,25 @@ function applyPageSize() {
 }
 
 /**
+ * Each column's narrowest possible width (its longest unbreakable piece, plus padding), by key.
+ * With 'measure-oneline', week labels and date lines are kept on one line.
+ */
+function measureColumnNeeds(sheet, cls) {
+  sheet.classList.add('measuring', ...(cls ? [cls] : []));
+  const need = {};
+  $$('.prog th, .prog td', sheet).forEach((cell) => {
+    const key = [...cell.classList].find((c) => c.startsWith('c-'))?.slice(2);
+    const content = cell.firstElementChild;
+    if (!key || !content || content.classList.contains('ph')) return;   // screen-only prompts
+    const cs = getComputedStyle(cell);
+    const w = content.offsetWidth + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + 1.5;
+    need[key] = Math.max(need[key] || 0, w);
+  });
+  sheet.classList.remove('measuring', ...(cls ? [cls] : []));
+  return need;
+}
+
+/**
  * Widen columns whose longest word (or heading, week label, icon) doesn't fit, taking the room
  * from columns with space to spare in proportion to it. The widths set in the sidebar are the
  * starting point; text is only shrunk later if borrowing isn't enough.
@@ -740,20 +759,7 @@ function fitColumns(sheet) {
 
   // Measure every column's narrowest possible content (its longest unbreakable piece). The
   // "preferred" pass also keeps week labels and date lines on one line.
-  const measure = (cls) => {
-    sheet.classList.add('measuring', ...(cls ? [cls] : []));
-    const need = {};
-    $$('.prog th, .prog td', sheet).forEach((cell) => {
-      const key = [...cell.classList].find((c) => c.startsWith('c-'))?.slice(2);
-      const content = cell.firstElementChild;
-      if (!key || !content || content.classList.contains('ph')) return;   // screen-only prompts
-      const cs = getComputedStyle(cell);
-      const w = content.offsetWidth + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + 1.5;
-      need[key] = Math.max(need[key] || 0, w);
-    });
-    sheet.classList.remove('measuring', ...(cls ? [cls] : []));
-    return need;
-  };
+  const measure = (cls) => measureColumnNeeds(sheet, cls);
   const total = table.clientWidth;
   const base = cols.map((c) => ({ c, cur: (parseFloat(c.dataset.pct) / 100) * total }));
 
@@ -964,6 +970,75 @@ function fit() {
   applyZoom();
 }
 const fitSoon = debounce(fit, 120);
+
+/* ---------------------------------------------------------------- dragging column widths */
+
+/**
+ * Drag the line between two headings, like a spreadsheet: the column on the left grows and the
+ * one on the right shrinks, so the table keeps the page width. On release the widths are saved
+ * (they're the same numbers as under Columns) and the page refits.
+ */
+function startColumnResize(e) {
+  const grip = e.target.closest('.col-grip');
+  if (!grip || e.button !== 0) return;
+  e.preventDefault();
+  closePopover(); hideHandle();
+  const table = $('.prog'), paper = $('#paper');
+  const cols = $$('col', table), ths = $$('thead th', table);
+  const i = +grip.dataset.col;
+  const scale = paper.getBoundingClientRect().width / paper.offsetWidth || 1;
+  const total = table.clientWidth;
+  const start = ths.map((th) => th.getBoundingClientRect().width / scale);
+  // No column may go narrower than its longest word (the page fit would only widen it back).
+  const keys = visibleColumns().map((c) => c.key);
+  const need = measureColumnNeeds($('#sheet'), 'measure-oneline');
+  const mins = keys.map((k, j) => Math.min(start[j], Math.max(14, need[k] || 0)));
+  const startX = e.clientX;
+  let widths = start.slice();
+  grip.setPointerCapture?.(e.pointerId);
+  document.body.classList.add('col-resizing');
+  grip.classList.add('active');
+
+  /**
+   * Move the border after column i by d px. The column that gets smaller gives up room down to
+   * its minimum, then the next one along does, like a spreadsheet pushing its neighbours.
+   */
+  const layout = (d) => {
+    const w = start.slice();
+    const takeFrom = d > 0 ? [...Array(w.length - i - 1).keys()].map((k) => i + 1 + k) : [...Array(i + 1).keys()].map((k) => i - k);
+    let left = Math.abs(d);
+    for (const j of takeFrom) {
+      const give = Math.min(left, Math.max(0, w[j] - mins[j]));
+      w[j] -= give; left -= give;
+      if (left <= 0) break;
+    }
+    const moved = Math.abs(d) - left;
+    if (d > 0) w[i] += moved; else w[i + 1] += moved;
+    return w;
+  };
+  const move = (ev) => {
+    widths = layout((ev.clientX - startX) / scale);
+    widths.forEach((w, j) => { cols[j].style.width = `${(w / total) * 100}%`; });
+  };
+  const end = () => {
+    grip.removeEventListener('pointermove', move);
+    grip.removeEventListener('pointerup', end);
+    grip.removeEventListener('pointercancel', end);
+    document.body.classList.remove('col-resizing');
+    grip.classList.remove('active');
+    if (widths.every((w, j) => Math.abs(w - start[j]) < 1)) { fit(); return; }
+    // Save as the same relative widths the Columns settings use.
+    pushHistory();
+    const visible = state.columns.filter((c) => c.visible);
+    const sum = visible.reduce((acc, c) => acc + (+c.width || 1), 0);
+    const pxSum = widths.reduce((acc, w) => acc + w, 0);
+    visible.forEach((c, k) => { c.width = Math.max(1, Math.round((widths[k] / pxSum) * sum * 10) / 10); });
+    save(); renderAll();
+  };
+  grip.addEventListener('pointermove', move);
+  grip.addEventListener('pointerup', end);
+  grip.addEventListener('pointercancel', end);
+}
 
 function applyZoom() {
   const paper = $('#paper'), wrap = $('#paperWrap'), canvas = $('#canvas');
@@ -2039,6 +2114,7 @@ function bindEvents() {
     else if (PICKERS[td.dataset.pop]) openPickPopover(td, r, td.dataset.pop);
     else openChoicePopover(td, r, td.dataset.pop);
   });
+  sheet.addEventListener('pointerdown', startColumnResize);
   sheet.addEventListener('mouseover', (e) => {
     const tr = e.target.closest('tbody tr[data-id]');
     if (tr) showHandle(tr);

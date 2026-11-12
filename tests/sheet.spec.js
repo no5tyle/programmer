@@ -136,6 +136,32 @@ test.describe('sheet', () => {
     expect(await page.evaluate(() => state.rows.slice(0, 2).map((r) => [r.leader, r.uniform]))).toEqual([['Baloo', 'No'], ['', 'Camp']]);
   });
 
+  test('dragging between two headings resizes those columns', async ({ page }) => {
+    await fillCubs(page);
+    const widths = () => page.evaluate(() => Object.fromEntries(state.columns.filter((c) => c.visible).map((c) => [c.key, c.width])));
+    const before = await widths();
+    const px = () => page.evaluate(() => [...document.querySelectorAll('.prog thead th')].map((th) => Math.round(th.getBoundingClientRect().width)));
+    const pxBefore = await px();
+    const i = await page.evaluate(() => state.columns.filter((c) => c.visible).findIndex((c) => c.key === 'description'));
+    const grip = await page.locator(`.col-grip[data-col="${i}"]`).boundingBox();
+    await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(grip.x + grip.width / 2 + 30, grip.y + grip.height / 2, { steps: 6 });
+    await page.mouse.up();
+    const after = await widths();
+    expect(after.description).toBeGreaterThan(before.description);
+    // The room comes from the columns to the right; those to the left don't change.
+    const rightKeys = await page.evaluate((k) => state.columns.filter((c) => c.visible).slice(k + 1).map((c) => c.key), i);
+    expect(rightKeys.reduce((a, k) => a + after[k], 0)).toBeLessThan(rightKeys.reduce((a, k) => a + before[k], 0));
+    expect(after.time).toBeCloseTo(before.time, 0);
+    const pxAfter = await px();
+    expect(pxAfter[i]).toBeGreaterThan(pxBefore[i] + 15);
+    // The Columns settings show the new width, and Undo puts it back.
+    await expect(page.locator(`#columnsList input[data-field="width"]`).nth(await page.evaluate(() => state.columns.findIndex((c) => c.key === 'description')))).toHaveValue(String(after.description));
+    await page.click('#btnUndo');
+    expect((await widths()).description).toBe(before.description);
+  });
+
   test('red text marks a single cell', async ({ page }) => {
     await page.evaluate(() => { state.rows[0].red = ['time']; renderAll(); });
     const color = await page.evaluate(() => getComputedStyle(document.querySelector('tbody tr:nth-child(1) td.c-time .ed')).color);
