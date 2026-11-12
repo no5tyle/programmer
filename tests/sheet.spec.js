@@ -200,6 +200,24 @@ test.describe('sheet', () => {
     expect(await lines()).toBe(2);
   });
 
+  test('choosing a challenge area does not change the row height', async ({ page }) => {
+    await page.evaluate(() => {
+      state.rows.forEach((r) => { r.activity = 'Night Walk'; r.description = 'Walk to a nearby park.'; r.challenge = ''; });
+      state.options.stretch = false;
+      renderAll();
+    });
+    const heights = () => page.evaluate(() => [...document.querySelectorAll('tbody tr')].slice(0, 3).map((tr) => Math.round(tr.getBoundingClientRect().height)));
+    const before = await heights();
+    await page.evaluate(() => { state.rows[0].challenge = 'outdoors'; state.rows[1].challenge = 'creative'; renderAll(); });
+    expect(await heights()).toEqual(before);
+    // And the icon still fills most of the cell's height.
+    const ratio = await page.evaluate(() => {
+      const icon = document.querySelector('tbody tr td.c-challenge .ch-icon'), td = icon.closest('td');
+      return icon.getBoundingClientRect().height / td.getBoundingClientRect().height;
+    });
+    expect(ratio).toBeGreaterThan(0.8);
+  });
+
   test('red text marks a single cell', async ({ page }) => {
     await page.evaluate(() => { state.rows[0].red = ['time']; renderAll(); });
     const color = await page.evaluate(() => getComputedStyle(document.querySelector('tbody tr:nth-child(1) td.c-time .ed')).color);
