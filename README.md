@@ -51,6 +51,10 @@ To try it, download [`examples/example-program.json`](examples/example-program.j
 - **PDF made in the app.** **Save file → PDF** builds the PDF itself, so it's identical in every browser. iPhone and iPad Safari ignore a page's print orientation and add their own margins, so on those devices **Print** opens this PDF instead, and iOS's viewer prints it correctly. (The first PDF loads two small libraries from cdnjs, so it needs to be online.)
 - **Print / PDF.** Uses the browser's print dialog. Choose *Save as PDF* (the file is named after the program, e.g. "Cubs Program - Term 4 2026"), and turn off the browser's own *Headers and footers* option.
 
+### Look and dark mode
+
+The app's controls follow the same style as Beacon: Apple's system colours and font, rounded cards, capsule buttons and see-through bars. It switches to dark mode with your device. The program sheet itself always stays white, on screen, in print and in the PDF.
+
 ### On phones and tablets
 
 Phones and tablets get a touch-friendly view instead of editing the sheet directly:
