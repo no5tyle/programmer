@@ -12,6 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lexend:wght@400;600;700&family=Nunito:wght@400;600;700;800&family=Open+Sans:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://no5tyle.github.io/shared/no5tyle.css">
+  <script src="https://no5tyle.github.io/shared/app-switcher.js" defer></script>
   <link rel="stylesheet" href="css/app.css?v=20261111-6">
   <link rel="stylesheet" href="css/mobile.css?v=20261111-6">
   <style id="pageStyle"></style>
@@ -19,9 +20,12 @@
 <body>
   <header class="appbar">
     <div class="appbar-brand">
-      <span class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9" /></svg>
-      </span>
+      <!-- The switcher between no5tyle's apps (no5tyle.github.io/shared/app-switcher.js); the mark shows until it loads -->
+      <n5-app-switcher current="programmer">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9" /></svg>
+        </span>
+      </n5-app-switcher>
       <div>
         <div class="brand-title">Program Builder</div>
         <div class="brand-sub">Term programs for Scout families</div>
@@ -286,6 +290,11 @@
   <!-- Phone and tablet view (js/mobile.js) -->
   <div class="m-app" id="mApp">
     <header class="m-top">
+      <n5-app-switcher current="programmer" class="m-switcher">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9" /></svg>
+        </span>
+      </n5-app-switcher>
       <button class="m-title" id="mTitle" aria-label="Switch program">
         <span class="m-title-main" id="mTitleMain"></span>
         <span class="m-title-sub" id="mTitleSub"></span>

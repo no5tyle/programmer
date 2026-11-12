@@ -35,6 +35,9 @@ body.mobile .m-app { display: flex; flex-direction: column; min-height: 100vh; m
   border: 0; border-radius: 50%; background: var(--fill); color: var(--primary); cursor: pointer;
 }
 .m-icon svg { width: 22px; height: 22px; }
+/* The app switcher, left of the program's name */
+.m-switcher { --n5-switch-size: 34px; margin-left: 2px; }
+.m-switcher .brand-mark { width: 34px; height: 34px; }
 
 /* Week list: one short row per activity, so a term fits on about a screen */
 .m-list { flex: 1; width: 100%; max-width: 760px; margin: 0 auto; padding: 10px 12px 104px; }

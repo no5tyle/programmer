@@ -15,6 +15,12 @@ test.describe('sheet', () => {
     // The shared look (no5tyle.github.io/shared/no5tyle.css) supplies the colours
     await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(242, 242, 247)');
     await expect(page.locator('#btnPrint')).toHaveCSS('background-color', 'rgb(0, 122, 255)');
+    // The app switcher (no5tyle.github.io/shared/app-switcher.js) replaces the icon at the top left
+    await page.locator('.appbar .n5-switch-btn').click();
+    await expect(page.locator('.appbar .n5-switch-item[aria-current=page]')).toContainText('Program Builder');
+    await expect(page.locator('.appbar .n5-switch-name')).toHaveText(['Beacon', 'Program Builder', 'Snag Calc', 'Pinewood Control', 'All apps']);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.appbar .n5-switch-menu')).toBeHidden();
     await expect(page.locator('#sheet .prog')).toHaveCount(1);
   });
 
