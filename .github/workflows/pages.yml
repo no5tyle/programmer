@@ -1,6 +1,7 @@
-# On every push to main: run the tests, then publish the site to GitHub Pages.
+# On every push to main: build the site folder, run the tests against exactly that folder,
+# then publish it to GitHub Pages. If a test fails, the live site isn't touched.
 # The ?v= tags on the CSS and JS links are set to the commit, so browsers always load
-# matching files after an update. Needs Settings → Pages → Source: "GitHub Actions".
+# matching files after an update.
 name: Test and publish
 
 on:
@@ -23,19 +24,34 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
+      - name: Build the site folder with version tags from the commit
+        run: |
+          mkdir _site
+          cp -r index.html css js assets examples .nojekyll _site/
+          # Only rewrite real version tags on links, e.g. css/app.css?v=20261111-6
+          sed -i -E "s/(\.(css|js))\?v=[A-Za-z0-9.-]+\"/\1?v=${GITHUB_SHA::8}\"/g" _site/index.html
+          # Every stylesheet and script link must carry the new tag, and nothing else may change.
+          test "$(grep -c "?v=${GITHUB_SHA::8}\"" _site/index.html)" -eq 5
+          diff <(sed -E 's/\?v=[A-Za-z0-9.-]+"/?v="/g' index.html) <(sed -E 's/\?v=[A-Za-z0-9.-]+"/?v="/g' _site/index.html)
       - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npx playwright test
+      - name: Test the built site
+        run: npx playwright test
+        env:
+          SITE_ROOT: _site
       - uses: actions/upload-artifact@v5
         if: failure()
         with:
           name: test-results
           path: test-results/
           retention-days: 7
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
 
   deploy:
     needs: test
@@ -44,16 +60,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v5
-      - name: Build the site folder with version tags from the commit
-        run: |
-          mkdir _site
-          cp -r index.html css js assets examples .nojekyll _site/
-          sed -i -E "s/\?v=[^\"']*/?v=${GITHUB_SHA::8}/g" _site/index.html
-          grep -o '?v=[a-f0-9]*' _site/index.html | sort -u
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
