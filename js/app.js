@@ -548,8 +548,9 @@ function challengeHTML(id) {
         + `<text x="12" y="15.6" text-anchor="middle" font-size="9" font-weight="700" style="fill:${esc(c.color)};stroke:none">${esc((c.label || '?')[0])}</text></svg>`;
     }
   }
-  if (named) return `<span class="ch">${icon}</span>`;
-  const label = mode !== 'icon' ? `<span class="ch-label" style="color:${esc(c.color)}">${esc(c.label)}</span>` : '';
+  // A lone image ("fill") sizes itself to the row instead of making the row taller.
+  if (named || mode === 'icon') return `<span class="ch fill">${icon}</span>`;
+  const label = `<span class="ch-label" style="color:${esc(c.color)}">${esc(c.label)}</span>`;
   return `<span class="ch">${icon}${label}</span>`;
 }
 
@@ -830,7 +831,8 @@ function fitCells(sheet, fs) {
     let target = twoLines;
     el.closest('tr').querySelectorAll('td:not(.c-description):not(.c-week)').forEach((td) => {
       const c = td.firstElementChild;
-      if (c) target = Math.max(target, c.offsetHeight + 1);
+      // A lone challenge icon fills whatever height the row has, so it doesn't count here.
+      if (c && !c.classList.contains('fill')) target = Math.max(target, c.offsetHeight + 1);
     });
     return { el, target };
   }));
