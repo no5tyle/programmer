@@ -181,6 +181,25 @@ test.describe('sheet', () => {
     expect(await lines()).toEqual([2, 'Tuesday 13 October']);   // "Tuesday" above "13 October"
   });
 
+  test('a Week column dragged narrower wraps the number below and stays', async ({ page }) => {
+    await fillCubs(page);
+    await page.evaluate(() => { state.columns.find((c) => c.key === 'week').width = 9; renderAll(); });
+    const lines = () => page.evaluate(() => {
+      const w = document.querySelector('tbody .wk');
+      const r = document.createRange(); r.selectNodeContents(w);
+      return new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size;
+    });
+    expect(await lines()).toBe(1);
+    const grip = await page.locator('.col-grip[data-col="0"]').boundingBox();
+    await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(grip.x - 300, grip.y + grip.height / 2, { steps: 8 });
+    await page.mouse.up();
+    expect(await lines()).toBe(2);           // "Week" above "1"
+    await page.evaluate(() => renderAll());  // and it doesn't bounce back on the next refit
+    expect(await lines()).toBe(2);
+  });
+
   test('red text marks a single cell', async ({ page }) => {
     await page.evaluate(() => { state.rows[0].red = ['time']; renderAll(); });
     const color = await page.evaluate(() => getComputedStyle(document.querySelector('tbody tr:nth-child(1) td.c-time .ed')).color);
