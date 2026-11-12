@@ -728,11 +728,13 @@ function applyPageSize() {
 
 /**
  * Each column's narrowest possible width (its longest unbreakable piece, plus padding), by key.
- * With 'measure-oneline', week labels are kept on one line ("Week 1"), and so are dates unless the
- * Date column has been dragged narrower (then they wrap with the day above: "Tuesday / 13 October").
+ * With 'measure-oneline', week labels and dates are kept on one line, unless that column has been
+ * dragged narrower: then they wrap ("Week / 1", "Tuesday / 13 October").
  */
 function measureColumnNeeds(sheet, cls) {
+  // A Week or Date column that has been dragged keeps its width and wraps instead.
   sheet.classList.toggle('dates-oneline', !state.columns.find((c) => c.key === 'date')?.sized);
+  sheet.classList.toggle('weeks-oneline', !state.columns.find((c) => c.key === 'week')?.sized);
   sheet.classList.add('measuring', ...(cls ? [cls] : []));
   const need = {};
   $$('.prog th, .prog td', sheet).forEach((cell) => {

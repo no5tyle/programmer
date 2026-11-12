@@ -503,7 +503,7 @@ body.mobile .prog .col-grip { display: none; }
 }
 /* While measuring column needs, contents shrink to their longest unbreakable piece. */
 .sheet.measuring .prog td > *, .sheet.measuring .prog th > * { width: min-content !important; max-width: none !important; display: inline-block; }
-.sheet.measure-oneline .prog .wk,
+.sheet.measure-oneline.weeks-oneline .prog .wk,
 .sheet.measure-oneline.dates-oneline .prog .dt { white-space: pre !important; }
 .prog .patrol { font-weight: 700; display: inline-block; max-width: 100%; }
 .prog .pick { display: inline-block; max-width: 100%; }
