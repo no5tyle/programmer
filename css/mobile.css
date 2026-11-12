@@ -50,7 +50,7 @@ body.mobile .m-app { display: flex; flex-direction: column; min-height: 100vh; m
   background: none; text-align: left; cursor: pointer;
 }
 .m-row + .m-row { border-top: .5px solid var(--border-soft); }
-.m-row:active { background: var(--primary-50); }
+.m-row:active { background: var(--tint-fill); }
 .m-when { width: 92px; flex: none; display: flex; flex-direction: column; line-height: 1.2; }
 .m-when b { font-size: 13.5px; font-weight: 600; }
 .m-when small { font-size: 12px; color: var(--text-2); }
@@ -111,7 +111,7 @@ body.mobile.m-preview .prog .ph, body.mobile.m-preview .prog .ed:empty::before, 
 .m-panel { width: 100%; height: 100%; display: flex; flex-direction: column; background: var(--bg); }
 @media (min-width: 700px) {
   .m-panels { align-items: center; padding: 24px; }
-  .m-panel { width: min(640px, 100%); height: min(88vh, 920px); border-radius: 18px; overflow: hidden; box-shadow: var(--shadow-2); }
+  .m-panel { width: min(640px, 100%); height: min(88vh, 920px); border-radius: 18px; overflow: hidden; box-shadow: var(--shadow); }
   .m-panel.m-small { height: auto; max-height: 88vh; }
 }
 .m-panel-head {
@@ -136,7 +136,7 @@ body.mobile.m-preview .prog .ph, body.mobile.m-preview .prog .ed:empty::before, 
   border: 0; background: none; text-align: left; font-size: 15.5px; cursor: pointer;
 }
 .m-item + .m-item { border-top: 1px solid var(--border); }
-.m-item:active { background: var(--primary-50); }
+.m-item:active { background: var(--tint-fill); }
 .m-item-text { flex: 1; display: flex; flex-direction: column; font-weight: 600; }
 .m-item-text small { font-size: 12.5px; font-weight: 400; color: var(--text-2); }
 
@@ -149,7 +149,7 @@ body.mobile.m-preview .prog .ph, body.mobile.m-preview .prog .ed:empty::before, 
 .m-field > span:first-child { font-size: 12.5px; font-weight: 600; color: var(--text-2); }
 .m-field textarea {
   width: 100%; min-height: 44px; padding: 10px; resize: vertical;
-  border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); font: inherit;
+  border: 1px solid var(--input-border); border-radius: var(--radius); background: var(--surface); font: inherit;
 }
 .m-field textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--focus-ring); }
 .m-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -158,7 +158,7 @@ body.mobile.m-preview .prog .ph, body.mobile.m-preview .prog .ed:empty::before, 
 .m-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .m-chip {
   display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 12px;
-  border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface); font-size: 14px; cursor: pointer;
+  border: 1px solid var(--input-border); border-radius: 999px; background: var(--surface); font-size: 14px; cursor: pointer;
 }
 .m-chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
 .m-chip.red.on { background: #d0021b; border-color: #d0021b; }
@@ -173,7 +173,7 @@ body.mobile.m-preview .prog .ph, body.mobile.m-preview .prog .ed:empty::before, 
 .m-busy p { margin: 8px 0 0; }
 .m-spinner {
   display: inline-block; width: 28px; height: 28px; border-radius: 50%;
-  border: 3px solid var(--primary-100); border-top-color: var(--primary); animation: m-spin .8s linear infinite;
+  border: 3px solid var(--tint-fill-strong); border-top-color: var(--primary); animation: m-spin .8s linear infinite;
 }
 @keyframes m-spin { to { transform: rotate(360deg); } }
 

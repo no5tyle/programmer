@@ -53,7 +53,7 @@ To try it, download [`examples/example-program.json`](examples/example-program.j
 
 ### Look and dark mode
 
-The app's controls follow the same style as Beacon: Apple's system colours and font, rounded cards, capsule buttons and see-through bars. It switches to dark mode with your device. The program sheet itself always stays white, on screen, in print and in the PDF.
+The app's controls share one look with Beacon, Snag Calc and the [homepage](https://no5tyle.github.io/): Apple's system colours and font, rounded cards, capsule buttons and see-through bars. The colours, rounding and font come from the shared stylesheet, https://no5tyle.github.io/shared/no5tyle.css (kept in [no5tyle.github.io](https://github.com/no5tyle/no5tyle.github.io)), which `index.html` links before `css/app.css`. It switches to dark mode with your device. The program sheet itself always stays white, on screen, in print and in the PDF.
 
 ### On phones and tablets
 
