@@ -7,6 +7,14 @@ test.describe('sheet', () => {
   test.beforeEach(async ({ page }) => { errors = await openApp(page); });
   test.afterEach(() => { expect(errors, 'browser errors').toEqual([]); });
 
+  test('the page loads its styles and scripts', async ({ page }) => {
+    // Guards against a broken published index.html (e.g. a damaged tag hiding the stylesheets).
+    const sheets = await page.evaluate(() => [...document.styleSheets].map((x) => (x.href || '').split('/').pop().split('?')[0]).filter(Boolean));
+    expect(sheets).toEqual(expect.arrayContaining(['app.css', 'mobile.css']));
+    await expect(page.locator('.appbar')).toHaveCSS('height', '60px');
+    await expect(page.locator('#sheet .prog')).toHaveCount(1);
+  });
+
   test('a normal term fits one page at full size', async ({ page }) => {
     await fillCubs(page);
     await expect(page.locator('#fitStatus')).toHaveText('Fits 1 page · 11pt');

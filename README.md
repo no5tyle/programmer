@@ -83,7 +83,7 @@ python3 -m http.server 8000
 
 ## Publishing and tests
 
-Every push to `main` runs the tests, then publishes the site (`.github/workflows/pages.yml`). If a test fails, the site isn't updated. Pushes to other branches and pull requests just run the tests (`test.yml`).
+Every push to `main` builds the site folder, runs the tests against exactly those files, then publishes them (`.github/workflows/pages.yml`). If a test fails, the live site isn't touched. Pushes to other branches and pull requests just run the tests (`test.yml`).
 
 When publishing, the `?v=` tags on the CSS and JS links in `index.html` are set to the commit, so browsers always load matching files after an update. GitHub Pages lets browsers keep files for 10 minutes.
 
