@@ -23,9 +23,9 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 
 /* App bar: a see-through bar like iOS's navigation bar */
 .appbar {
-  height: 60px;
+  height: var(--n5-bar-height);
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 var(--n5-bar-pad);
   background: var(--bar-bg);
   -webkit-backdrop-filter: var(--bar-filter); backdrop-filter: var(--bar-filter);
   border-bottom: .5px solid var(--border);
@@ -33,13 +33,13 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 }
 .appbar-brand { display: flex; align-items: center; gap: 12px; }
 .brand-mark {
-  width: 36px; height: 36px; border-radius: 10px;
+  width: var(--n5-bar-icon); height: var(--n5-bar-icon); border-radius: 10px;
   background: var(--brand); color: #fff;
   display: grid; place-items: center;
 }
 .brand-mark svg { width: 20px; height: 20px; stroke-width: 2.4; }
-.brand-title { font-weight: 700; font-size: 17px; letter-spacing: -.01em; }
-.brand-sub { font-size: 12px; color: var(--muted); }
+.brand-title { font-weight: 700; font-size: var(--n5-bar-title-size); letter-spacing: -.01em; }
+.brand-sub { font-size: var(--n5-bar-sub-size); color: var(--muted); }
 .appbar-actions { display: flex; align-items: center; gap: 4px; }
 .divider { width: 1px; height: 24px; background: var(--border); margin: 0 6px; }
 
