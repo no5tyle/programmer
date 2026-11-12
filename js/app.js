@@ -728,9 +728,11 @@ function applyPageSize() {
 
 /**
  * Each column's narrowest possible width (its longest unbreakable piece, plus padding), by key.
- * With 'measure-oneline', week labels and date lines are kept on one line.
+ * With 'measure-oneline', week labels are kept on one line ("Week 1"), and so are dates unless the
+ * Date column has been dragged narrower (then they wrap with the day above: "Tuesday / 13 October").
  */
 function measureColumnNeeds(sheet, cls) {
+  sheet.classList.toggle('dates-oneline', !state.columns.find((c) => c.key === 'date')?.sized);
   sheet.classList.add('measuring', ...(cls ? [cls] : []));
   const need = {};
   $$('.prog th, .prog td', sheet).forEach((cell) => {
@@ -991,7 +993,7 @@ function startColumnResize(e) {
   const start = ths.map((th) => th.getBoundingClientRect().width / scale);
   // No column may go narrower than its longest word (the page fit would only widen it back).
   const keys = visibleColumns().map((c) => c.key);
-  const need = measureColumnNeeds($('#sheet'), 'measure-oneline');
+  const need = measureColumnNeeds($('#sheet'));
   const mins = keys.map((k, j) => Math.min(start[j], Math.max(14, need[k] || 0)));
   const startX = e.clientX;
   let widths = start.slice();
@@ -1032,7 +1034,10 @@ function startColumnResize(e) {
     const visible = state.columns.filter((c) => c.visible);
     const sum = visible.reduce((acc, c) => acc + (+c.width || 1), 0);
     const pxSum = widths.reduce((acc, w) => acc + w, 0);
-    visible.forEach((c, k) => { c.width = Math.max(1, Math.round((widths[k] / pxSum) * sum * 10) / 10); });
+    visible.forEach((c, k) => {
+      c.width = Math.max(1, Math.round((widths[k] / pxSum) * sum * 10) / 10);
+      if (Math.abs(widths[k] - start[k]) >= 1) c.sized = true;   // dragged: keep its width even if dates must wrap
+    });
     save(); renderAll();
   };
   grip.addEventListener('pointermove', move);
@@ -1116,7 +1121,6 @@ function renderLists() {
     <div class="list-row col-row ${c.visible ? '' : 'off'}">
       <input type="checkbox" ${c.visible ? 'checked' : ''} data-list="columns" data-i="${i}" data-field="visible" title="Show column">
       <input type="text" value="${esc(c.label)}" data-list="columns" data-i="${i}" data-field="label">
-      <input type="number" min="1" max="60" value="${esc(c.width)}" data-list="columns" data-i="${i}" data-field="width" title="Relative width" class="w-num">
       <button class="icon-btn" data-align="${i}" title="Text alignment: ${c.align}" aria-label="Toggle alignment">
         <svg viewBox="0 0 24 24">${c.align === 'left' ? '<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>' : '<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>'}</svg></button>
       <span class="move">
