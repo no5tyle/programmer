@@ -503,7 +503,8 @@ body.mobile .prog .col-grip { display: none; }
 }
 /* While measuring column needs, contents shrink to their longest unbreakable piece. */
 .sheet.measuring .prog td > *, .sheet.measuring .prog th > * { width: min-content !important; max-width: none !important; display: inline-block; }
-.sheet.measure-oneline .prog .wk, .sheet.measure-oneline .prog .dt { white-space: pre !important; }
+.sheet.measure-oneline .prog .wk,
+.sheet.measure-oneline.dates-oneline .prog .dt { white-space: pre !important; }
 .prog .patrol { font-weight: 700; display: inline-block; max-width: 100%; }
 .prog .pick { display: inline-block; max-width: 100%; }
 /* Screen-only prompt in an empty picker cell: overlaid so it never changes the layout. */
@@ -512,8 +513,9 @@ body.mobile .prog .col-grip { display: none; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
 }
 .prog .ch { display: inline-flex; flex-direction: column; align-items: center; gap: .1em; vertical-align: middle; }
-.prog .ch-icon { width: 2.3em; height: 2.3em; display: block; object-fit: contain; }
-.prog .ch-icon.ch-named { width: 3.1em; height: 3.1em; }
+.prog td.c-challenge { padding: .1em .15em; }
+.prog .ch-icon { width: 3em; height: 3em; max-width: 100%; display: block; object-fit: contain; }
+.prog .ch-icon.ch-named { width: 3.9em; height: 3.9em; }
 .prog .ch-label { font-size: .82em; font-weight: 700; line-height: 1.1; }
 .prog .ph, .doc-group .ph { color: #b3b3b3; font-style: italic; }
 .empty-row td { padding: 8mm; color: #888; font-style: italic; }

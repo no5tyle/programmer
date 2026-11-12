@@ -156,10 +156,29 @@ test.describe('sheet', () => {
     expect(after.time).toBeCloseTo(before.time, 0);
     const pxAfter = await px();
     expect(pxAfter[i]).toBeGreaterThan(pxBefore[i] + 15);
-    // The Columns settings show the new width, and Undo puts it back.
-    await expect(page.locator(`#columnsList input[data-field="width"]`).nth(await page.evaluate(() => state.columns.findIndex((c) => c.key === 'description')))).toHaveValue(String(after.description));
+    // There are no width numbers in Columns any more; Undo puts the widths back.
+    await expect(page.locator('#columnsList input[data-field="width"]')).toHaveCount(0);
     await page.click('#btnUndo');
     expect((await widths()).description).toBe(before.description);
+  });
+
+  test('a narrow Date column wraps with the day above the date', async ({ page }) => {
+    await fillCubs(page);
+    await page.evaluate(() => { state.options.dateFormat = 'long'; renderAll(); });
+    const lines = () => page.evaluate(() => {
+      const dt = document.querySelector('tbody .dt');
+      const r = document.createRange(); r.selectNodeContents(dt);
+      return [new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size, dt.textContent.replace(/\u00a0/g, ' ')];
+    });
+    expect(await lines()).toEqual([1, 'Tuesday 13 October']);
+    // Drag the Date column's right border well to the left.
+    const i = await page.evaluate(() => state.columns.filter((c) => c.visible).findIndex((c) => c.key === 'date'));
+    const grip = await page.locator(`.col-grip[data-col="${i}"]`).boundingBox();
+    await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(grip.x - 200, grip.y + grip.height / 2, { steps: 8 });
+    await page.mouse.up();
+    expect(await lines()).toEqual([2, 'Tuesday 13 October']);   // "Tuesday" above "13 October"
   });
 
   test('red text marks a single cell', async ({ page }) => {
