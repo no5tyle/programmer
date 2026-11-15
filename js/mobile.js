@@ -143,6 +143,7 @@ function openMenu() {
           ${cards.map((c, i) => item(`data-card="${i}"`, c.querySelector('.card-icon').innerHTML, esc(c.querySelector('summary').textContent.trim()))).join('')}
         </div>
         <div class="m-group">
+          ${item('data-m="tour"', '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg>', 'Take the tour', 'A quick look around')}
           ${item('data-m="desktop"', '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>', 'Use the desktop editor', 'Edit on the sheet itself')}
         </div>`;
       body.onclick = (e) => {
@@ -155,6 +156,7 @@ function openMenu() {
         if (m === 'open') { closeAllPanels(); importJson(); }
         if (m === 'generate') { closeAllPanels(); generateDates(); }
         if (m === 'undo') { undo(); closeAllPanels(); }
+        if (m === 'tour') { closeAllPanels(); startTour(); }
         if (m === 'desktop') { closeAllPanels(); setViewPref('desktop'); }
       };
     },

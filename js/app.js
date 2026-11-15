@@ -11,6 +11,7 @@ let state;
 let library = { current: null, items: [] };
 let undoStack = [];
 let zoom = 'fit';
+let firstVisit = false;   // nothing saved in this browser yet: js/welcome.js shows the setup wizard
 
 /* ---------------------------------------------------------------- utils */
 
@@ -244,6 +245,7 @@ function load() {
   }
   library = { current: uid(), items: [] };
   const old = readJSON(STORE_KEY);
+  firstVisit = !lib && !old;
   state = old ? normalise(old) : freshState();
   save();
   if (old) { try { localStorage.removeItem(STORE_KEY); } catch { /* keep it */ } }
