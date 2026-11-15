@@ -57,12 +57,12 @@ function openWelcome() {
     {
       title: 'Who are the leaders?',
       body: () => `
-        <p>Leaders' names go at the top of the program, and you can pick them for each activity. Phone numbers are optional.</p>
+        <p>Leaders' names go at the top of the program, and you can pick them for each activity. Contact details, like a phone number or email, are optional.</p>
         <div class="wz-leaders">
           ${draft.leaders.map((l, i) => `
             <div class="wz-leader">
               <input type="text" data-wl="${i}" data-f="name" value="${esc(l.name)}" placeholder="Leader name" aria-label="Leader ${i + 1} name">
-              <input type="tel" data-wl="${i}" data-f="phone" value="${esc(l.phone)}" placeholder="Phone" aria-label="Leader ${i + 1} phone">
+              <input type="text" data-wl="${i}" data-f="phone" value="${esc(l.phone)}" placeholder="Contact" aria-label="Leader ${i + 1} contact (phone or email)">
               ${draft.leaders.length > 1 ? `<button type="button" class="icon-btn" data-wl-del="${i}" title="Remove" aria-label="Remove leader ${i + 1}"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>` : ''}
             </div>`).join('')}
         </div>

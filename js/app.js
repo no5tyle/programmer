@@ -1119,7 +1119,7 @@ function renderLists() {
   $('#leadersList').innerHTML = b.leaders.map((l, i) => `
     <div class="list-row">
       <input type="text" placeholder="Name" value="${esc(l.name)}" data-list="leaders" data-i="${i}" data-field="name">
-      <input type="text" placeholder="Phone" value="${esc(l.phone)}" data-list="leaders" data-i="${i}" data-field="phone">
+      <input type="text" placeholder="Contact" aria-label="Contact (phone or email)" value="${esc(l.phone)}" data-list="leaders" data-i="${i}" data-field="phone">
       ${delBtn('leaders', i)}
     </div>`).join('') || '<p class="hint">No leaders listed.</p>';
 
