@@ -30,8 +30,10 @@ jobs:
           cp -r index.html css js assets examples .nojekyll _site/
           # Only rewrite real version tags on links, e.g. css/app.css?v=20261111-6
           sed -i -E "s/(\.(css|js))\?v=[A-Za-z0-9.-]+\"/\1?v=${GITHUB_SHA::8}\"/g" _site/index.html
-          # Every stylesheet and script link must carry the new tag, and nothing else may change.
-          test "$(grep -c "?v=${GITHUB_SHA::8}\"" _site/index.html)" -eq 5
+          # Every stylesheet and script link of the app's own (css/, js/) must carry the new tag, and nothing else may change.
+          links="$(grep -cE '"(css|js)/[^"?]+\.(css|js)[?"]' index.html)"
+          test "$links" -ge 5
+          test "$(grep -c "?v=${GITHUB_SHA::8}\"" _site/index.html)" -eq "$links"
           diff <(sed -E 's/\?v=[A-Za-z0-9.-]+"/?v="/g' index.html) <(sed -E 's/\?v=[A-Za-z0-9.-]+"/?v="/g' _site/index.html)
       - uses: actions/setup-node@v5
         with:
