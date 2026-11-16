@@ -178,7 +178,7 @@ function saveStateInfo() {
   if (!signedIn()) return { state: 'saved', text: 'Saved on this device', title: device };
   const cur = libItem(library.current);
   if (cur?.hold) {
-    return { state: 'local', text: 'Saved on this device only', title: 'This program isn\'t in your account. Open Programs to add it.' };
+    return { state: 'local', text: 'Saved on this device only', title: 'This program isn\'t in your account. Add it from your list of programs.' };
   }
   if (cur && needsUpload(cur)) {
     if (offline) {
@@ -386,7 +386,7 @@ async function resolveConflict(id, mineJson, theirs) {
     if (wasOpen) library.current = copyId;   // carry on in my own version
     storeRemote(theirs);
     if (wasOpen) { state = normalise(copy); undoStack = []; $('#btnUndo').disabled = true; renderAll(); }
-    toast('Both kept. Yours is saved as a copy, under Programs.');
+    toast('Both kept. Yours is saved as a copy.');
   } else {
     now.hold = 'conflict';   // asked again at the next change
   }
@@ -513,7 +513,7 @@ function showLimitBox(extra = '') {
     body: `${extra}<p>Your account has ${limit} programs already. To keep another, delete one you no longer need. Deleted programs can be brought back for 30 days, from <strong>Account</strong>.</p>
       <p class="hint">Premium, with as many programs as you like, is on its way.</p>`,
     buttons: [{ label: 'Not now', value: null, cls: 'btn-text' }, { label: 'Delete an old program', value: 'delete', cls: 'btn-primary' }],
-  }).then((choice) => { if (choice === 'delete') openProgramsMenu(onPhone() ? $('#mTitle') : $('#btnPrograms')); });
+  }).then((choice) => { if (choice === 'delete') showDirectoryToDelete(); });
 }
 
 /**
@@ -806,7 +806,7 @@ async function renderBin() {
       if (errorCode(back) === 'program_limit') { $('#modal .modal-actions .btn').click(); showLimitBox(); return; }
       if (!back.ok) { toast(errorText(back), 'error'); b.disabled = false; return; }
       b.closest('.account-bin-item').remove();
-      toast('Restored. It\'s back under Programs.');
+      toast('Restored. It\'s back with your programs.');
       await loadMe(); await refreshPrograms();
       const plan = $('#acPlan'); if (plan) plan.textContent = planText();
     } catch { toast('You\'re offline. Try again when you\'re connected.', 'error'); b.disabled = false; }

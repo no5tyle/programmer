@@ -367,14 +367,11 @@ test.describe('final touches (phone)', () => {
 });
 
 test.describe('toolbar and menus', () => {
-  test('no New or Add week off buttons; Programs and picked cells close their menus when clicked again', async ({ page }) => {
+  test('no New, Add week off or Programs buttons in the bars; picked cells close their menus when clicked again', async ({ page }) => {
     const errors = await openApp(page);
     await fillCubs(page);
-    await expect(page.locator('#btnNew, #btnAddBreak')).toHaveCount(0);
-    await page.click('#btnPrograms');
-    await expect(page.locator('#popover #pNewProg')).toBeVisible();
-    await page.click('#btnPrograms');
-    await expect(page.locator('#popover')).toBeHidden();
+    // Programs are listed on the left (tests/layout.spec.js), so the top bar has no Programs button
+    await expect(page.locator('#btnNew, #btnAddBreak, #btnPrograms')).toHaveCount(0);
     for (const key of ['uniform', 'patrol', 'leader', 'challenge', 'date', 'time']) {
       const td = page.locator(`#sheet tbody tr:nth-child(2) td.c-${key}`);
       await td.click();

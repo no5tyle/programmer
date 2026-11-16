@@ -17,9 +17,8 @@ test('with no account settings, there is no Sign in and programs stay in the bro
   errors = await openApp(page);
   await expect(page.locator('#btnAccount')).toBeHidden();
   await expect(saveState(page)).toHaveText('All changes saved');
-  await page.click('#btnPrograms');
-  await expect(page.locator('#popover .pop-sub')).toHaveText('saved in this browser');
-  await expect(page.locator('#pSignIn')).toHaveCount(0);
+  await expect(page.locator('#dirWhere')).toHaveText('In this browser');
+  await expect(page.locator('[data-dir-signin]')).toHaveCount(0);
 });
 
 test.describe('signed out', () => {
@@ -36,10 +35,9 @@ test.describe('signed out', () => {
     await expect(page.locator('#btnAccount')).toHaveText('Sign in');
     await edit(page, 'Night hike');
     await expect(saveState(page)).toHaveText('Saved on this device');
-    await page.click('#btnPrograms');
-    await expect(page.locator('#popover .prog-item')).toHaveCount(1);
-    await expect(page.locator('#popover .prog-signin')).toContainText('Sign in to keep more than one');
-    await page.click('#pSignIn');
+    await expect(page.locator('#directory .dir-item')).toHaveCount(1);
+    await expect(page.locator('#directory .dir-signin')).toContainText('Sign in to keep more than one');
+    await page.click('[data-dir-signin]');
     await expect(page.locator('.modal h2')).toHaveText('Sign in');
   });
 
@@ -47,15 +45,13 @@ test.describe('signed out', () => {
     await edit(page, 'Night hike');
     const first = await page.evaluate(() => library.current);
 
-    await page.click('#btnPrograms');
-    await page.click('#pDupProg');
+    await page.click('#btnDirDup');
     await expect(page.locator('.modal h2')).toHaveText('Sign in to keep more than one');
     await page.click('.modal button:has-text("Cancel")');
     expect(await page.evaluate(() => library.items.length)).toBe(1);
 
     // New program: replace it, then choose the term as usual
-    await page.click('#btnPrograms');
-    await page.click('#pNewProg');
+    await page.click('#btnDirNew');
     await page.click('.modal button:has-text("Replace it")');
     await expect(page.locator('.modal-body')).toContainText("takes this one's place");
     await page.click('.modal [data-i="1"]');
@@ -124,9 +120,10 @@ test.describe('signing in', () => {
     await expect(saveState(page)).toHaveText('Saved on this device only');
     expect(server.live()).toHaveLength(0);
 
-    await page.click('#btnPrograms');
-    await expect(page.locator('#popover .prog-open span')).toContainText('on this device only');
-    await page.click('#popover [data-addprog]');
+    await expect(page.locator('#directory .dir-head').last()).toContainText('On this device only');
+    await expect(page.locator('#directory .dir-item span')).toContainText('on this device only');
+    await page.hover('#directory .dir-row');
+    await page.click('#directory [data-addprog]');
     await expect(saveState(page)).toHaveText('Saved to your account');
     expect((await currentData(server, page)).rows[0].activity).toBe('Day hike');
   });
@@ -147,9 +144,8 @@ test.describe('signing in', () => {
     await expect.poll(() => page.evaluate(() => [library.current, state.branding.groupName])).toEqual(['newer222', EXAMPLE.branding.groupName]);
     await expect(page.locator('.modal-backdrop')).toBeHidden();
     expect(server.called('POST /programs')).toEqual([]);
-    await page.click('#btnPrograms');
-    await expect(page.locator('#popover .pop-title')).toContainText('My programs');
-    await expect(page.locator('#popover .prog-item')).toHaveCount(2);
+    await expect(page.locator('#dirWhere')).toHaveText('In your account');
+    await expect(page.locator('#directory .dir-item')).toHaveCount(2);
   });
 
   test('a used link says so, and stays signed out', async ({ page }) => {
@@ -178,9 +174,9 @@ test.describe('signed in', () => {
     await expect(saveState(page)).toHaveText('Saved to your account');
     expect(server.programs.get('prog1111').data.rows[0].activity).toBe('Night hike');
 
-    // Opening the Programs list, or reopening the page, sends nothing more
+    // Coming back to the page, or reopening it, sends nothing more
     const puts = server.called('PUT').length;
-    await page.click('#btnPrograms');
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));   // coming back to the page catches up
     await page.reload();
     await expect(saveState(page)).toHaveText('Saved to your account');
     expect(server.called('PUT')).toHaveLength(puts);
@@ -272,34 +268,35 @@ test.describe('signed in', () => {
 
   test('the 4th program on a free account explains the limit', async ({ page }) => {
     const server = await open(page, { programs: ['a', 'b', 'c'].map((x) => program(`prog${x}${x}${x}${x}`, EXAMPLE)) });
-    await page.click('#btnPrograms');
-    await expect(page.locator('#popover .prog-item')).toHaveCount(3);
-    await page.click('#pNewProg');
+    await expect(page.locator('#directory .dir-item')).toHaveCount(3);
+    await page.click('#btnDirNew');
     await expect(page.locator('.modal h2')).toHaveText('A free account keeps 3 programs');
     await page.click('.modal button:has-text("Not now")');
     await page.click('#btnImport');
     await page.setInputFiles('#fileJson', exampleFile);
     await expect(page.locator('.modal h2')).toHaveText('A free account keeps 3 programs');
     await page.click('.modal button:has-text("Delete an old program")');
-    await expect(page.locator('#popover .prog-item')).toHaveCount(3);
+    // It points at the list on the left, ready to delete one
+    await expect(page.locator('.toast', { hasText: 'Delete one with the bin' })).toBeVisible();
+    await expect(page.locator('#directory [data-delprog]').first()).toBeFocused();
     expect(server.live()).toHaveLength(3);
 
     // With one deleted there's room again
-    await page.click('#popover [data-delprog="progcccc"]');
+    await page.hover('#directory .dir-row:has([data-delprog="progcccc"])');
+    await page.click('#directory [data-delprog="progcccc"]');
     await page.click('.modal .btn-danger');
     await expect.poll(() => server.live().length).toBe(2);
-    await page.click('#btnPrograms');
-    await page.click('#pDupProg');
+    await page.click('#btnDirDup');
     await expect.poll(() => server.live().length).toBe(3);
   });
 
   test('a program the account has no room for stays on this device, and says so', async ({ page }) => {
     const server = await open(page, { programs: ['a', 'b'].map((x) => program(`prog${x}${x}${x}${x}`, EXAMPLE)) });
-    await page.click('#btnPrograms');
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));   // coming back to the page catches up
     await expect.poll(() => server.called('GET /programs?owner=me').length).toBe(2);
     // Another device fills the account, after this one last looked
     server.programs.set('progzzzz', program('progzzzz', EXAMPLE));
-    await page.click('#pDupProg');
+    await page.click('#btnDirDup');
     await expect(page.locator('.modal h2')).toHaveText('A free account keeps 3 programs');
     await expect(page.locator('.modal-body')).toContainText('saved on this device only for now');
     await page.click('.modal button:has-text("Not now")');
@@ -309,8 +306,7 @@ test.describe('signed in', () => {
 
   test('Premium has no limit', async ({ page }) => {
     const server = await open(page, { limit: null, programs: ['a', 'b', 'c'].map((x) => program(`prog${x}${x}${x}${x}`, EXAMPLE)) });
-    await page.click('#btnPrograms');
-    await page.click('#pDupProg');
+    await page.click('#btnDirDup');
     await expect.poll(() => server.live().length).toBe(4);
   });
 
@@ -320,22 +316,20 @@ test.describe('signed in', () => {
       programs: [program('prog1111', EXAMPLE), program('prog2222', other, { name: 'Other', updatedAt: '2026-01-01T00:00:00.000Z' })],
     });
     expect(await page.evaluate(() => localStorage.getItem('scoutProgramBuilder.program.prog2222'))).toBeNull();
-    await page.click('#btnPrograms');
-    await page.click('#popover [data-open="prog2222"]');
+    await page.click('#directory [data-open="prog2222"]');
     await expect.poll(() => page.evaluate(() => state.branding.groupName)).toBe('The other program');
 
     // Offline, a program opened before still opens from this device
     server.offline = true;
-    await page.click('#btnPrograms');
-    await page.click('#popover [data-open="prog1111"]');
+    await page.click('#directory [data-open="prog1111"]');
     await expect.poll(() => page.evaluate(() => state.branding.groupName)).toBe(EXAMPLE.branding.groupName);
   });
 
   test('deleting moves the program to the bin, and Account brings it back', async ({ page }) => {
     const other = program('prog2222', EXAMPLE, { name: 'Other', updatedAt: '2026-01-01T00:00:00.000Z' });
     const server = await open(page, { programs: [program('prog1111', EXAMPLE, { name: 'Cubs Term 3' }), other] });
-    await page.click('#btnPrograms');
-    await page.click('#popover [data-delprog="prog1111"]');
+    await page.hover('#directory .dir-row:has([data-delprog="prog1111"])');
+    await page.click('#directory [data-delprog="prog1111"]');
     await expect(page.locator('.modal-body')).toContainText('brought back for 30 days');
     await page.click('.modal .btn-danger');
     await expect.poll(() => server.programs.get('prog1111').deletedAt).not.toBeNull();
@@ -348,8 +342,7 @@ test.describe('signed in', () => {
     await page.click('[data-restore="prog1111"]');
     await expect(page.locator('#acPlan')).toHaveText('Free account · 2 of 3 programs');
     await page.click('.modal-actions .btn');
-    await page.click('#btnPrograms');
-    await expect(page.locator('#popover .prog-item')).toHaveCount(2);
+    await expect(page.locator('#directory .dir-item')).toHaveCount(2);
   });
 
   test('a program deleted on another device goes from the list', async ({ page }) => {
@@ -357,8 +350,8 @@ test.describe('signed in', () => {
       programs: [program('prog1111', EXAMPLE), program('prog2222', EXAMPLE, { name: 'Other', updatedAt: '2026-01-01T00:00:00.000Z' })],
     });
     server.programs.get('prog1111').deletedAt = new Date().toISOString();
-    await page.click('#btnPrograms');
-    await expect(page.locator('#popover .prog-item')).toHaveCount(1);
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));   // coming back to the page catches up
+    await expect(page.locator('#directory .dir-item')).toHaveCount(1);
     await expect.poll(() => page.evaluate(() => library.current)).toBe('prog2222');
   });
 

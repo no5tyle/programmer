@@ -429,15 +429,7 @@ function openProgramsMenu(anchor) {
   pop.querySelectorAll('[data-delprog]').forEach((b) => { b.onclick = () => { closePopover(); deleteProgram(b.dataset.delprog); }; });
   pop.querySelectorAll('[data-addprog]').forEach((b) => { b.onclick = () => { closePopover(); addHeldToAccount(b.dataset.addprog); }; });
   if ($('#pSignIn')) $('#pSignIn').onclick = openSignIn;
-  $('#pDupProg').onclick = async () => {
-    closePopover();
-    const how = await addProgramChecked(() => {
-      const c = copyOf(state);
-      c.branding.versionText = '';
-      return c;
-    });
-    if (how) toast('Copy made — you are now editing the copy.');
-  };
+  $('#pDupProg').onclick = () => { closePopover(); duplicateProgram(); };
   $('#pNewProg').onclick = () => { closePopover(); newProgram(); };
   // Signed in: the list comes from the account, so bring it up to date while it's open
   if (account && !anchor.dataset.fresh) {
@@ -475,7 +467,7 @@ function renderDirectory() {
   const account = typeof signedIn === 'function' && accountsOn() && signedIn();
   const items = library.items.map(dirInfo);
   const shown = account ? items.filter((x) => !x.hold) : items;
-  const held = account ? items.filter((x) => x.hold) : [];
+  const onDevice = account ? items.filter((x) => x.hold) : [];
   $('#dirWhere').textContent = !accountsOn() ? 'In this browser' : account ? 'In your account' : 'On this device';
 
   const groups = new Map();
@@ -486,13 +478,20 @@ function renderDirectory() {
   }
   const order = (k) => { const i = Object.keys(SECTIONS).indexOf(k); return i < 0 ? 99 : i; };
   const keys = [...groups.keys()].sort((a, b) => order(a) - order(b) || groups.get(a).name.localeCompare(groups.get(b).name));
-  if (held.length) groups.set('held', { name: 'On this device only', items: held }), keys.push('held');
+  if (onDevice.length) groups.set('held', { name: 'On this device only', items: onDevice }), keys.push('held');
 
+  const held = (x) => (x.hold === 'conflict' ? 'changed somewhere else' : x.hold ? 'on this device only' : '');
   const item = (x) => `
-    <button class="dir-item" type="button" data-open="${esc(x.id)}" ${x.id === library.current ? 'aria-current="true"' : ''}>
-      <b>${esc(x.name)}</b>
-      <span>${esc([termLabel(x), x.group].filter(Boolean).join(' · '))}</span>
-    </button>`;
+    <div class="dir-row">
+      <button class="dir-item" type="button" data-open="${esc(x.id)}" ${x.id === library.current ? 'aria-current="true"' : ''}>
+        <b>${esc(x.name)}</b>
+        <span>${esc([termLabel(x), x.group, held(x)].filter(Boolean).join(' · '))}</span>
+      </button>
+      <span class="dir-actions">
+        ${account && x.hold && x.hold !== 'conflict' ? `<button class="icon-btn" type="button" data-addprog="${esc(x.id)}" title="Add to my account" aria-label="Add ${esc(x.name)} to my account"><svg viewBox="0 0 24 24"><path d="M12 16V5M7 10l5-5 5 5M5 19h14"/></svg></button>` : ''}
+        <button class="icon-btn" type="button" data-delprog="${esc(x.id)}" title="Delete" aria-label="Delete ${esc(x.name)}"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
+      </span>
+    </div>`;
   box.innerHTML = keys.map((k) => {
     const g = groups.get(k);
     return `<div class="dir-group">
@@ -504,6 +503,25 @@ function renderDirectory() {
     box.insertAdjacentHTML('beforeend', `<div class="dir-signin"><span>Sign in to keep more than one program, and use them on any device.</span>
       <button class="btn btn-outline btn-sm" type="button" data-dir-signin>Sign in</button></div>`);
   }
+}
+
+/** A copy of the open program, to change without touching this one. */
+async function duplicateProgram() {
+  const how = await addProgramChecked(() => {
+    const c = copyOf(state);
+    c.branding.versionText = '';
+    return c;
+  });
+  if (how) toast('Copy made — you are now editing the copy.');
+}
+
+/** Points at the directory, to delete a program from it (a phone opens its programs list instead). */
+function showDirectoryToDelete() {
+  if (document.body.classList.contains('mobile')) { openProgramsMenu($('#mTitle')); return; }
+  const dir = $('#directory');
+  dir.classList.remove('attention'); void dir.offsetWidth; dir.classList.add('attention');
+  $('#dirList [data-delprog]')?.focus();
+  toast('Delete one with the bin beside it, in the list on the left.');
 }
 
 /* ---------------------------------------------------------------- settings pane */
@@ -2059,7 +2077,6 @@ function onOpenersButton(target) {
   if (pop.hidden || !popCtx) return false;
   if (target.closest('#rowHandle')) return popCtx.type === 'row' && popCtx.id === handleRow;
   if (target.closest('#btnExport')) return popCtx.type === 'export';
-  if (target.closest('#btnPrograms')) return popCtx.type === 'programs';
   const cell = target.closest('#sheet td.clickable');
   if (cell) return popCtx.type === cell.dataset.pop && popCtx.id === cell.closest('tr')?.dataset.id;
   const add = target.closest('[data-add-week]');
@@ -2748,7 +2765,7 @@ function importJson() {
         const data = JSON.parse(text);
         if (!data || typeof data !== 'object' || !data.branding) throw new Error('bad');
         const how = await addProgramChecked(() => copyOf(normalise(data)));
-        if (how) toast(how === 'replace' ? 'Program opened.' : 'Program opened. It is saved alongside your others under Programs.');
+        if (how) toast(how === 'replace' ? 'Program opened.' : 'Program opened. It is saved alongside your others.');
       } catch { toast('That file is not a saved program or spreadsheet.', 'error'); }
     };
     fr.readAsText(f);
@@ -2765,7 +2782,7 @@ async function newProgram() {
       title: 'Start a new program',
       body: how === 'replace'
         ? `<p>The new program takes this one's place on this device. It keeps your branding, leaders, columns and lists, with fresh meeting dates.</p>`
-        : `<p>This program stays saved under <strong>Programs</strong>. The new one keeps your branding, leaders, columns and lists, with fresh meeting dates.</p>`,
+        : `<p>This program stays saved with your others. The new one keeps your branding, leaders, columns and lists, with fresh meeting dates.</p>`,
       buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' },
         { label: `Same term (T${t.term} ${t.year})`, value: 'same', cls: 'btn-outline' },
         { label: `Next term (T${next.term} ${next.year})`, value: 'next', cls: 'btn-primary' }],
@@ -3051,17 +3068,17 @@ function bindEvents() {
   $('#btnAddRow').onclick = addActivity;
   $('#btnAddWeek').onclick = (e) => openAddWeekPopover(e.currentTarget);
   $('#btnUndo').onclick = undo;
-  // Programs opens the list of programs (with New program), or closes it if it's open
-  $('#btnPrograms').onclick = (e) => {
-    if (!pop.hidden && popCtx?.type === 'programs') { closePopover(); return; }
-    openProgramsMenu(e.currentTarget);
-  };
   $('#btnImport').onclick = importJson;
   $('#btnSettings').onclick = () => setSettingsOpen(!settingsOpen());
   $('#btnSettingsClose').onclick = () => { setSettingsOpen(false); $('#btnSettings').focus(); };
   $('#btnDirNew').onclick = () => newProgram();
+  $('#btnDirDup').onclick = () => duplicateProgram();
   $('#dirList').onclick = (e) => {
     if (e.target.closest('[data-dir-signin]')) { openSignIn(); return; }
+    const del = e.target.closest('[data-delprog]');
+    if (del) { deleteProgram(del.dataset.delprog); return; }
+    const add = e.target.closest('[data-addprog]');
+    if (add) { addHeldToAccount(add.dataset.addprog); return; }
     const b = e.target.closest('[data-open]');
     if (b) openProgram(b.dataset.open);
   };

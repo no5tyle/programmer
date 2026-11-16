@@ -103,8 +103,16 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 }
 .dir-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--faint); }
 .dir-count { margin-left: auto; font-weight: 500; letter-spacing: 0; }
+.dir-row { position: relative; }
+.dir-actions { position: absolute; top: 4px; right: 4px; display: flex; gap: 2px; opacity: 0; transition: opacity .15s; }
+.dir-row:hover .dir-actions, .dir-row:focus-within .dir-actions { opacity: 1; }
+@media (hover: none) { .dir-actions { opacity: 1; } }
+.dir-actions .icon-btn { width: 28px; height: 28px; background: var(--surface); }
+.dir-foot { padding: 8px 16px 14px; border-top: .5px solid var(--border); font-size: 13px; }
+.directory.attention .dir-list { animation: dir-attention 1.2s ease-out; }
+@keyframes dir-attention { 0%, 40% { background: var(--tint-fill); } 100% { background: transparent; } }
 .dir-item {
-  display: flex; flex-direction: column; align-items: flex-start; width: 100%; padding: 7px 10px;
+  display: flex; flex-direction: column; align-items: flex-start; width: 100%; padding: 7px 64px 7px 10px;
   border: 0; border-radius: 10px; background: transparent; color: var(--text); text-align: left; cursor: pointer; font: inherit;
 }
 .dir-item:hover { background: var(--hover); }

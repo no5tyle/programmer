@@ -107,18 +107,16 @@ test.describe('files', () => {
 
   test('programs: new next term, switch, duplicate, delete, survive reload', async ({ page }) => {
     await page.evaluate(() => { state.rows[0].activity = 'Kept'; renderAll(); });
-    await page.click('#btnPrograms');
-    await page.click('#pNewProg');
+    await page.click('#btnDirNew');
     await page.click('.modal [data-i="2"]');
     expect(await page.evaluate(() => `T${state.term.term} ${state.term.year}`)).toBe('T1 2027');
-    await page.click('#btnPrograms');
-    await page.click('[data-open]:has-text("Term 4 2026")');
+    await page.click('#directory [data-open]:has-text("Term 4 2026")');
     expect(await page.evaluate(() => state.rows[0].activity)).toBe('Kept');
-    await page.click('#btnPrograms');
-    await page.click('#pDupProg');
+    await page.click('#btnDirDup');
     expect(await page.evaluate(() => library.items.length)).toBe(3);
-    await page.click('#btnPrograms');
-    await page.click(`[data-delprog="${await page.evaluate(() => library.current)}"]`);
+    const current = await page.evaluate(() => library.current);
+    await page.hover(`#directory .dir-row:has([data-delprog="${current}"])`);
+    await page.click(`#directory [data-delprog="${current}"]`);
     await page.click('.modal .btn-danger');
     await page.reload();
     await page.waitForFunction(() => typeof library === 'object');

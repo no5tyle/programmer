@@ -4,7 +4,9 @@ A small web app for building a term program to share with Scout families. It run
 
 **Use it:** [program.qstored.org](https://program.qstored.org/)
 
-![The Program Builder on a computer: the term and branding settings on the left, the program on the right, and the formatting toolbar over a description being edited](docs/app-desktop.png)
+![The Program Builder on a computer: programs listed on the left by section, the program in the middle with the formatting toolbar over a description being edited, and the Settings pane on the right](docs/app-desktop.png)
+
+<sub>Made with `node scripts/screenshots.js`.</sub>
 
 ## Example
 

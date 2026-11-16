@@ -43,9 +43,6 @@
         <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>Undo
       </button>
       <span class="divider"></span>
-      <button class="btn btn-ghost" id="btnPrograms" title="Your saved programs">
-        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Programs
-      </button>
       <button class="btn btn-ghost" id="btnImport" title="Open a program file you saved before, or a spreadsheet of activities">
         <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Open
       </button>
@@ -73,6 +70,9 @@
         </button>
       </div>
       <div class="dir-list" id="dirList"></div>
+      <div class="dir-foot">
+        <button class="link-btn" id="btnDirDup" type="button" title="Make a copy of this program, to change without touching this one">Duplicate this program</button>
+      </div>
     </nav>
 
     <main class="workspace">
@@ -319,7 +319,7 @@
       </details>
       </details>
 
-      <p class="sidebar-foot"><span id="saveWhere">Your programs save automatically, in this browser only (see <strong>Programs</strong>). Use <strong>Save file</strong> to keep a copy, move to another device or share one with other leaders.</span> <button class="link-btn" id="btnTour">Take the tour</button> · <button class="link-btn" id="btnMobileView" title="Use the phone layout on this screen: a week-by-week list, with a preview of the page">Switch to the mobile view</button></p>
+      <p class="sidebar-foot"><span id="saveWhere">Your programs save automatically, in this browser only (listed on the left). Use <strong>Save file</strong> to keep a copy, move to another device or share one with other leaders.</span> <button class="link-btn" id="btnTour">Take the tour</button> · <button class="link-btn" id="btnMobileView" title="Use the phone layout on this screen: a week-by-week list, with a preview of the page">Switch to the mobile view</button></p>
       </aside>
       </div>
     </main>
