@@ -37,7 +37,7 @@ function openWelcome() {
       body: () => `
         <p>Make a one-page term program to share with your section's families. First, four quick questions so it's set up for you.</p>
         <label class="field"><span>Your Scout Group's name</span>
-          <input type="text" id="wzGroup" value="${esc(draft.groupName)}" placeholder="e.g. 1st Example Scout Group" autocomplete="organization"></label>`,
+          <input type="text" id="wzGroup" value="${esc(draft.groupName)}" placeholder="e.g. 1st Example Scout Group"></label>`,
       check() {
         draft.groupName = $('#wzGroup').value.trim();
         return draft.groupName ? '' : 'Enter your group\'s name.';

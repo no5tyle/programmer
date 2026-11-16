@@ -2481,9 +2481,41 @@ function bindEvents() {
   window.addEventListener('afterprint', () => { document.title = appTitle; });
 }
 
+/* ---------------------------------------------------------------- no autofill */
+
+/*
+ * Password managers and the browser's autofill guess what a field is from its label: "Title" looks
+ * like Mr/Mrs/Ms, "Group name" like a company, a leader's name and contact like a person's details.
+ * Nothing here is personal details or a login, so every text field is marked to be left alone:
+ * LastPass (data-lpignore), 1Password (data-1p-ignore), Bitwarden (data-bwignore), Dashlane
+ * (data-form-type) and the browser (autocomplete). Fields added later (popovers, phone panels, the
+ * setup wizard) are marked as they appear.
+ */
+const TEXT_FIELDS = 'input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]):not([type=hidden]):not([type=range]), textarea';
+
+function markNoAutofill(root) {
+  const fields = root.matches?.(TEXT_FIELDS) ? [root] : [...root.querySelectorAll?.(TEXT_FIELDS) || []];
+  fields.forEach((el) => {
+    if (el.dataset.lpignore) return;
+    el.setAttribute('autocomplete', 'off');
+    el.setAttribute('data-lpignore', 'true');
+    el.setAttribute('data-1p-ignore', '');
+    el.setAttribute('data-bwignore', '');
+    el.setAttribute('data-form-type', 'other');
+  });
+}
+
+function watchNoAutofill() {
+  markNoAutofill(document.body);
+  new MutationObserver((changes) => {
+    changes.forEach((c) => c.addedNodes.forEach((n) => { if (n.nodeType === 1) markNoAutofill(n); }));
+  }).observe(document.body, { childList: true, subtree: true });
+}
+
 /* ---------------------------------------------------------------- init */
 
 function init() {
+  watchNoAutofill();
   $('[data-bind="term.region"]').innerHTML = REGIONS.map(([v, label]) => `<option value="${v}">${esc(label)}</option>`).join('');
   const ys = $('#yearSelect');
   const thisYear = new Date().getFullYear();
