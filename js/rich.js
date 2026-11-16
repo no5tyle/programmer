@@ -161,8 +161,9 @@ function placeFmtBar() {
   const field = richField();
   if (!field) { fmtBar.hidden = true; return; }
   fmtBar.hidden = false;
-  // Above the field, lined up with its left edge, as the style toolbar is for other fields (placeFsBar)
-  const r = field.getBoundingClientRect();
+  // Above the field, lined up with its left edge, as the style toolbar is for other fields (placeFsBar).
+  // On the program that's the whole table cell, not the text inside its padding.
+  const r = (field.closest('.prog td') || field).getBoundingClientRect();
   const w = fmtBar.offsetWidth, h = fmtBar.offsetHeight, gap = 6;
   const vv = window.visualViewport;
   const top0 = vv ? vv.offsetTop : 0, vh = vv ? vv.height : innerHeight;

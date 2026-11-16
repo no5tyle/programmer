@@ -615,7 +615,7 @@ body.mobile .prog .col-grip { display: none; }
   border: 1px solid var(--input-border); border-radius: var(--radius); background: var(--surface);
   color: var(--text); font: inherit; font-weight: 600; text-align: left; cursor: pointer;
 }
-.wz-section img { width: 40px; height: 40px; flex: none; object-fit: contain; border-radius: 8px; background: #fff; }
+.wz-section img { width: 40px; height: 40px; flex: none; object-fit: contain; }
 .wz-section:hover { border-color: var(--sc); }
 .wz-section.on { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); background: var(--tint-fill); }
 .wz-leaders { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }

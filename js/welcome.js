@@ -50,7 +50,7 @@ function openWelcome() {
         <div class="wz-sections" role="radiogroup" aria-label="Section">
           ${Object.entries(SECTIONS).map(([id, s]) => `
             <button type="button" class="wz-section ${draft.section === id ? 'on' : ''}" role="radio" aria-checked="${draft.section === id}" data-section="${id}" style="--sc:${esc(s.color)}">
-              <img src="${esc(s.logo)}" alt="" width="40" height="40"><span>${esc(s.name)}</span>
+              <img src="${esc(s.emblem || s.logo)}" alt="" width="40" height="40"><span>${esc(s.name)}</span>
             </button>`).join('')}
         </div>`,
       check: () => '',

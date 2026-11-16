@@ -16,6 +16,7 @@ async function runWizard(page) {
   await page.fill('#wzGroup', '1st Example Scout Group');
   await page.keyboard.press('Enter');
   await expect(page.locator('.wz h2')).toHaveText('Which section?');
+  await expect(page.locator('[data-section="cubs"] img')).toHaveAttribute('src', 'assets/section-logos/cubs-emblem.png');
   await page.click('[data-section="scouts"]');
   await page.click('[data-wz="next"]');
   await expect(page.locator('.wz h2')).toHaveText('Which term?');

@@ -23,11 +23,17 @@ test.describe('desktop', () => {
     const bar = page.locator('.fmt-bar:not(.fs-bar)');
     await expect(bar).toBeVisible();
     const b = await bar.boundingBox();
-    const c = await page.locator(cell).boundingBox();
-    expect(b.y + b.height).toBeLessThanOrEqual(c.y + 1);
-    // Placed as the style toolbar is for other fields: just above, lined up with the field's left edge
+    // Placed as the style toolbar is for picked cells: 6px above the table cell, lined up with its left edge
+    const c = await page.locator(cell).locator('xpath=..').boundingBox();
     expect(Math.abs(b.x - c.x)).toBeLessThan(1);
-    expect(c.y - (b.y + b.height)).toBeLessThan(10);
+    expect(Math.abs(c.y - (b.y + b.height) - 6)).toBeLessThan(1);
+    await page.mouse.click(5, 300);
+    await page.click('#sheet tbody tr:nth-child(1) td.c-patrol');
+    const fb = await page.locator('.fs-bar').boundingBox();
+    const pc = await page.locator('#sheet tbody tr:nth-child(1) td.c-patrol').boundingBox();
+    expect(Math.abs(pc.y - (fb.y + fb.height) - 6)).toBeLessThan(1);
+    await page.mouse.click(5, 300);
+    await typeAndSelectLast(page, cell, 'Bring a torch', 5);
 
     await bar.locator('[data-fmt="bold"]').click();
     await expect(bar.locator('[data-fmt="bold"]')).toHaveAttribute('aria-pressed', 'true');
