@@ -266,7 +266,7 @@ function editorHTML(r) {
   // A formattable text field (js/rich.js): its toolbar hovers above it while it's being edited
   function richField(k, text, row, ph = '') {
     const tall = k === 'description' || k === 'notes';
-    return `<div class="m-field"><span id="mf-${k}">${esc(text)}</span><div class="m-rich ${tall ? 'tall' : ''}" contenteditable="true" data-rich data-f="${k}" role="textbox" aria-multiline="true" aria-labelledby="mf-${k}" spellcheck="true"${ph ? ` data-ph="${esc(ph)}"` : ''}>${richHTML(row, k)}</div></div>`;
+    return `<div class="m-field"><span id="mf-${k}">${esc(text)}</span><div class="m-rich ${tall ? 'tall' : ''}" contenteditable="true" data-rich data-f="${k}" data-row="${row.id}" style="text-align:${typedCellAlign(row.id, k)}" role="textbox" aria-multiline="true" aria-labelledby="mf-${k}" spellcheck="true"${ph ? ` data-ph="${esc(ph)}"` : ''}>${richHTML(row, k)}</div></div>`;
   }
   return `
     <div class="m-card">

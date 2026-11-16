@@ -485,3 +485,86 @@ test.describe('the cursor in an empty typed cell', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test.describe('alignment', () => {
+  test("typed cells: the formatting toolbar aligns the cell, and the column's own alignment is the default", async ({ page }) => {
+    const errors = await openApp(page);
+    await fillCubs(page);
+    const td = page.locator('#sheet tbody tr:nth-child(2) td.c-notes');
+    await td.locator('.ed').click();
+    const bar = page.locator('.fmt-bar:not(.fs-bar)');
+    // Notes is left-aligned
+    await expect(bar.locator('[data-al="left"]')).toHaveAttribute('aria-pressed', 'true');
+    await bar.locator('[data-al="center"]').click();
+    await expect(td).toHaveAttribute('data-align', 'center');
+    await expect(td).toHaveCSS('text-align', 'center');
+    await expect(td.locator('.ed')).toBeFocused();      // still editing
+    expect(await page.evaluate(() => state.rows[1].cellStyle)).toEqual({ notes: { a: 'center' } });
+    await page.keyboard.type('Bring a hat');
+    expect(await page.evaluate(() => state.rows[1].notes)).toBe('Bring a hat');
+    // Kept when the page is drawn again; the column's own alignment removes it
+    await page.mouse.click(5, 300);
+    await page.evaluate(() => renderAll());
+    await expect(td).toHaveAttribute('data-align', 'center');
+    await td.locator('.ed').click();
+    await bar.locator('[data-al="left"]').click();
+    expect(await page.evaluate(() => state.rows[1].cellStyle)).toBeUndefined();
+    await bar.locator('[data-al="right"]').click();
+    await page.click('#btnUndo');
+    expect(await page.evaluate(() => state.rows[1].cellStyle)).toBeUndefined();
+    expect(errors).toEqual([]);
+  });
+
+  test('picked cells and weeks take it from their toolbar; sidebar fields have none', async ({ page }) => {
+    const errors = await openApp(page);
+    await fillCubs(page);
+    await page.click('#sheet tbody tr:nth-child(1) td.c-leader');
+    const bar = page.locator('.fs-bar');
+    await expect(bar.locator('[data-fs-align="center"]')).toHaveAttribute('aria-pressed', 'true');
+    await bar.locator('[data-fs-align="right"]').click();
+    await expect(page.locator('#sheet tbody tr:nth-child(1) td.c-leader')).toHaveAttribute('data-align', 'right');
+    expect(await page.evaluate(() => state.rows[0].cellStyle)).toEqual({ leader: { a: 'right' } });
+    // Clear leaves the alignment alone
+    await bar.locator('[data-fs-act="clear"]').click();
+    expect(await page.evaluate(() => state.rows[0].cellStyle.leader.a)).toBe('right');
+    await page.mouse.click(5, 300);
+
+    await page.locator('#sheet td.c-week', { hasText: 'Week 2' }).click({ position: { x: 30, y: 10 } });
+    await bar.locator('[data-fs-align="left"]').click();
+    await expect(page.locator('#sheet td.c-week', { hasText: 'Week 2' })).toHaveCSS('text-align', 'left');
+    expect(await page.evaluate(() => state.weekStyles)).toEqual({ '2026-10-19': { a: 'left' } });
+    await page.mouse.click(5, 300);
+
+    await page.click('[data-bind="branding.groupName"]');
+    await expect(bar).toBeVisible();
+    await expect(bar.locator('[data-fs-align="left"]')).toBeHidden();
+    // Saved alignment is checked
+    const n = await page.evaluate(() => normalise({ rows: [{ date: '2026-10-13', notes: 'x', cellStyle: { notes: { a: 'right', c: '#d0021b' }, leader: { a: 'sideways' } } }] }).rows[0].cellStyle);
+    expect(n).toEqual({ notes: { a: 'right' } });
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('alignment (phone)', () => {
+  const { defaultBrowserType, ...iPhone } = devices['iPhone 13'];
+  test.use(iPhone);
+  test("the editor's text fields can be aligned, and the toolbars fit the screen", async ({ page }) => {
+    const errors = await openApp(page);
+    await fillCubs(page);
+    await page.click('.m-row:has-text("Night Walk")');
+    const f = page.locator('.m-panel:not([hidden]) [data-f="description"]');
+    await f.click();
+    const bar = page.locator('.fmt-bar:not(.fs-bar)');
+    const b = await bar.boundingBox();
+    expect(b.x).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.width).toBeLessThanOrEqual(390);
+    await bar.locator('[data-al="right"]').tap();
+    await expect(f).toHaveCSS('text-align', 'right');
+    await expect(f).toBeFocused();
+    expect(await page.evaluate(() => state.rows[0].cellStyle)).toEqual({ description: { a: 'right' } });
+    await page.locator('.m-panel:not([hidden]) [data-style-cell="patrol"]').click();
+    const fb = await page.locator('.fs-bar').boundingBox();
+    expect(fb.x + fb.width).toBeLessThanOrEqual(390);
+    expect(errors).toEqual([]);
+  });
+});

@@ -440,6 +440,8 @@ textarea.bound-textarea:focus { outline: none; border-color: var(--primary); box
   hyphens: manual;
 }
 .prog [data-align=left] { text-align: left; }
+.prog [data-align=right] { text-align: right; }
+.prog [data-align=center] { text-align: center; }
 /* Drag between headings to resize columns (screen only) */
 .prog .col-grip {
   position: absolute; top: 0; bottom: 0; right: -6px; width: 12px; z-index: 3;
@@ -724,3 +726,11 @@ body.mobile .prog .col-grip { display: none; }
 
 /* Anywhere in a typed cell puts the cursor in its text (see the sheet's mousedown in js/app.js) */
 @media screen { .prog td:has(> .ed[contenteditable="true"]) { cursor: text; } }
+/* Narrow screens: slimmer buttons so a whole toolbar fits; anything narrower still wraps onto two rows */
+.fmt-bar { flex-wrap: wrap; max-width: calc(100vw - 16px); }
+@media (max-width: 440px) {
+  .fmt-bar { gap: 0; padding: 3px; }
+  .fmt-bar button { width: 30px; }
+  .fmt-bar .fs-swatch { width: 27px; }
+  .fmt-bar .fs-sep { margin: 0 2px; }
+}

@@ -123,12 +123,22 @@ function normaliseRich(rich) {
 
 /* ---------------------------------------------------------------- the toolbar */
 
+const ALIGN_ICONS = {
+  left: '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 10h10M4 14h16M4 18h10"/></svg>',
+  center: '<svg viewBox="0 0 24 24"><path d="M4 6h16M7 10h10M4 14h16M7 18h10"/></svg>',
+  right: '<svg viewBox="0 0 24 24"><path d="M4 6h16M10 10h10M4 14h16M10 18h10"/></svg>',
+};
+const ALIGN_NAMES = { left: 'Align left', center: 'Centre', right: 'Align right' };
+
 const FMT_BUTTONS = [
   { cmd: 'bold', label: 'Bold', key: 'B', html: '<b>B</b>' },
   { cmd: 'italic', label: 'Italic', key: 'I', html: '<i>I</i>' },
   { cmd: 'underline', label: 'Underline', key: 'U', html: '<u>U</u>' },
   { sep: true },
   ...TEXT_COLOURS.map((c) => ({ cmd: 'colour', colour: c.hex, label: `${c.name} text`, cls: 'fs-swatch', html: `<span style="background:${c.hex}"></span>` })),
+  { sep: true, group: 'align' },
+  // The whole cell's alignment (program cells and the phone editor's fields)
+  ...['left', 'center', 'right'].map((a) => ({ cmd: 'align', al: a, label: ALIGN_NAMES[a], group: 'align', html: ALIGN_ICONS[a] })),
   { sep: true },
   { cmd: 'clear', label: 'Clear formatting', html: '<svg viewBox="0 0 24 24"><path d="M6 5h11M11 5l-3 14M4 20l16-16"/></svg>' },
 ];
@@ -138,8 +148,15 @@ fmtBar.className = 'fmt-bar';
 fmtBar.setAttribute('role', 'toolbar');
 fmtBar.setAttribute('aria-label', 'Text formatting');
 fmtBar.hidden = true;
-fmtBar.innerHTML = FMT_BUTTONS.map((b) => (b.sep ? '<span class="fs-sep" aria-hidden="true"></span>'
-  : `<button type="button" data-fmt="${b.cmd}"${b.colour ? ` data-colour="${b.colour}"` : ''}${b.cls ? ` class="${b.cls}"` : ''} title="${b.label}${b.key ? ` (${/Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl+'}${b.key})` : ''}" aria-label="${b.label}" aria-pressed="false">${b.html}</button>`)).join('');
+fmtBar.innerHTML = FMT_BUTTONS.map((b) => (b.sep ? `<span class="fs-sep" aria-hidden="true"${b.group ? ` data-group="${b.group}"` : ''}></span>`
+  : `<button type="button" data-fmt="${b.cmd}"${b.colour ? ` data-colour="${b.colour}"` : ''}${b.al ? ` data-al="${b.al}"` : ''}${b.group ? ` data-group="${b.group}"` : ''}${b.cls ? ` class="${b.cls}"` : ''} title="${b.label}${b.key ? ` (${/Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl+'}${b.key})` : ''}" aria-label="${b.label}" aria-pressed="false">${b.html}</button>`)).join('');
+
+/** The row and key of a typed field (a program cell, or a phone editor field), for its alignment; or null. */
+function richFieldCell(field) {
+  const rowId = field.closest('tr[data-id]')?.dataset.id || field.dataset.row;
+  const key = field.dataset.key || field.dataset.f;
+  return rowId && key && typeof typedCellAlign === 'function' && typedCellAlign(rowId, key) ? { rowId, key } : null;
+}
 
 /** The formatted field being edited, if any. */
 function richField() {
@@ -174,16 +191,26 @@ function placeFmtBar() {
   fmtBar.style.top = `${top}px`;
   fmtBar.style.left = `${left}px`;
   const colour = selectionColour();
+  const cell = richFieldCell(field);
+  const align = cell ? typedCellAlign(cell.rowId, cell.key) : null;
+  fmtBar.querySelectorAll('[data-group="align"]').forEach((el) => { el.hidden = !cell; });
   fmtBar.querySelectorAll('[data-fmt]').forEach((el) => {
     const cmd = el.dataset.fmt;
-    const on = cmd === 'colour' ? colour?.hex === el.dataset.colour : cmd === 'clear' ? false : document.queryCommandState(cmd);
+    const on = cmd === 'colour' ? colour?.hex === el.dataset.colour : cmd === 'align' ? el.dataset.al === align
+      : cmd === 'clear' ? false : document.queryCommandState(cmd);
     el.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
 }
 
-function applyFmt(cmd, colour) {
+function applyFmt(cmd, colour, al) {
   const field = richField();
   if (!field) return;
+  if (cmd === 'align') {
+    const cell = richFieldCell(field);
+    if (cell) alignTypedCell(cell.rowId, cell.key, al);
+    placeFmtBar();
+    return;
+  }
   document.execCommand('styleWithCSS', false, false);
   if (cmd === 'clear') document.execCommand('removeFormat');
   // A colour; the same colour again goes back to the field's own
@@ -197,7 +224,7 @@ fmtBar.addEventListener('pointerdown', (e) => e.preventDefault());
 fmtBar.addEventListener('mousedown', (e) => e.preventDefault());
 fmtBar.addEventListener('click', (e) => {
   const b = e.target.closest('[data-fmt]');
-  if (b) applyFmt(b.dataset.fmt, b.dataset.colour);
+  if (b) applyFmt(b.dataset.fmt, b.dataset.colour, b.dataset.al);
 });
 
 document.addEventListener('selectionchange', placeFmtBar);
@@ -244,6 +271,8 @@ function drawFsBar() {
     <button type="button" data-fs-act="i" title="Italic" aria-label="Italic" aria-pressed="false"><i>I</i></button>
     <span class="fs-sep" aria-hidden="true"></span>
     ${colours.map(([c, name]) => `<button type="button" class="fs-swatch" data-fs-colour="${c}" title="${name}" aria-label="${name} text" aria-pressed="false"><span style="background:${c}"></span></button>`).join('')}
+    <span class="fs-sep" aria-hidden="true" data-group="align"></span>
+    ${['left', 'center', 'right'].map((a) => `<button type="button" data-fs-align="${a}" data-group="align" title="${ALIGN_NAMES[a]}" aria-label="${ALIGN_NAMES[a]}" aria-pressed="false">${ALIGN_ICONS[a]}</button>`).join('')}
     <span class="fs-sep" aria-hidden="true"></span>
     <button type="button" data-fs-act="clear" title="Clear formatting" aria-label="Clear formatting"><svg viewBox="0 0 24 24"><path d="M6 5h11M11 5l-3 14M4 20l16-16"/></svg></button>`;
 }
@@ -301,20 +330,24 @@ function placeFsBar() {
   fsBar.querySelector('[data-fs-act="b"]').setAttribute('aria-pressed', (st.b ?? !!d.b) ? 'true' : 'false');
   fsBar.querySelector('[data-fs-act="i"]').setAttribute('aria-pressed', (st.i ?? !!d.i) ? 'true' : 'false');
   fsBar.querySelectorAll('[data-fs-colour]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.fsColour === st.c ? 'true' : 'false'));
+  // Alignment: only for program cells and weeks (their default is the column's)
+  fsBar.querySelectorAll('[data-group="align"]').forEach((el) => { el.hidden = !d.a; });
+  fsBar.querySelectorAll('[data-fs-align]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.fsAlign === (st.a || d.a) ? 'true' : 'false'));
 }
 
 fsBar.addEventListener('pointerdown', (e) => e.preventDefault());
 fsBar.addEventListener('mousedown', (e) => e.preventDefault());
 fsBar.addEventListener('click', (e) => {
   const cur = currentStyle();
-  const b = e.target.closest('[data-fs-act], [data-fs-colour]');
+  const b = e.target.closest('[data-fs-act], [data-fs-colour], [data-fs-align]');
   if (!cur || !b) return;
   const ref = cur.ref;
   const d = ref.defaults || {};
   let st = { ...ref.get() };
-  if (b.dataset.fsColour) st.c = st.c === b.dataset.fsColour ? undefined : b.dataset.fsColour;  // again: back to the usual colour
+  if (b.dataset.fsAlign) st.a = b.dataset.fsAlign === d.a ? undefined : b.dataset.fsAlign;     // the column's own: no override
+  else if (b.dataset.fsColour) st.c = st.c === b.dataset.fsColour ? undefined : b.dataset.fsColour;  // again: back to the usual colour
   // Clear: plain text, so a field that's bold or italic by default loses that too (B or I puts it back)
-  else if (b.dataset.fsAct === 'clear') st = { b: d.b ? false : undefined, i: d.i ? false : undefined };
+  else if (b.dataset.fsAct === 'clear') st = { b: d.b ? false : undefined, i: d.i ? false : undefined, a: st.a };   // alignment stays
   else {
     // Bold or italic flips what the field shows; matching its default is stored as no style at all
     const k = b.dataset.fsAct;

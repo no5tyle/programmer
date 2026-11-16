@@ -675,6 +675,7 @@ function cleanStyle(st) {
   if (typeof st.b === 'boolean') out.b = st.b;
   if (typeof st.i === 'boolean') out.i = st.i;
   if (typeof st.c === 'string' && /^#[0-9a-f]{6}$/i.test(st.c)) out.c = st.c;
+  if (['left', 'center', 'right'].includes(st.a)) out.a = st.a;   // a cell's alignment (program cells only)
   return Object.keys(out).length ? out : null;
 }
 
@@ -738,10 +739,17 @@ const CELL_STYLE_KEYS = ['date', 'time', 'patrol', 'leader', 'uniform'];
 const CELL_DEFAULTS = { patrol: { b: true } };
 const FREE_TEXT_KEYS = ['activity', 'description', 'forms', 'where', 'cost', 'notes'];
 
+/** A column's own alignment. */
+function colAlign(key) { return state.columns.find((c) => c.key === key)?.align || 'center'; }
+
+/**
+ * A program cell's style, with a setter. Picked cells take bold, italic, colour and alignment; typed
+ * cells (which have their own formatting) take alignment only. Its default alignment is the column's.
+ */
 function cellStyleRef(rowId, key) {
-  if (!CELL_STYLE_KEYS.includes(key)) return null;
+  if (!CELL_STYLE_KEYS.includes(key) && !FREE_TEXT_KEYS.includes(key)) return null;
   return {
-    defaults: CELL_DEFAULTS[key] || {},
+    defaults: { ...(CELL_DEFAULTS[key] || {}), a: colAlign(key) },
     get: () => rowById(rowId)?.cellStyle?.[key] || {},
     set: (st) => {
       const r = rowById(rowId); if (!r) return;
@@ -767,7 +775,7 @@ function weekStyleKey(ws) {
 function weekStyleRef(ws) {
   if (!ws) return null;
   return {
-    defaults: WEEK_DEFAULTS,
+    defaults: { ...WEEK_DEFAULTS, a: colAlign('week') },
     get: () => state.weekStyles?.[weekStyleKey(ws)] || {},
     set: (st) => {
       const next = { ...(state.weekStyles || {}) };
@@ -787,6 +795,29 @@ function normaliseWeekStyles(raw) {
 /** Classes and a colour variable for a cell with a style (see the .fs-* rules in css/app.css). */
 function styleClasses(st) {
   return [st.c && 'fs-c', st.b === true && 'fs-b', st.b === false && 'fs-nb', st.i === true && 'fs-i', st.i === false && 'fs-ni'].filter(Boolean).join(' ');
+}
+
+/**
+ * Align a typed cell from its formatting toolbar while it's being edited. The page isn't drawn again (that
+ * would take the cursor out of the cell): the cell (and the phone editor's field) are updated in place.
+ */
+function alignTypedCell(rowId, key, value) {
+  const ref = cellStyleRef(rowId, key);
+  if (!ref) return null;
+  pushHistory();
+  ref.set({ ...ref.get(), a: value === ref.defaults.a ? undefined : value });
+  const a = ref.get().a || ref.defaults.a;
+  const td = $(`#sheet tr[data-id="${rowId}"] .ed[data-key="${key}"]`)?.closest('td');
+  if (td) td.dataset.align = a;
+  $$(`.m-rich[data-row="${rowId}"][data-f="${key}"]`).forEach((el) => { el.style.textAlign = a; });
+  save(); fitSoon();
+  return a;
+}
+
+/** A typed cell's alignment now (its own, else its column's). */
+function typedCellAlign(rowId, key) {
+  const ref = cellStyleRef(rowId, key);
+  return ref ? ref.get().a || ref.defaults.a : null;
 }
 
 /** The style toolbar over a Week cell, until a click somewhere else (desktop). */
@@ -827,6 +858,8 @@ function migrateRed(r) {
 function normaliseCellStyle(r) {
   const out = {};
   CELL_STYLE_KEYS.forEach((k) => { const st = cleanStyle(r.cellStyle?.[k]); if (st) out[k] = st; });
+  // Typed cells: alignment only (their other formatting is in row.rich)
+  FREE_TEXT_KEYS.forEach((k) => { const a = cleanStyle(r.cellStyle?.[k])?.a; if (a) out[k] = { a }; });
   if (Object.keys(out).length) r.cellStyle = out; else delete r.cellStyle;
 }
 
@@ -901,9 +934,12 @@ const HL_KEYS = { 'date-activity': ['date', 'time', 'activity'], activity: ['act
 
 /** A cell, with its style (bold, italic, colour) if it has one: see CELL_STYLE_KEYS. */
 function cellHTML(col, r) {
-  const html = cellInner(col, r);
-  const st = CELL_STYLE_KEYS.includes(col.key) ? cleanStyle(r.cellStyle?.[col.key]) : null;
+  let html = cellInner(col, r);
+  const st = cleanStyle(r.cellStyle?.[col.key]);
   if (!st) return html;
+  // Its own alignment, in place of the column's
+  if (st.a) html = html.replace(/^(<td[^>]*?) data-align="[^"]*"/, `$1 data-align="${st.a}"`);
+  if (!CELL_STYLE_KEYS.includes(col.key)) return html;
   const cls = styleClasses(st);
   let out = html.replace('<td class="', `<td class="${cls} `);
   if (st.c) {
@@ -1021,7 +1057,7 @@ function renderSheet() {
       if (r.noMeeting && c.key !== 'week' && c.key !== 'date') {
         if (spanned) return '';
         spanned = true;
-        return `<td class="c-break" colspan="${spanCols}" data-align="center"><div class="ed" contenteditable="true" data-rich spellcheck="true" data-key="activity" data-ph="No meeting">${richHTML(r, 'activity')}</div></td>`;
+        return `<td class="c-break" colspan="${spanCols}" data-align="${cleanStyle(r.cellStyle?.activity)?.a || 'center'}"><div class="ed" contenteditable="true" data-rich spellcheck="true" data-key="activity" data-ph="No meeting">${richHTML(r, 'activity')}</div></td>`;
       }
       if (c.key !== 'week') return cellHTML(c, r);
       if (i > 0) return '';
@@ -1034,7 +1070,7 @@ function renderSheet() {
       const wcls = wst ? ` ${styleClasses(wst)}` : '';
       let wstyle = tint;
       if (wst?.c) wstyle = tint ? tint.replace(' style="', ` style="--fsc:${wst.c};`) : ` style="--fsc:${wst.c}"`;
-      return `<td class="c-week${wcls}" rowspan="${g.rows.length}"${ws ? ` data-week="${toISO(ws)}"` : ''}${wstyle}><span class="wk">${esc(label)}</span>${add}</td>`;
+      return `<td class="c-week${wcls}" rowspan="${g.rows.length}" data-align="${wst?.a || c.align || 'center'}"${ws ? ` data-week="${toISO(ws)}"` : ''}${wstyle}><span class="wk">${esc(label)}</span>${add}</td>`;
     }).join('');
     const cls = [r.noMeeting && 'no-meeting', r.emptyWeek && 'empty-week', i > 0 && cols[0]?.key === 'week' && 'cont'].filter(Boolean).join(' ');
     return `<tr data-id="${r.id}"${cls ? ` class="${cls}"` : ''}>${cells}</tr>`;
