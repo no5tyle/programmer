@@ -418,3 +418,34 @@ test.describe('colours in formatted text', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test.describe('clicking a typed cell', () => {
+  test('anywhere in the cell puts the cursor in its text', async ({ page }) => {
+    const errors = await openApp(page);
+    await fillCubs(page);
+    const td = page.locator('#sheet tbody tr:nth-child(2) td.c-description');
+    const ed = td.locator('.ed');
+    const t = await td.boundingBox(), e = await ed.boundingBox();
+    // The text sits in the middle of a taller cell
+    expect(t.height - e.height).toBeGreaterThan(10);
+    // Near the cell's top-left corner, outside the text: the cursor goes in, nearest the start
+    await page.mouse.click(t.x + 3, t.y + 3);
+    await expect(ed).toBeFocused();
+    await page.keyboard.type('Start: ');
+    expect(await page.evaluate(() => state.rows[1].description)).toBe('Start: Walk with Baloo to a nearby park and back again.');
+    // Near the bottom-right corner: nearest the end
+    await page.mouse.click(5, 300);
+    await page.mouse.click(t.x + t.width - 3, t.y + t.height - 3);
+    await expect(ed).toBeFocused();
+    await page.keyboard.type(' End');
+    expect(await page.evaluate(() => state.rows[1].description)).toBe('Start: Walk with Baloo to a nearby park and back again. End');
+    // An empty cell, anywhere
+    const act = page.locator('#sheet tbody tr:nth-child(3) td.c-notes');
+    const a = await act.boundingBox();
+    await page.mouse.click(a.x + a.width - 4, a.y + 4);
+    await expect(act.locator('.ed')).toBeFocused();
+    await page.keyboard.type('Bring a hat');
+    expect(await page.evaluate(() => state.rows[2].notes)).toBe('Bring a hat');
+    expect(errors).toEqual([]);
+  });
+});

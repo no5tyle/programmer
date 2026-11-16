@@ -2652,6 +2652,26 @@ function bindEvents() {
     saveSoon(); fitSoon();
   });
   // (Pasting into a cell brings plain text: js/rich.js)
+  // A typed cell's text is only as tall as its lines, in the middle of the cell: a press anywhere else in
+  // the cell puts the cursor in it too, at the nearest point to where it was pressed
+  sheet.addEventListener('mousedown', (e) => {
+    if (e.button !== 0 || e.target.closest('.ed, button, .col-grip')) return;
+    const ed = e.target.closest('td')?.querySelector(':scope > .ed[contenteditable="true"]');
+    if (!ed) return;
+    e.preventDefault();
+    ed.focus({ preventScroll: true });
+    const r = ed.getBoundingClientRect();
+    const x = Math.min(Math.max(e.clientX, r.left + 1), r.right - 1);
+    const y = Math.min(Math.max(e.clientY, r.top + 1), r.bottom - 1);
+    let range = document.caretRangeFromPoint?.(x, y);
+    if (!range && document.caretPositionFromPoint) {
+      const p = document.caretPositionFromPoint(x, y);
+      if (p) { range = document.createRange(); range.setStart(p.offsetNode, p.offset); }
+    }
+    if (!range || !ed.contains(range.startContainer)) { range = document.createRange(); range.selectNodeContents(ed); range.collapse(false); }
+    const sel = getSelection();
+    sel.removeAllRanges(); sel.addRange(range);
+  });
   sheet.addEventListener('click', (e) => {
     const addIn = e.target.closest('[data-add-week]');
     if (addIn) { openAddToWeekPopover(addIn, parseDate(addIn.dataset.addWeek)); return; }

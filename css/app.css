@@ -721,3 +721,6 @@ body.mobile .prog .col-grip { display: none; }
 
 /* Clicking a Week cell brings up its style toolbar */
 @media screen { .prog td.c-week[data-week] { cursor: pointer; } }
+
+/* Anywhere in a typed cell puts the cursor in its text (see the sheet's mousedown in js/app.js) */
+@media screen { .prog td:has(> .ed[contenteditable="true"]) { cursor: text; } }
