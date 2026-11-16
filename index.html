@@ -165,6 +165,8 @@
       <details class="card">
         <summary><span class="card-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.8.8 3 2.5 3.5 5.2"/></svg></span>Leaders</summary>
         <div class="card-body">
+          <p class="hint">Leaders can be picked for each activity with a tap. Whether they're also listed at the top of the program is up to you.</p>
+          <label class="check"><input type="checkbox" data-bind="branding.showLeaders"> Show the leaders at the top of the program</label>
           <label class="field"><span>Heading</span><input type="text" data-bind="branding.leadersLabel"></label>
           <div class="list" id="leadersList"></div>
           <button class="btn btn-text btn-sm" data-add="leaders">+ Add leader</button>

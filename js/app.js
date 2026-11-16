@@ -178,7 +178,7 @@ function defaultState() {
     branding: {
       groupName: '', section: 'cubs', sectionName: 'Cubs', color: SECTIONS.cubs.color,
       titleTemplate: '{section} Program – Term {term} {year}', titleColor: 'dark', headerStyle: 'tint',
-      font: 'Nunito', logo: null, logoStyle: 'named', versionText: '', footerText: '', headerNote: '', leadersLabel: 'Leaders:',
+      font: 'Nunito', logo: null, logoStyle: 'named', versionText: '', footerText: '', headerNote: '', leadersLabel: 'Leaders:', showLeaders: true,
       leaders: [{ name: 'Leader name', phone: '0400 000 000' }, { name: 'Leader name', phone: '0400 000 000' }],
     },
     term: {
@@ -1046,7 +1046,8 @@ function renderSheet() {
   sheet.style.setProperty('--doc-font', b.font === 'Arial' ? 'Arial, Helvetica, sans-serif' : `'${b.font}', Arial, sans-serif`);
   sheet.style.setProperty('--hfs', `${Math.max(9, o.maxFont)}pt`);
 
-  const leaders = b.leaders.filter((l) => l.name || l.phone);
+  // The leaders can be listed at the top, or kept only for picking each activity's leader
+  const leaders = b.showLeaders === false ? [] : b.leaders.filter((l) => l.name || l.phone);
   const lCols = leaders.length > 8 ? 3 : leaders.length > 4 ? 2 : 1;
   const leadersHTML = leaders.length ? `
     <div class="doc-leaders">

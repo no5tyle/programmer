@@ -35,8 +35,8 @@ async function runWizard(page) {
   await expect(page.locator('.wz-summary')).toHaveText('28 Jan – 25 Mar 2027 · 8 Wednesday meetings');
   await page.click('[data-wz="next"]');
   await expect(page.locator('.wz h2')).toHaveText('Who are the leaders?');
-  await page.click('[data-wz="next"]');
-  await expect(page.locator('.wz-error')).toHaveText("Enter at least one leader's name.");
+  await expect(page.locator('.wz-body')).toContainText('Optional');
+  await expect(page.locator('#wzShowLeaders')).toBeChecked();
   await page.fill('[data-wl="0"][data-f="name"]', 'Akela');
   await page.fill('[data-wl="0"][data-f="phone"]', '0400 000 001');
   await page.click('#wzAddLeader');
@@ -278,5 +278,37 @@ test.describe('example activities from the wizard', () => {
     await page.evaluate(() => { state.rows = []; renderAll(); });
     await page.click('#sheet .empty-row [data-example]');
     await expect.poll(() => page.evaluate(() => state.rows.find((r) => !r.noMeeting)?.activity)).toBe('Welcome Back Games');
+  });
+});
+
+test.describe("leaders are optional, and needn't be shown", () => {
+  test('the wizard finishes without leaders', async ({ page }) => {
+    await page.goto('/');
+    await page.fill('#wzGroup', '1st Example Scout Group');
+    for (let i = 0; i < 4; i++) await page.click('[data-wz="next"]');
+    await expect(page.locator('.wz-backdrop')).toHaveCount(0);
+    expect(await page.evaluate(() => state.branding.leaders)).toEqual([]);
+    await expect(page.locator('#sheet .doc-leaders')).toHaveCount(0);
+  });
+
+  test('leaders kept for picking but not listed at the top (wizard, then the sidebar)', async ({ page }) => {
+    await page.goto('/');
+    await page.fill('#wzGroup', '1st Example Scout Group');
+    for (let i = 0; i < 3; i++) await page.click('[data-wz="next"]');
+    await page.fill('[data-wl="0"][data-f="name"]', 'Akela');
+    await page.uncheck('#wzShowLeaders');
+    await page.click('[data-wz="next"]');
+    await page.keyboard.press('Escape');
+    expect(await page.evaluate(() => [state.branding.leaders, state.branding.showLeaders])).toEqual([[{ name: 'Akela', phone: '' }], false]);
+    await expect(page.locator('#sheet .doc-leaders')).toHaveCount(0);
+    // Still offered as each activity's leader
+    await page.click('#sheet tbody tr:nth-child(2) td.c-leader');
+    await expect(page.locator('#popover')).toContainText('Akela');
+    await page.keyboard.press('Escape');
+    await page.mouse.click(5, 5);
+    // The sidebar's Leaders section turns the list back on
+    await page.click('details.card:has-text("Leaders") summary');
+    await page.check('[data-bind="branding.showLeaders"]');
+    await expect(page.locator('#sheet .doc-leaders')).toContainText('Akela');
   });
 });

@@ -20,6 +20,7 @@ function openWelcome() {
     groupName: b.groupName,
     section: SECTIONS[b.section] ? b.section : 'cubs',
     leaders: b.leaders.filter((l) => !placeholder(l)).map((l) => ({ ...l })),
+    showLeaders: b.showLeaders !== false,
   };
   if (!draft.leaders.length) draft.leaders.push({ name: '', phone: '' });
   draft.term = suggestedTerm();
@@ -92,7 +93,7 @@ function openWelcome() {
     {
       title: 'Who are the leaders?',
       body: () => `
-        <p>Leaders' names go at the top of the program, and you can pick them for each activity. Contact details, like a phone number or email, are optional.</p>
+        <p>Optional, but it saves time: you can then pick each activity's leader with a tap instead of typing it, and the example activities use them. Contact details, like a phone number or email, are optional too.</p>
         <div class="wz-leaders">
           ${draft.leaders.map((l, i) => `
             <div class="wz-leader">
@@ -102,11 +103,13 @@ function openWelcome() {
             </div>`).join('')}
         </div>
         <button type="button" class="btn btn-text btn-sm" id="wzAddLeader">+ Add another leader</button>
+        <label class="check wz-example"><input type="checkbox" id="wzShowLeaders" ${draft.showLeaders ? 'checked' : ''}>
+          Show the leaders at the top of the program</label>
         <label class="check wz-example"><input type="checkbox" id="wzExample" ${draft.example ? 'checked' : ''}>
           Start with example activities, using your group, term and leaders (change them to your own)</label>`,
       check() {
         readLeaders();
-        return draft.leaders.some((l) => l.name.trim()) ? '' : 'Enter at least one leader\'s name.';
+        return '';   // leaders are optional
       },
     },
   ];
@@ -132,6 +135,8 @@ function openWelcome() {
   function readLeaders() {
     const ex = $('#wzExample', box);
     if (ex) draft.example = ex.checked;
+    const show = $('#wzShowLeaders', box);
+    if (show) draft.showLeaders = show.checked;
     $$('[data-wl]', box).forEach((el) => { draft.leaders[+el.dataset.wl][el.dataset.f] = el.value; });
   }
 
@@ -174,6 +179,7 @@ function openWelcome() {
     state.branding.leaders = draft.leaders
       .map((l) => ({ name: l.name.trim(), phone: l.phone.trim() }))
       .filter((l) => l.name);
+    state.branding.showLeaders = draft.showLeaders;
     // Rows that were generated with the old section's default stay as they are; only the branding changes.
     save();
     syncInputs();
