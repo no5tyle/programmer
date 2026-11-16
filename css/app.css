@@ -744,3 +744,7 @@ body.mobile .prog .col-grip { display: none; }
 
 /* A tall menu scrolls rather than running off the screen */
 .popover { max-height: calc(100vh - 24px); overflow-y: auto; }
+
+/* The ? beside Export: an icon on its own */
+.btn-help { width: 36px; padding: 0; justify-content: center; }
+.btn-help svg { margin: 0; }

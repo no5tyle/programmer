@@ -195,3 +195,20 @@ test('the tour has you open a row menu: clicking the ⋮ opens it and moves on, 
   await page.mouse.move(5, 300);
   await expect(page.locator('#rowHandle')).toBeHidden();
 });
+
+test('the ? beside Export shows the tour again', async ({ page }) => {
+  await page.addInitScript(() => { if (!localStorage.getItem('scoutProgramBuilder.welcome')) localStorage.setItem('scoutProgramBuilder.welcome', 'done'); });
+  await page.goto('/');
+  await page.waitForFunction(() => typeof state === 'object');
+  const help = page.locator('#btnHelp');
+  await expect(help).toHaveAttribute('aria-label', 'Help: take the tour');
+  await expect(help).toHaveText('');
+  // Just right of Export
+  const h = await help.boundingBox(), x = await page.locator('#btnExport').boundingBox();
+  expect(h.x).toBeGreaterThan(x.x + x.width);
+  expect(Math.abs(h.y + h.height / 2 - (x.y + x.height / 2))).toBeLessThan(2);
+  await help.click();
+  await expect(page.locator('.tour-count')).toHaveText('1 of 9');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.tour-layer')).toHaveCount(0);
+});
