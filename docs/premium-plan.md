@@ -100,9 +100,9 @@ Ground rules:
 
 **By email link, with no passwords.** The leader enters their email. Firebase sends a link, and tapping it signs them in. There's no password to forget, which suits leaders who aren't comfortable with technology. On a phone, the link opens in the phone's default browser. Firebase keeps them signed in, renewing the session as it's used, until *Sign out*.
 
-The builder sends Firebase's ID token with each request (`Authorization: Bearer ...`), and the API checks it. Because no cookie is involved, the builder and the API don't need to share a domain. The builder stays on GitHub Pages, but served from its own address, **`scoutterm.org`**, with the API at **`api.scoutterm.org`** (Cloud Run custom domain) and family pages at `scoutterm.org/p/...`.
+The builder sends Firebase's ID token with each request (`Authorization: Bearer ...`), and the API checks it. Because no cookie is involved, the builder and the API don't need to share a domain. The builder stays on GitHub Pages, but served from its own address, **`program.qstored.org`**, with the API at **`api.qstored.org`** (Cloud Run custom domain) and family pages at `program.qstored.org/p/...`. `qstored.org` is the umbrella for the apps: its home page lists them (as the `no5tyle.github.io` home page does now), and a gear and inventory app is planned at `gear.qstored.org`.
 
-The builder must move to `scoutterm.org` **before anyone signs in**. The browser keeps its copy of programs, and Firebase keeps its sign-in, separately for each web address. A move after launch would strand every leader's browser copy and sign-in at the old address. `scoutterm.org` must also be added to Firebase's authorised domains.
+The builder must move to `program.qstored.org` **before anyone signs in**. The browser keeps its copy of programs, and Firebase keeps its sign-in, separately for each web address. A move after launch would strand every leader's browser copy and sign-in at the old address. `program.qstored.org` must also be added to Firebase's authorised domains.
 
 The trade-off is that the token is held by the page's JavaScript. That's acceptable because the builder loads no third-party scripts. Its Content-Security-Policy should keep it that way.
 
@@ -294,7 +294,12 @@ Taken:
 
 Still open:
 
-- **The domain:** probably `scoutterm.org`, with the product named **ScoutTerm**. On 16 Nov 2026 `scoutterm.org`, `.com`, `.com.au` and `.app` were all unregistered and no product of that name turned up; neither is a guarantee. Check IP Australia's trade mark search, then consider taking `scoutterm.com` and `scoutterm.com.au` too (redirecting to `.org`), so families typing `.com` land in the right place. Buy it before phase 1 and move the builder to it before anyone signs in (section 3.2).
+- **The domain:** `qstored.org`, with the builder at `program.qstored.org`.
+  - On 16 Nov 2026, `qstored.org`, `qstored.com` and `qstored.com.au` were all unregistered. That isn't a guarantee they still are.
+  - Check IP Australia's trade mark search first. Then consider taking `.com` and `.com.au` too, redirecting to `.org`, so families typing `.com` land in the right place.
+  - Buy it before phase 1, and move the builder to it before anyone signs in (section 3.2).
+  - The family page should lead with the group's name and logo, because "qstored" on its own means nothing to parents.
+- **One account across the qstored apps, or one per app.** Each address keeps its own sign-in, so signing in at `program.` doesn't sign a leader in at `gear.`. Either leaders sign in once in each app, or a shared sign-in at `account.qstored.org` hands them on. Settle this before phase 1, along with whether one Premium plan covers every app. Until the gear app exists, Premium covers the builder only.
   - The name includes "Scout". Check with Scouts Australia whether a paid product under that name is acceptable, at the same time as asking about the section logos. Do this before buying, so the domain isn't wasted if they object.
 - **A business name and contact address** for invoices and the terms (section 5.1).
 
@@ -310,7 +315,7 @@ Still open:
 | 5. Group program | Group events, linked unit programs, joint activities, the overview, group printout and group calendar, *From the group* notices (section 8) | Large: the most involved part |
 | 6. Later | Activity library, templates, Google and Microsoft sign-in, other countries | As needed |
 
-Buying `scoutterm.org` and moving the builder onto it (GitHub Pages custom domain, with `no5tyle.github.io/programmer` redirecting) is part of phase 0.
+Buying `qstored.org` and moving the builder onto `program.qstored.org` (GitHub Pages custom domain, with `no5tyle.github.io/programmer` redirecting) is part of phase 0.
 
 Phases 1 to 4 are the first paid release. The group program (phase 5) is the second.
 
