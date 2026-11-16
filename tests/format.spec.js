@@ -263,7 +263,7 @@ test.describe('styles on picked cells', () => {
     const bar = page.locator('.fs-bar');
     await expect(page.locator('#popover')).toBeVisible();
     await expect(bar).toBeVisible();
-    // Duty patrols print bold, so Bold shows as on
+    // Patrols print bold, so Bold shows as on
     await expect(bar.locator('[data-fs-act="b"]')).toHaveAttribute('aria-pressed', 'true');
     const b = await bar.boundingBox(), c = await page.locator(td).boundingBox(), p = await page.locator('#popover').boundingBox();
     const overlaps = (x, y) => x.x < y.x + y.width && y.x < x.x + x.width && x.y < y.y + y.height && y.y < x.y + x.height;

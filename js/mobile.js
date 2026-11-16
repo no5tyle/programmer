@@ -201,7 +201,7 @@ function openSettings(card) {
 /* ---------------------------------------------------------------- activity editor */
 
 const FIELD_LABELS = { time: 'Time', activity: 'Activity', description: 'Description', uniform: 'Uniform', forms: 'Forms',
-  where: 'Where', patrol: 'Duty patrol', leader: 'Leader', cost: 'Cost', challenge: 'Challenge area', notes: 'Notes' };
+  where: 'Where', patrol: 'Patrol', leader: 'Leader', cost: 'Cost', challenge: 'Challenge area', notes: 'Notes' };
 
 function chips(name, options, current, extra = '') {
   return `<div class="m-chips" data-chips="${name}">${options.map((o) => `<button class="m-chip ${o.value === current ? 'on' : ''}" data-v="${esc(o.value)}">${o.html}</button>`).join('')}${extra}</div>`;

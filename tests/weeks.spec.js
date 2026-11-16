@@ -302,8 +302,8 @@ test.describe('final touches', () => {
     });
     const ev = (name) => ics.split('BEGIN:VEVENT').find((e) => e.includes(`SUMMARY:Cubs: ${name}`));
     expect(ev('Unit Council')).toContain('DESCRIPTION:Patrol leaders only.\r\n');
-    expect(ev('Unit Council')).not.toMatch(/Leader|Duty patrol|LOCATION|\\n-/);
-    expect(ev('Knots')).toContain('Leader: Baloo\\nDuty patrol: Green\\nBring rope');
+    expect(ev('Unit Council')).not.toMatch(/Leader:|Patrol:|LOCATION|\\n-/);
+    expect(ev('Knots')).toContain('Leader: Baloo\\nPatrol: Green\\nBring rope');
   });
 
   test("a term ending before its last week's meeting night: that night is a week off, and the whole week counts", async ({ page }) => {

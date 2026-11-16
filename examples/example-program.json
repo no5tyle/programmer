@@ -104,7 +104,7 @@
     },
     {
       "key": "patrol",
-      "label": "Duty Patrol",
+      "label": "Patrol",
       "visible": true,
       "width": 6,
       "align": "center"

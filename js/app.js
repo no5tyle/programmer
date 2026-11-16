@@ -223,6 +223,8 @@ function normalise(raw) {
   const saved = Array.isArray(raw.columns) ? raw.columns.filter((c) => DEFAULT_COLUMNS.some((dc) => dc.key === c.key)) : [];
   s.columns = saved.map((c) => ({ ...DEFAULT_COLUMNS.find((dc) => dc.key === c.key), ...c }));
   DEFAULT_COLUMNS.forEach((dc) => { if (!s.columns.some((c) => c.key === dc.key)) s.columns.push(clone(dc)); });
+  // The old default heading 'Duty Patrol' is now 'Patrol' (a heading someone changed is kept)
+  s.columns.forEach((c) => { if (c.key === 'patrol' && c.label === 'Duty Patrol') c.label = 'Patrol'; });
   if (OLD_SECTION_COLORS[s.branding.section] && s.branding.color?.toUpperCase() === OLD_SECTION_COLORS[s.branding.section]) {
     s.branding.color = SECTIONS[s.branding.section].color;
   }
@@ -1811,7 +1813,7 @@ function openChoicePopover(td, row, key) {
     ? state.challenges.map((c) => ({ value: c.id, html: `${challengeIconOnly(c)}<span>${esc(c.label)}</span>` }))
     : state.patrols.map((p) => ({ value: p.name, html: `<span class="dot" style="background:${esc(p.color)}"></span><span>${esc(p.name)}</span>` }));
   openPopover(td, `
-    <div class="pop-title">${key === 'challenge' ? 'Challenge area' : 'Duty patrol'}</div>
+    <div class="pop-title">${key === 'challenge' ? 'Challenge area' : 'Patrol'}</div>
     <div class="choice-list">
       ${items.map((it) => `<button class="choice ${row[key] === it.value ? 'on' : ''}" data-v="${esc(it.value)}">${it.html}</button>`).join('')}
       <button class="choice ${row[key] ? '' : 'on'}" data-v=""><span class="dot none"></span><span>None</span></button>
@@ -2260,7 +2262,7 @@ function exportCalendar() {
       const real = (v) => !!v && !!v.trim() && v.trim() !== '-';
       if (real(r.where)) ev.push(`LOCATION:${icsText(r.where)}`);
       const details = [real(r.description) && r.description, real(r.uniform) && `Uniform: ${r.uniform}`, real(r.forms) && `Forms: ${r.forms}`,
-        real(r.cost) && `Cost: ${r.cost}`, real(r.leader) && `Leader: ${r.leader}`, real(r.patrol) && `Duty patrol: ${r.patrol}`,
+        real(r.cost) && `Cost: ${r.cost}`, real(r.leader) && `Leader: ${r.leader}`, real(r.patrol) && `Patrol: ${r.patrol}`,
         real(r.notes) && r.notes].filter(Boolean);
       if (details.length) ev.push(`DESCRIPTION:${icsText(details.join('\n'))}`);
     }
@@ -2292,7 +2294,7 @@ function exportCalendar() {
 const CSV_FIELDS = [
   ['week', 'Week'], ['date', 'Date'], ['endDate', 'End date'], ['dateLabel', 'Date text'], ['time', 'Time'],
   ['activity', 'Activity'], ['description', 'Description'], ['uniform', 'Uniform'], ['forms', 'Forms'],
-  ['where', 'Where'], ['patrol', 'Duty Patrol'], ['leader', 'Leader'], ['cost', 'Cost'],
+  ['where', 'Where'], ['patrol', 'Patrol'], ['leader', 'Leader'], ['cost', 'Cost'],
   ['challenge', 'Challenge Area'], ['notes', 'Notes'], ['category', 'Highlight'], ['noMeeting', 'No meeting'],
 ];
 const CSV_ALIASES = {

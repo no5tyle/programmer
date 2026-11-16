@@ -78,7 +78,7 @@ const DEFAULT_COLUMNS = [
   { key: 'uniform',     label: 'Uniform',        visible: true,  width: 6,  align: 'center' },
   { key: 'forms',       label: 'Forms',          visible: true,  width: 6,  align: 'center' },
   { key: 'where',       label: 'Where',          visible: false, width: 8,  align: 'center' },
-  { key: 'patrol',      label: 'Duty Patrol',    visible: true,  width: 6,  align: 'center' },
+  { key: 'patrol',      label: 'Patrol',         visible: true,  width: 6,  align: 'center' },
   { key: 'leader',      label: 'Leader',         visible: true,  width: 7,  align: 'center' },
   { key: 'cost',        label: 'Cost',           visible: true,  width: 5,  align: 'center' },
   { key: 'challenge',   label: 'Challenge Area', visible: true,  width: 7,  align: 'center' },

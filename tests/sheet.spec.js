@@ -282,3 +282,19 @@ test.describe('section logo', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test('the patrol column is headed Patrol, also in programs saved with the old Duty Patrol heading', async ({ page }) => {
+  await page.addInitScript(() => { if (!localStorage.getItem('scoutProgramBuilder.welcome')) localStorage.setItem('scoutProgramBuilder.welcome', 'done'); });
+  await page.goto('/');
+  await page.waitForFunction(() => typeof state === 'object');
+  await expect(page.locator('#sheet thead th', { hasText: /^Patrol$/ })).toHaveCount(1);
+  const labels = await page.evaluate(() => {
+    const old = JSON.parse(JSON.stringify(state));
+    old.columns.find((c) => c.key === 'patrol').label = 'Duty Patrol';
+    const mine = JSON.parse(JSON.stringify(state));
+    mine.columns.find((c) => c.key === 'patrol').label = 'Duty';
+    const label = (s) => normalise(s).columns.find((c) => c.key === 'patrol').label;
+    return [label(old), label(mine)];
+  });
+  expect(labels).toEqual(['Patrol', 'Duty']);
+});
