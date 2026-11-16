@@ -121,7 +121,7 @@ function modal({ title, body, buttons }) {
   return new Promise((resolve) => {
     const back = $('#modal'); const box = $('.modal', back);
     box.innerHTML = `<h2>${esc(title)}</h2><div class="modal-body">${body}</div>
-      <div class="modal-actions">${buttons.map((b, i) => `<button class="btn ${b.cls || 'btn-outline'}" data-i="${i}">${esc(b.label)}</button>`).join('')}</div>`;
+      <div class="modal-actions">${buttons.map((b, i) => (b.inBody ? '' : `<button class="btn ${b.cls || 'btn-outline'}" data-i="${i}">${esc(b.label)}</button>`)).join('')}</div>`;
     back.hidden = false;
     const done = (v) => { back.hidden = true; document.removeEventListener('keydown', onKey); resolve(v); };
     const onKey = (e) => { if (e.key === 'Escape') done(null); };

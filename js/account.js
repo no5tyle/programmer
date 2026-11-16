@@ -15,6 +15,7 @@
 
 const ACCOUNT = Object.assign({
   apiBase: '', firebaseApiKey: '', authEmulatorHost: '', supportEmail: '', privacyUrl: '', termsUrl: '',
+  microsoftSignIn: false,   // Sign in with Microsoft: on once it's set up in Firebase and Microsoft Entra
   syncGap: 3000,      // send a save to the API at most this often (ms)
   retryGap: 15000,    // while offline, try again this often (ms)
 }, window.QSTORED_CONFIG);
@@ -22,6 +23,8 @@ const ACCOUNT = Object.assign({
 const SESSION_KEY = 'qstored.session';              // { uid, email, idToken, refreshToken, expiresAt }
 const PENDING_EMAIL_KEY = 'qstored.pendingEmail';   // the address a sign-in link was sent to, from this browser
 const ME_KEY = 'qstored.me';                        // the last GET /me, for limits while offline
+const IDP_KEY = 'qstored.idp';                      // { sessionId, at, link }: a Microsoft sign-in under way
+const LINK_KEY = 'qstored.linkMicrosoft';           // { email, pendingToken, at }: Microsoft to link after an email link
 
 /*
  * A signed-in leader's library items carry a few extra fields:
@@ -576,16 +579,36 @@ function askFor({ title, body, label, type = 'text', value = '', button }) {
   return done.then((choice) => (choice === 'ok' ? input.value.trim() : null));
 }
 
+const MS_LOGO = '<svg class="ms-logo" viewBox="0 0 21 21" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>';
+
+/** The sign-in box: Sign in with Microsoft (when it's on), or an email link. Answers the email, 'microsoft' or null. */
+function askSignIn(email) {
+  const microsoft = ACCOUNT.microsoftSignIn;
+  const done = modal({
+    title: 'Sign in',
+    body: `<p>Save your programs to your account, to use on any device. ${microsoft
+      ? 'Use the Microsoft account you have for Scouts, or get a link to sign in by email.'
+      : 'Enter your email and we\'ll send you a link to sign in. There\'s no password.'}</p>
+      ${microsoft ? `<button class="btn btn-ms" type="button" data-i="2">${MS_LOGO}Sign in with Microsoft</button>
+        <div class="or"><span>or use an email link</span></div>` : ''}
+      <label class="field"><span>Email</span><input type="email" id="askInput" value="${esc(email)}" autocomplete="email"></label>
+      ${policyLinks()}`,
+    buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' }, { label: 'Email me a link', value: 'ok', cls: 'btn-primary' },
+      { label: 'Sign in with Microsoft', value: 'microsoft', inBody: true }],
+  });
+  const input = $('#askInput');
+  if (!microsoft) { input.focus(); input.select(); }
+  input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#modal .btn-primary').click(); } };
+  return done.then((choice) => (choice === 'ok' ? input.value.trim() : choice));
+}
+
 async function openSignIn() {
   closePopover();
   let email = '';
   for (;;) {
-    email = await askFor({
-      title: 'Sign in',
-      body: `<p>Save your programs to your account, to use on any device. Enter your email and we'll send you a link to sign in. There's no password.</p>${policyLinks()}`,
-      label: 'Email', type: 'email', value: email, button: 'Email me a link',
-    });
+    email = await askSignIn(email);
     if (email === null) return;
+    if (email === 'microsoft') { await startMicrosoftSignIn(); return; }
     if (!validEmail(email)) { toast('Please enter your email address.', 'error'); continue; }
     try {
       await sendSignInLink(email);
@@ -625,6 +648,7 @@ async function completeSignIn(oobCode) {
   try { localStorage.removeItem(PENDING_EMAIL_KEY); } catch { /* ignore */ }
   renderAccountButton();
   await afterSignIn();
+  await linkMicrosoft();
 }
 
 /** First sign-in on this device: offer to add what's here to the account, then show the account's programs. */
@@ -665,6 +689,134 @@ async function chooseWhatToAdd() {
     });
     if (!add) real.forEach((x) => { x.hold = 'asked'; });
   }
+}
+
+/* ---------------------------------------------------------------- Sign in with Microsoft */
+
+/*
+ * Firebase does the OAuth with Microsoft (its client id and secret are set in the Firebase console), through
+ * its REST API, so no script from Google or Microsoft is loaded: createAuthUri gives Microsoft's sign-in
+ * address, the leader signs in there and comes back to this page, and signInWithIdp turns what Microsoft
+ * sent back into a Firebase sign-in, the same as an email link's.
+ */
+const idp = (path, body) => firebaseCall('identitytoolkit.googleapis.com', `/v1/accounts:${path}`, body);
+
+/** Off to Microsoft to sign in. `link`: to link Microsoft to the account already signed in. */
+async function startMicrosoftSignIn(link = false) {
+  let r;
+  try {
+    r = await idp('createAuthUri', {
+      providerId: 'microsoft.com', continueUri: location.origin + location.pathname, customParameter: { prompt: 'select_account' },
+    });
+    if (!r.authUri) throw new Error('no authUri');
+  } catch (err) {
+    toast(err.offline ? 'You\'re offline. Connect to the internet to sign in.'
+      : 'Sign in with Microsoft isn\'t working just now. Use an email link instead.', 'error');
+    return;
+  }
+  try { localStorage.setItem(IDP_KEY, JSON.stringify({ sessionId: r.sessionId, at: Date.now(), link })); } catch { /* it can't finish without it */ }
+  if (state) save();   // the work on screen is kept
+  location.assign(r.authUri);
+}
+
+/** Microsoft's answer, in this page's address (its query or fragment). */
+function idpAnswer() {
+  const query = new URLSearchParams(location.search);
+  const frag = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const get = (k) => query.get(k) ?? frag.get(k);
+  return (get('code') || get('id_token') || get('error')) ? { error: get('error'), describe: get('error_description') } : null;
+}
+
+/** Back from Microsoft: finish signing in (or linking). */
+async function completeMicrosoftSignIn(answer) {
+  const pending = readJSON(IDP_KEY);
+  const requestUri = location.href;
+  try { localStorage.removeItem(IDP_KEY); } catch { /* ignore */ }
+  history.replaceState(null, '', location.pathname);
+  if (answer.error) {
+    toast(answer.error === 'access_denied' ? 'Microsoft sign-in was cancelled.' : 'Microsoft didn\'t sign you in. Try again, or use an email link.', 'error');
+    return;
+  }
+  const linking = pending.link && signedIn();
+  let r;
+  try {
+    r = await idp('signInWithIdp', {
+      requestUri, sessionId: pending.sessionId, returnSecureToken: true, returnIdpCredential: true,
+      ...(linking ? { idToken: await idToken() } : {}),
+    });
+  } catch (err) {
+    toast(err.offline ? 'You\'re offline. Try again when you\'re connected.'
+      : String(err.code || '').startsWith('FEDERATED_USER_ID_ALREADY_LINKED')
+        ? 'That Microsoft account is already used by another qstored account.'
+        : 'Microsoft sign-in didn\'t finish. Try again, or use an email link.', 'error');
+    return;
+  }
+  if (linking) {
+    if (r.idToken) setSession({ ...session, idToken: r.idToken, refreshToken: r.refreshToken || session.refreshToken, expiresAt: Date.now() + (+r.expiresIn || 3600) * 1000 });
+    toast('Microsoft is linked. Next time, sign in with Microsoft.');
+    catchUp();
+    return;
+  }
+  if (r.needConfirmation || !r.idToken) { await askToLinkMicrosoft(r); return; }
+  if (!r.email) { toast('That Microsoft account has no email address, so it can\'t be used here. Use an email link instead.', 'error'); return; }
+  setSession({
+    uid: r.localId, email: r.email, idToken: r.idToken, refreshToken: r.refreshToken,
+    expiresAt: Date.now() + (+r.expiresIn || 3600) * 1000,
+  });
+  renderAccountButton();
+  await afterSignIn();
+}
+
+/**
+ * The Microsoft account's email already has a qstored account (made with an email link). Firebase keeps one
+ * account per email, so this person signs in with an email link once more, and Microsoft is then linked to it.
+ */
+async function askToLinkMicrosoft(r) {
+  const email = r.email || '';
+  try { localStorage.setItem(LINK_KEY, JSON.stringify({ email, pendingToken: r.pendingToken || null, at: Date.now() })); } catch { /* ignore */ }
+  const choice = await modal({
+    title: 'Sign in with your email once',
+    body: `<p>There's already a qstored account for <strong>${esc(email || 'this email')}</strong>, from signing in with an email link.
+      Sign in that way once more, and Microsoft will be linked to it, so all your programs stay together.</p>`,
+    buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' }, { label: 'Email me a link', value: 'send', cls: 'btn-primary' }],
+  });
+  if (choice !== 'send' || !email) return;
+  try {
+    await sendSignInLink(email);
+  } catch (err) {
+    toast(err.offline ? 'You\'re offline. Connect to the internet to sign in.' : 'The link couldn\'t be sent. Try again.', 'error');
+    return;
+  }
+  try { localStorage.setItem(PENDING_EMAIL_KEY, email); } catch { /* they'll be asked for it again */ }
+  await modal({
+    title: 'We\'ve sent you a link',
+    body: `<p>Open the email sent to <strong>${esc(email)}</strong> and tap the link in it. Microsoft is linked once you're signed in.</p>`,
+    buttons: [{ label: 'OK', value: null, cls: 'btn-primary' }],
+  });
+}
+
+/** Signed in with an email link after Microsoft found the account: link Microsoft to it now. */
+async function linkMicrosoft() {
+  const link = readJSON(LINK_KEY);
+  if (!link) return;
+  try { localStorage.removeItem(LINK_KEY); } catch { /* ignore */ }
+  if (Date.now() - link.at > 24 * 3600e3 || !signedIn() || (link.email && link.email.toLowerCase() !== session.email.toLowerCase())) return;
+  if (link.pendingToken) {
+    try {
+      const r = await idp('signInWithIdp', {
+        idToken: await idToken(), pendingToken: link.pendingToken, requestUri: location.origin + location.pathname, returnSecureToken: true,
+      });
+      if (r.idToken) setSession({ ...session, idToken: r.idToken, refreshToken: r.refreshToken || session.refreshToken, expiresAt: Date.now() + (+r.expiresIn || 3600) * 1000 });
+      toast('Microsoft is linked. Next time, sign in with Microsoft.');
+      return;
+    } catch { /* the pending sign-in ran out: go round by Microsoft again */ }
+  }
+  const go = await modal({
+    title: 'Link Microsoft?',
+    body: '<p>You\'re signed in. Sign in with Microsoft once more to link it, and use it from then on.</p>',
+    buttons: [{ label: 'Not now', value: false, cls: 'btn-text' }, { label: 'Link Microsoft', value: true, cls: 'btn-primary' }],
+  });
+  if (go) await startMicrosoftSignIn(true);
 }
 
 async function signOut() {
@@ -781,6 +933,8 @@ function accountInit() {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') catchUp(); });
 
   const params = new URLSearchParams(location.search);
-  if (params.get('mode') === 'signIn' && params.get('oobCode')) completeSignIn(params.get('oobCode'));
+  const answer = readJSON(IDP_KEY) ? idpAnswer() : null;
+  if (answer) completeMicrosoftSignIn(answer);
+  else if (params.get('mode') === 'signIn' && params.get('oobCode')) completeSignIn(params.get('oobCode'));
   else if (signedIn()) catchUp();
 }

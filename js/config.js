@@ -8,6 +8,7 @@
  *   firebaseApiKey   the Firebase project's web API key (it identifies the project; it isn't a secret)
  *   supportEmail     shown in Help
  *   privacyUrl, termsUrl   linked from Sign in
+ *   microsoftSignIn  true to offer Sign in with Microsoft (once it's set up in Firebase and Microsoft Entra)
  * For local work against the emulators, also set authEmulatorHost (e.g. localhost:9099).
  */
 window.QSTORED_CONFIG = Object.assign({
@@ -17,4 +18,5 @@ window.QSTORED_CONFIG = Object.assign({
   supportEmail: '',
   privacyUrl: '',
   termsUrl: '',
+  microsoftSignIn: false,
 }, window.QSTORED_CONFIG);

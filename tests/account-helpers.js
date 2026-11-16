@@ -24,8 +24,10 @@ function program(id, data, patch = {}) {
  * Routes the page's calls to the API and Firebase to a fake account.
  * Options: signedIn (the test then opens SIGN_IN_LINK to arrive signed in), limit (the cap; null for none), programs.
  */
-async function mockAccount(page, { signedIn = false, limit = 3, programs = [] } = {}) {
+async function mockAccount(page, { signedIn = false, limit = 3, programs = [], microsoft = false } = {}) {
   const server = {
+    // Sign in with Microsoft: 'new' (a new account), 'existing' (its email already has an account), 'cancel', 'noemail'
+    microsoft: 'new', linked: false,
     programs: new Map(programs.map((p) => [p.id, p])),
     limit, name: '', deleted: false, offline: false, rejectTokens: false, sysadmin: false,
     calls: [],      // 'METHOD /path' for each API call
@@ -34,11 +36,11 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [] } 
     called(prefix) { return this.calls.filter((c) => c.startsWith(prefix)); },
   };
 
-  await page.addInitScript(([api, email]) => {
-    window.QSTORED_CONFIG = { apiBase: api, firebaseApiKey: 'test-key', supportEmail: 'help@example.com', syncGap: 30, retryGap: 150 };
+  await page.addInitScript(([api, email, microsoft]) => {
+    window.QSTORED_CONFIG = { apiBase: api, firebaseApiKey: 'test-key', supportEmail: 'help@example.com', syncGap: 30, retryGap: 150, microsoftSignIn: microsoft };
     // signedIn: the test opens the app from a sign-in link (SIGN_IN_LINK), as a leader would arrive
     if (email && !localStorage.getItem('qstored.session')) localStorage.setItem('qstored.pendingEmail', email);
-  }, [API, signedIn ? SESSION.email : null]);
+  }, [API, signedIn ? SESSION.email : null, microsoft]);
 
   const json = (route, status, body, headers = {}) => route.fulfill({
     status, headers: { ...CORS, ...headers }, contentType: 'application/json', body: JSON.stringify(body),
@@ -56,8 +58,33 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [] } 
       if (oobCode !== 'good-code') return json(route, 400, { error: { message: 'INVALID_OOB_CODE' } });
       return json(route, 200, { localId: SESSION.uid, email, idToken: SESSION.idToken, refreshToken: SESSION.refreshToken, expiresIn: '3600' });
     }
+    // Sign in with Microsoft: createAuthUri gives Microsoft's address; signInWithIdp takes what it sent back
+    if (url.includes('createAuthUri')) {
+      const { providerId, continueUri } = JSON.parse(req.postData());
+      return json(route, 200, {
+        providerId, sessionId: 'session-ms',
+        authUri: `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?redirect_uri=${encodeURIComponent(continueUri)}&state=st1`,
+      });
+    }
+    if (url.includes('signInWithIdp')) {
+      const body = JSON.parse(req.postData());
+      const tokens = { localId: SESSION.uid, email: SESSION.email, idToken: SESSION.idToken, refreshToken: SESSION.refreshToken, expiresIn: '3600', providerId: 'microsoft.com' };
+      if (body.idToken && (body.pendingToken === 'pending-ms' || body.requestUri.includes('code=ms-code'))) { server.linked = true; return json(route, 200, tokens); }
+      if (body.sessionId !== 'session-ms' || !body.requestUri.includes('code=ms-code')) return json(route, 400, { error: { message: 'INVALID_IDP_RESPONSE' } });
+      if (server.microsoft === 'existing') return json(route, 200, { needConfirmation: true, email: SESSION.email, providerId: 'microsoft.com', pendingToken: 'pending-ms' });
+      if (server.microsoft === 'noemail') return json(route, 200, { ...tokens, email: undefined });
+      return json(route, 200, tokens);
+    }
     if (server.rejectTokens) return json(route, 400, { error: { message: 'TOKEN_EXPIRED' } });
     return json(route, 200, { id_token: 'token-2', refresh_token: 'refresh-2', expires_in: '3600' });
+  });
+
+  // Microsoft's sign-in page: straight back to the app, as if the leader had signed in (or cancelled)
+  await page.route('https://login.microsoftonline.com/**', (route) => {
+    const back = new URL(new URL(route.request().url()).searchParams.get('redirect_uri'));
+    if (server.microsoft === 'cancel') back.search = '?error=access_denied&error_description=cancelled&state=st1';
+    else back.search = '?code=ms-code&state=st1';
+    return route.fulfill({ status: 302, headers: { Location: back.href } });
   });
 
   await page.route(`${API}/**`, async (route) => {

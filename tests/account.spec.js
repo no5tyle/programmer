@@ -164,6 +164,80 @@ test.describe('signing in', () => {
   });
 });
 
+test.describe('Sign in with Microsoft', () => {
+  test('is offered only once it is switched on', async ({ page }) => {
+    await mockAccount(page);
+    errors = await openAccountApp(page);
+    await page.click('#btnAccount');
+    await expect(page.locator('.modal .btn-ms')).toHaveCount(0);
+  });
+
+  test('signs in with a Microsoft account, and offers to add the program on this device', async ({ page }) => {
+    const server = await mockAccount(page, { microsoft: true });
+    errors = await openAccountApp(page);
+    await edit(page, 'Night hike');
+    await page.click('#btnAccount');
+    await expect(page.locator('.modal .btn-ms')).toHaveText('Sign in with Microsoft');
+    await expect(page.locator('.modal-body')).toContainText('Microsoft account you have for Scouts');
+    await page.click('.modal .btn-ms');
+    // Off to Microsoft and back: the page finishes signing in
+    await expect(page.locator('.modal h2')).toHaveText('Add this program to your account?');
+    expect(page.url()).toBe('http://localhost:8765/');
+    const start = JSON.parse(server.sent.find((s) => s.url.includes('createAuthUri')).body);
+    expect(start).toMatchObject({ providerId: 'microsoft.com', continueUri: 'http://localhost:8765/', customParameter: { prompt: 'select_account' } });
+    const finish = JSON.parse(server.sent.find((s) => s.url.includes('signInWithIdp')).body);
+    expect(finish).toMatchObject({ sessionId: 'session-ms', returnSecureToken: true });
+    expect(finish.requestUri).toContain('code=ms-code');
+    await page.click('.modal button:has-text("Add to my account")');
+    await expect(page.locator('#btnAccount .avatar')).toBeVisible();
+    await expect(saveState(page)).toHaveText('Saved to your account');
+    expect((await currentData(server, page)).rows[0].activity).toBe('Night hike');
+  });
+
+  test('cancelled at Microsoft, says so and stays signed out', async ({ page }) => {
+    const server = await mockAccount(page, { microsoft: true });
+    server.microsoft = 'cancel';
+    errors = await openAccountApp(page);
+    await page.click('#btnAccount');
+    await page.click('.modal .btn-ms');
+    await expect(page.locator('.toast.error')).toHaveText('Microsoft sign-in was cancelled.');
+    await expect(page.locator('#btnAccount')).toHaveText('Sign in');
+    expect(page.url()).toBe('http://localhost:8765/');
+  });
+
+  test('a Microsoft account with no email address is turned away', async ({ page }) => {
+    const server = await mockAccount(page, { microsoft: true });
+    server.microsoft = 'noemail';
+    errors = await openAccountApp(page);
+    await page.click('#btnAccount');
+    await page.click('.modal .btn-ms');
+    await expect(page.locator('.toast.error')).toContainText('no email address');
+    await expect(page.locator('#btnAccount')).toHaveText('Sign in');
+  });
+
+  test('an email that already has an account signs in by email link once, and Microsoft is linked to it', async ({ page }) => {
+    const server = await mockAccount(page, { microsoft: true });
+    server.microsoft = 'existing';
+    errors = await openAccountApp(page);
+    await page.click('#btnAccount');
+    await page.click('.modal .btn-ms');
+    await expect(page.locator('.modal h2')).toHaveText('Sign in with your email once');
+    await expect(page.locator('.modal-body')).toContainText('akela@example.com');
+    await page.click('.modal button:has-text("Email me a link")');
+    await expect(page.locator('.modal h2')).toHaveText("We've sent you a link");
+    expect(server.sent.some((s) => s.url.includes('sendOobCode') && s.body.includes('akela@example.com'))).toBe(true);
+    await page.click('.modal button:has-text("OK")');
+
+    // The link in the email: signs in, then links Microsoft with what Firebase gave back
+    await page.goto(SIGN_IN_LINK);
+    await expect.poll(() => server.linked).toBe(true);
+    await expect(page.locator('.toast', { hasText: 'Microsoft is linked' })).toBeVisible();
+    const link = JSON.parse(server.sent.filter((s) => s.url.includes('signInWithIdp')).pop().body);
+    expect(link).toMatchObject({ idToken: expect.stringMatching(/^token-/), pendingToken: 'pending-ms' });
+    expect(await page.evaluate(() => localStorage.getItem('qstored.linkMicrosoft'))).toBeNull();
+  });
+});
+
 test.describe('signed in', () => {
   const open = async (page, options = {}) => {
     const server = await mockAccount(page, { signedIn: true, programs: [program('prog1111', EXAMPLE, { version: 3 })], ...options });

@@ -84,7 +84,7 @@ On **Google Cloud**, in Sydney (`australia-southeast1`), using services that **c
 | --- | --- | --- |
 | API | **Cloud Run**, Node and TypeScript in a small container, minimum instances 0, maximum about 5 | Starts when a request comes in, and stops when idle. The cap on instances caps the bill if something goes wrong. A cold start takes about 1–2 s; to keep it short, use a small image with no ORM, and turn on startup CPU boost. Leaders don't notice the wait, because the builder saves to the browser first and syncs in the background (section 4.2). |
 | Data | **Firestore** (Native mode) | Billed per read and write, with no idle cost. A program is one document, as it is in the browser. Transactions cover places and version checks, and its automatic expiry (TTL) removes old versions and the bin. |
-| Sign-in | **Firebase Authentication**, by email link (section 3.2) | Free at this scale. It sends the sign-in emails and handles abuse protection. Google and Microsoft sign-in can be added later with a setting. |
+| Sign-in | **Firebase Authentication**, by email link or with Microsoft (section 3.2) | Free at this scale. It sends the sign-in emails, does the OAuth with Microsoft, and handles abuse protection. Google sign-in can be added later with a setting. |
 | Logos | **Cloud Storage** | Uploaded logos (and challenge icons) are kept here rather than inside the program, keeping each program well under Firestore's 1 MB document limit. The API takes them out when a program is saved and puts them back when it's read, so the builder still sends and receives the whole program. |
 | Family pages and calendar feeds | Served by Cloud Run, behind **Firebase Hosting**'s cache (a few minutes) | Families' calendar apps check their feeds often. The cache answers those checks without starting the API. |
 | Secrets | **Secret Manager** | Stripe and email keys. |
@@ -99,6 +99,9 @@ Ground rules:
 - **All data access sits in one module of the API.** That keeps a later move to another database (Postgres, say) a contained job.
 
 ### 3.2 Signing in
+
+**With Microsoft, or by email link.** Scout leaders have a Microsoft account for Scouts, so *Sign in with Microsoft* comes first, and works with any work, school or personal Microsoft account. It's done through Firebase's REST API (`createAuthUri`, then `signInWithIdp`), so no script from Google or Microsoft is loaded. Firebase keeps one account per email: someone who signed in by email link first is asked to do that once more, and Microsoft is then linked to the same account. It's switched on with the `MICROSOFT_SIGN_IN` setting, once it's set up (the Program Builder's README).
+
 
 **By email link, with no passwords.** The leader enters their email. Firebase sends a link, and tapping it signs them in. There's no password to forget, which suits leaders who aren't comfortable with technology. On a phone, the link opens in the phone's default browser. Firebase keeps them signed in, renewing the session as it's used, until *Sign out*.
 
@@ -335,7 +338,7 @@ Still open:
 | 3. Groups | Groups and several per leader, invites and places, extra places, outside editors, the group library, moving programs, shared styling, roles, units and their main leaders and editors, handing over ownership | Medium |
 | 4. Reasons to stay | Version history, live family links, calendar subscriptions | Medium |
 | 5. Group program | Group events, linked unit programs, joint activities, the overview, group printout and group calendar, *From the group* notices (section 8) | Large: the most involved part |
-| 6. Later | Activity library, templates, Google and Microsoft sign-in, other countries | As needed |
+| 6. Later | Activity library, templates, Google sign-in, other countries | As needed |
 
 **Where phases 0 and 1 stand** (16 Nov 2026):
 

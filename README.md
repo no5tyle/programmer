@@ -91,6 +91,42 @@ The site is served at **`program.qstored.org`**. GitHub sends the old address, `
 
 Each address keeps its own saved programs in the browser, so programs saved at the old address don't appear at the new one. Use **Save file** at the old address first, and **Open** at the new one. This is why the move comes before anyone signs in (`docs/premium-plan.md`, section 3.2).
 
+## Sign in with Microsoft
+
+Scout leaders have a Microsoft account for Scouts, so the sign-in box can offer **Sign in with Microsoft**
+above the email link, here and on account.qstored.org and internal.qstored.org. It's off until it's set up, and
+then switched on with a repository variable. Firebase does the OAuth with Microsoft, through its REST API, so
+no script from Google or Microsoft is loaded (`startMicrosoftSignIn` in `js/account.js`).
+
+1. **Register qstored with Microsoft.** In the [Microsoft Entra admin center](https://entra.microsoft.com): *App
+   registrations* → *New registration*.
+   - *Name*: qstored.
+   - *Supported account types*: **Accounts in any organizational directory and personal Microsoft accounts**,
+     so Scouts' own Microsoft 365 accounts, and anyone else's, both work.
+   - *Redirect URI*: **Web**, and the address Firebase shows in step 2 (`https://qstored.firebaseapp.com/__/auth/handler`).
+
+   Then, under *Authentication*, add three more **Web** redirect URIs, one for each site, since each comes back
+   to itself: `https://program.qstored.org/`, `https://account.qstored.org/` and `https://internal.qstored.org/`.
+   Under *Certificates & secrets*, make a **New client secret** and copy its *Value*; the *Overview* has the
+   *Application (client) ID*.
+2. **Turn it on in Firebase.** Firebase console (project `qstored`) → *Authentication* → *Sign-in method* → *Add new
+   provider* → **Microsoft**: switch it on, paste the client ID and secret, and save.
+3. **Keep one account per email** (*Authentication* → *Settings* → *User account linking*: *Link accounts that use
+   the same email*, which is the default), so a leader's email link and Microsoft sign-ins share their programs.
+4. **Try it before anyone else sees it.** On program.qstored.org, open the browser's console, run
+   `ACCOUNT.microsoftSignIn = true`, then *Sign in*: the button is there for you alone, until the page is reloaded.
+5. **Switch it on:** set the variable `MICROSOFT_SIGN_IN` to `true` in this repository, qstored-account and
+   qstored-internal (Settings → Secrets and variables → Actions → Variables), and re-run each one's latest
+   publish or deploy.
+
+**Scouts' Microsoft 365 may ask for approval.** Many organisations only let their people sign in to apps from a
+*verified publisher*, or that an administrator has approved. If a leader sees *Need admin approval*, either:
+- verify qstored as a publisher (*App registrations* → qstored → *Branding & properties* → *Publisher verification*,
+  which needs a free Microsoft Partner Network ID and the qstored.org domain), or
+- ask Scouts' Microsoft 365 administrators to approve qstored for everyone.
+
+The sign-in only asks Microsoft for the leader's name and email address.
+
 ## Privacy policy and terms
 
 Drafts are in `policies/` (`privacy.html` and `terms.html`). They aren't published yet: the publish

@@ -62,6 +62,7 @@ jobs:
             const settings = {
               apiBase: v.API_BASE || "", firebaseApiKey: v.FIREBASE_API_KEY || "", supportEmail: v.SUPPORT_EMAIL || "",
               privacyUrl: v.PRIVACY_URL || "", termsUrl: v.TERMS_URL || "",
+              microsoftSignIn: v.MICROSOFT_SIGN_IN === "true",
             };
             require("fs").writeFileSync("_site/js/config.js", `window.QSTORED_CONFIG = Object.assign(${JSON.stringify(settings)}, window.QSTORED_CONFIG);\n`);
           '
