@@ -6,6 +6,8 @@ const { openApp, fillCubs, pdfPages, pdfPageSize } = require('./helpers');
 /** Save file (the program, .json), or one of Export's files (pdf, csv, ics) */
 async function save(page, kind) {
   if (kind === 'json') {
+    // Without a Save as box (as in Safari and Firefox), Save file downloads
+    await page.evaluate(() => { window.showSaveFilePicker = undefined; });
     const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 60_000 }), page.click('#btnSave')]);
     return dl;
   }
@@ -136,6 +138,27 @@ test('Export holds print, PDF, spreadsheet and calendar; Save file saves the pro
   await page.click('#btnExport');
   await page.click('#popover [data-export="print"]');
   await expect.poll(() => page.evaluate(() => window.printed)).toBe(1);
+  // Save file opens the Save as box, suggesting the program's name, and writes the program to the file chosen
+  await page.evaluate(() => {
+    window.saved = null;
+    window.showSaveFilePicker = async (opts) => ({
+      name: 'My program.json',
+      createWritable: async () => ({ write: async (t) => { window.saved = { opts, text: t }; }, close: async () => {} }),
+    });
+  });
+  await page.click('#btnSave');
+  await expect.poll(() => page.evaluate(() => window.saved?.opts.suggestedName)).toBe('Cubs Program - Term 4 2026.json');
+  expect(await page.evaluate(() => JSON.parse(window.saved.text).term.term)).toBe(4);
+  await expect(page.locator('.toast').last()).toHaveText('Saved as My program.json.');
+  // Closing the box saves nothing, and doesn't download either
+  let downloads = 0;
+  page.on('download', () => { downloads++; });
+  await page.evaluate(() => { window.showSaveFilePicker = async () => { throw new DOMException('closed', 'AbortError'); }; });
+  await page.click('#btnSave');
+  await page.waitForTimeout(500);
+  expect(downloads).toBe(0);
+  // Without one, it downloads
+  await page.evaluate(() => { window.showSaveFilePicker = undefined; });
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#btnSave')]);
   expect(dl.suggestedFilename()).toMatch(/\.json$/);
   expect(errors).toEqual([]);

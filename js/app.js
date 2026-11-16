@@ -2117,6 +2117,33 @@ function exportJson() {
   downloadFile(`${programFileName()}.json`, JSON.stringify(state, null, 2), 'application/json');
 }
 
+/**
+ * Save file: the browser's own Save as box where it has one (Chrome and Edge on a computer), to choose
+ * the file's name and folder. Elsewhere it's a download, which asks where to save it if the browser is
+ * set to.
+ */
+async function saveProgramAs() {
+  const name = `${programFileName()}.json`;
+  const text = JSON.stringify(state, null, 2);
+  if (typeof window.showSaveFilePicker === 'function') {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: name,
+        types: [{ description: 'Program file', accept: { 'application/json': ['.json'] } }],
+      });
+      const out = await handle.createWritable();
+      await out.write(text);
+      await out.close();
+      toast(`Saved as ${handle.name}.`);
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;   // the box was closed without saving
+      // Not allowed here (e.g. in a frame): download it instead
+    }
+  }
+  downloadFile(name, text, 'application/json');
+}
+
 /* ---------------------------------------------------------------- calendar (.ics) export */
 
 /**
@@ -2811,7 +2838,7 @@ function bindEvents() {
   $('#btnNew').onclick = newProgram;
   $('#btnPrograms').onclick = (e) => openProgramsMenu(e.currentTarget);
   $('#btnImport').onclick = importJson;
-  $('#btnSave').onclick = exportJson;
+  $('#btnSave').onclick = saveProgramAs;
   $('#btnExport').onclick = (e) => openExportPopover(e.currentTarget);
   $('#btnReset').onclick = resetAll;
   $('#zoomSelect').onchange = (e) => { zoom = e.target.value; applyZoom(); };
