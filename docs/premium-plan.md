@@ -9,11 +9,11 @@ This scopes a **Premium** offering for the Program Builder: accounts, an API tha
 | Use the builder, print, PDF, spreadsheet, calendar file | Yes | Yes | Yes | Yes |
 | Saved programs | **1**, in this browser | **3**, in the account | Unlimited | Unlimited |
 | Use them on any device | – | Yes | Yes | Yes |
-| Leaders with every Premium feature | – | – | Just you | The owner **plus up to 10 leaders** |
+| Leaders with every Premium feature | – | – | Just you | The owner **plus 10 leaders**, and more places at extra cost |
 | Group library, shared styling, unit programs (section 2) | – | – | – | Yes |
 | Version history, live family link, calendar subscription | – | – | Yes | Yes, for every leader in the group |
 | Group program, linked both ways with unit programs (section 8) | – | – | – | Yes, in the second release |
-| Price (AUD, incl. GST) | Free | Free | $4/month or $36/year | $12/month or $99/year, and yearly can be paid by invoice |
+| Price (AUD, incl. GST) | Free | Free | $4/month or $36/year | $12/month or $99/year, and yearly can be paid by invoice. Each place beyond 10: $1/month or $9/year *(proposed)* |
 
 How the rules work:
 
@@ -21,6 +21,8 @@ How the rules work:
 - **Signed out, one program.** The browser keeps one program. Starting another, opening a file or duplicating asks the leader to sign in (free), or replaces the program on this device after offering *Save file* first. *Programs*, *New program* and *Duplicate* lead to the sign-in for anyone signed out.
 - **The free cap of 3.** The cap counts a person's own programs in their account, not deleted ones. Programs that belong to a group don't count against anyone's cap. The server enforces it, so it can't be got around.
 - **The owner of a group** can be anyone, including a treasurer or committee member who pays and manages the leaders but doesn't write programs. The owner doesn't use one of the 10 leader places.
+- **More places.** A group can add places beyond the 10, one at a time, at a cost per place (proposed A$1 a month or A$9 a year, so 11 to 20 leaders cost less each than the base plan). They're added to the same subscription: billed pro rata for the rest of the period, or added to the next invoice for groups paying by invoice. Places can be removed again, but not below the number of leaders and pending invites. Inviting a leader when every place is taken offers *Add a place* to the owner and admins.
+- **Editors from outside the group.** A unit's main leader can let someone from outside the group edit that unit's programs if they have Premium of their own (Individual, or through another group), for example a leader from a neighbouring group running a joint camp. They don't use one of the group's places, and they see only that unit's programs, not the rest of the group. If their Premium lapses, the access becomes view-only until it returns or they're removed.
 - **Several groups.** A leader can belong to more than one group (for example helping at two), with one account. Each group has its own subscription.
 - **When Premium ends** (cancelled, a payment fails after the grace period, or a leader is removed from a group):
   - nothing is deleted;
@@ -52,7 +54,7 @@ How the rules work:
 ### 2.1 Who can edit a unit's programs
 
 - **By default, that unit's leaders.** Each leader in a group is set to the units they lead (for example Cubs, or Cubs and Scouts). They can edit that unit's programs. Everyone else in the group can view them.
-- **The main unit leader** of each unit (one per unit, chosen by the owner or an admin) can invite other leaders in the group to edit that unit's programs too, for example a Scouts leader helping with a Cubs camp, and can remove them again.
+- **The main unit leader** of each unit (one per unit, chosen by the owner or an admin) can invite other leaders in the group to edit that unit's programs too, for example a Scouts leader helping with a Cubs camp, and can remove them again. They can also invite someone from outside the group who has Premium of their own (section 1).
 - **The owner and admins** choose each unit's main leader and set which units each leader leads. They manage the group but, unless they're one of the unit's leaders, they view its programs rather than edit them. If a unit has no main leader, they can step in as one.
 - A leader's *My programs* are only theirs, whatever their units.
 
@@ -109,14 +111,15 @@ Everything is under `/api/v1` and uses JSON. Errors are always `{ "error": { "co
 | --- | --- |
 | `GET /groups/{id}` and `PATCH /groups/{id}` `{ name }` | The group's details, and renaming it. |
 | `GET /groups/{id}/settings` and `PUT /groups/{id}/settings` | Shared styling and lists (feature 3). |
-| `GET /groups/{id}/members` | Members and pending invites, with the seats used out of 10. |
-| `POST /groups/{id}/invites` `{ email }` | Emails an invite. Answers **409 `seats_full`** when all 10 are taken, counting pending invites. Owner and admins only. |
+| `GET /groups/{id}/members` | Members and pending invites, with the places used out of the group's total (10 plus any extra), and outside editors listed separately. |
+| `POST /groups/{id}/invites` `{ email }` | Emails an invite. Answers **409 `seats_full`** when every place is taken, counting pending invites. Owner and admins only. |
+| `PUT /groups/{id}/places` `{ extra }` | Sets the number of places beyond 10, updating the Stripe subscription's quantity (pro rata, or on the next invoice). Answers `409 places_in_use` if it would go below the leaders and pending invites. Owner and admins. |
 | `POST /invites/{token}/accept` | Joins the group (signing in first if needed). |
 | `DELETE /groups/{id}/invites/{inviteId}` and `DELETE /groups/{id}/members/{userId}` | Cancels an invite or removes a leader. A leader can also remove themselves. |
 | `POST /groups/{id}/owner` `{ userId }` | Hands the group (and its billing) to another member. |
 | `PATCH /groups/{id}/members/{userId}` `{ role, sections }` | Sets a leader's role (admin or leader) and the units they lead. Owner and admins. |
 | `PUT /groups/{id}/units/{section}` `{ mainLeaderId }` | Chooses a unit's main leader. Owner and admins. |
-| `POST /groups/{id}/units/{section}/editors` `{ userId }` and `DELETE .../editors/{userId}` | Lets another leader in the group edit the unit's programs, or stops it. The unit's main leader, the owner and admins. |
+| `POST /groups/{id}/units/{section}/editors` `{ userId }` or `{ email }` and `DELETE .../editors/{userId}` | Lets another leader edit the unit's programs, or stops it. By `email`, it invites someone outside the group: they must have Premium of their own to accept (`402 premium_required` otherwise, with a link to get it). The unit's main leader, the owner and admins. |
 
 **Billing** (Stripe)
 
@@ -141,13 +144,15 @@ users            id, email (unique), name, created_at, last_seen_at
 login_codes      email, code_hash, expires_at (10 min), attempts            -- 5 tries, then a new code
 sessions         id, user_id, created_at, expires_at, user_agent
 subscriptions    id, plan (individual|group), status (active|past_due|canceled), interval, pays_by (card|invoice),
+                 extra_places (int, default 0),
                  stripe_customer_id, stripe_subscription_id, current_period_end,
                  user_id (individual) | group_id (group)
 groups           id, name, owner_id, settings (jsonb), created_at
 group_members    group_id, user_id, role (owner|admin|leader), sections text[] (units they lead), joined_at
                                                                              -- unique (group_id, user_id)
 group_units      group_id, section, main_leader_id                           -- one main leader per unit
-unit_editors     group_id, section, user_id, invited_by, at                  -- extra editors for a unit
+unit_editors     group_id, section, user_id | invited_email, outside (bool), invited_by, at
+                                                     -- extra editors for a unit; outside ones need Premium
 group_invites    id, group_id, email, token_hash, invited_by, expires_at (14 days)
 programs         id (the builder's id), owner_user_id | owner_group_id, section, name, group_name, year, term,
                  data (jsonb), version, updated_at, updated_by, deleted_at, public_slug
@@ -156,7 +161,8 @@ program_versions program_id, version, data (jsonb), created_at, created_by    --
 
 - A program's `data` is exactly what the builder saves in the browser today (`state`), so nothing is converted and *Save file* and *Open* keep working.
 - A program is capped at 2 MB. The section or uploaded logo is the biggest part, and it's already shrunk to 400 px.
-- The seat check counts members plus pending invites, inside the same transaction that adds one, so two invites sent at once can't make 11. The owner isn't counted.
+- The seat check counts members plus pending invites, inside the same transaction that adds one, so two invites sent at once can't go over. The owner and outside editors aren't counted.
+- Whether an outside editor can edit is checked on every write against their own Premium, not stored.
 - Every program write checks the rules in section 2.1 on the server: a group program's `section` decides who may change it.
 
 ## 4. Changes to the builder
@@ -169,7 +175,7 @@ program_versions program_id, version, data (jsonb), created_at, created_by    --
 - **The 4th program** on a free account doesn't fail. A friendly box explains the limit and offers *Go Premium*, *Delete an old program* or *Not now*.
 - **First sign-in** uploads the program on this device to the account, after asking.
 - **The Account page** shows the plan, *Manage billing* (Stripe's page), *Download all my programs* and *Delete my account*.
-- **The Group page** (for the owner and admins) lists the leaders and the units each leads, shows *Invite a leader* with the places left (for example "7 of 10 used"), sets each unit's main leader, and removes leaders. A unit's main leader sees their unit there, with *Let another leader edit*.
+- **The Group page** (for the owner and admins) lists the leaders and the units each leads, shows *Invite a leader* with the places left (for example "7 of 10 used") and *Add places*, sets each unit's main leader, and removes leaders. A unit's main leader sees their unit there, with *Let another leader edit*.
 - **Several groups:** a leader in more than one group switches between them in *Programs*.
 - **Help** gets three new answers:
   - *How do I use it on another computer?* now answers "Sign in".
@@ -219,7 +225,8 @@ Taken:
 
 1. **Free accounts** save up to 3 programs to the account.
 2. **Signed out,** the browser keeps only one program (section 4.4). Not public yet, so no carry-over for current behaviour.
-3. **Group places:** the owner plus 10 leaders. The owner can be someone who only pays and manages.
+3. **Group places:** the owner plus 10 leaders, and more places at a cost per place. The owner can be someone who only pays and manages.
+   - **Editors from outside the group** are allowed for a unit if they have Premium of their own, without using a place.
 4. **Several groups** per leader, each with its own subscription.
 5. **Prices:**
    - Individual: A$4 a month or A$36 a year.
@@ -234,7 +241,7 @@ Still open:
 - **The domain** (section 3.1) isn't bought yet. It's needed before phase 1, because accounts need the builder and the API on the same domain. `<domain>` stands in for it here.
 - **The VPS's region,** for where data is kept (section 5).
 - **GST registration,** which decides whether Stripe Tax is needed.
-- **People outside the group.** Can a main unit leader let someone outside the group edit, such as a leader from a neighbouring group running a joint camp? Proposed: no; they'd need to join the group, using one of its places.
+- **The price of extra places.** Proposed A$1 a month or A$9 a year each.
 
 ## 7. Building it, in phases
 
@@ -243,7 +250,7 @@ Still open:
 | 0. Before | Buy the domain; point the builder and `api.<domain>` at it; privacy policy and terms | Small |
 | 1. Accounts and saving | API service on the VPS, email codes, `/me`, the program endpoints with version checks, the offline queue, the conflict box, uploading on first sign-in, one program when signed out, the cap of 3, the Account page, Help updates | Large: most of the work, and everything later builds on it |
 | 2. Paying | Stripe products, Checkout and Portal, invoices for yearly Group, the webhook, the grace period and lapse rules, the Premium prompts | Medium |
-| 3. Groups | Groups and several per leader, invites and places, the group library, moving programs, shared styling, roles, units and their main leaders and editors, handing over ownership | Medium |
+| 3. Groups | Groups and several per leader, invites and places, extra places, outside editors, the group library, moving programs, shared styling, roles, units and their main leaders and editors, handing over ownership | Medium |
 | 4. Reasons to stay | Version history, live family links, calendar subscriptions | Medium |
 | 5. Group program | Group events, linked unit programs, joint activities, the overview, group printout and group calendar, *From the group* notices (section 8) | Large: the most involved part |
 | 6. Later | Activity library, templates, Google and Microsoft sign-in | As needed |
@@ -252,7 +259,7 @@ Phases 1 to 4 are the first paid release. The group program (phase 5) is the sec
 
 **Testing.**
 
-- **The API:** tests against a real Postgres in CI, covering the cap, places (including two invites at once), who can edit each unit's programs, version conflicts, every webhook, invoices and the lapse rules.
+- **The API:** tests against a real Postgres in CI, covering the cap, places (including two invites at once, extra places and removing them), outside editors whose Premium lapses, who can edit each unit's programs, version conflicts, every webhook, invoices and the lapse rules.
 - **The builder:** Playwright tests with the API mocked, covering offline, conflicts, one program when signed out, the 4th program, view-only programs and first sign-in upload.
 - **One end-to-end test** against a test deployment, using Stripe's test mode.
 
@@ -341,6 +348,8 @@ Once it's a group event, the row in the proposing unit's program becomes a linke
 | Accept or decline joint activities for the unit | – | Yes |
 | *Not attending*, *Make it our own* for the unit | – | Yes |
 | See the overview | Yes | Yes |
+
+Editors from outside the group edit their unit's program and its linked rows' own fields, and answer joint activities for it. They don't change group events or see the overview or other units' programs; group events show in their unit's program as for anyone.
 
 The group's *From the group* notices name who made each change ("Bagheera moved the group camp"). Version history on the group program (feature 4) can undo a change made by mistake.
 
