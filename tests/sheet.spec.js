@@ -26,7 +26,9 @@ test.describe('sheet', () => {
 
   test('a normal term fits one page at full size', async ({ page }) => {
     await fillCubs(page);
-    await expect(page.locator('#fitStatus')).toHaveText('Fits 1 page · 11pt');
+    await expect(page.locator('#fitStatus')).toHaveText('Fits on one page');
+    await expect(page.locator('#fitStatus')).toHaveAttribute('data-pt', '11');
+    await expect(page.locator('#fitStatus')).toHaveAttribute('title', /11pt/);
   });
 
   test('the browser printout is one landscape A4 page', async ({ page }) => {
@@ -45,7 +47,7 @@ test.describe('sheet', () => {
       state.rows.forEach((r) => { r.description = long; r.notes = long; });
       renderAll();
     });
-    await expect(page.locator('#fitStatus')).toContainText('pages');
+    await expect(page.locator('#fitStatus')).toHaveText(/^Runs to \d+ pages$/);
     await page.emulateMedia({ media: 'print' });
     expect(pdfPages(await page.pdf({ preferCSSPageSize: true }))).toBeGreaterThan(1);
   });
@@ -65,7 +67,7 @@ test.describe('sheet', () => {
     const details = await page.evaluate(() => {
       const e = [...document.querySelectorAll('.prog .ed, .prog .dt')].find((x) => x.scrollWidth > x.clientWidth + 1);
       return JSON.stringify({
-        status: document.querySelector('#fitStatus').textContent,
+        status: document.querySelector('#fitStatus').textContent + ' ' + document.querySelector('#fitStatus').dataset.pt + 'pt',
         nunito: document.fonts.check('12px Nunito'),
         cell: e && { text: e.textContent, fontSize: e.style.fontSize || getComputedStyle(e).fontSize, scrollW: e.scrollWidth, clientW: e.clientWidth, colW: e.closest('td').getBoundingClientRect().width },
       });

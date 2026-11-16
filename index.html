@@ -32,6 +32,9 @@
       </div>
     </div>
     <div class="appbar-actions">
+      <span class="save-state" id="saveState" role="status" title="Your programs save automatically, in this browser only. Use Save file to keep a copy or move to another device.">
+        <svg viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7"/></svg><span>All changes saved</span>
+      </span>
       <button class="btn btn-ghost" id="btnUndo" title="Undo (Ctrl+Z)" disabled>
         <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>Undo
       </button>
@@ -39,16 +42,16 @@
       <button class="btn btn-ghost" id="btnPrograms" title="Your saved programs">
         <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Programs
       </button>
-      <button class="btn btn-ghost" id="btnImport" title="Open a saved program (.json) or an activities spreadsheet (.csv)">
+      <button class="btn btn-ghost" id="btnImport" title="Open a program file you saved before, or a spreadsheet of activities">
         <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Open
       </button>
-      <button class="btn btn-ghost" id="btnSave" title="Save the whole program as a file (.json), choosing where: to keep a copy, move to another device or share with other leaders">
+      <button class="btn btn-ghost" id="btnSave" title="Save the whole program as a file, choosing where: to keep a copy, move to another computer or give to another leader">
         <svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>Save file
       </button>
       <button class="btn btn-primary" id="btnExport" title="Print, or save a PDF, an activities spreadsheet or a calendar for families" aria-haspopup="menu">
         <svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></svg>Export
       </button>
-      <button class="btn btn-ghost btn-help" id="btnHelp" title="Help: take the tour" aria-label="Help: take the tour">
+      <button class="btn btn-ghost btn-help" id="btnHelp" title="Help" aria-label="Help">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg>
       </button>
     </div>
@@ -186,6 +189,9 @@
         </div>
       </details>
 
+      <!-- Settings most people won't need at first: closed until opened -->
+      <details class="more-settings" id="moreSettings">
+        <summary>More settings <span class="more-sub">Columns, challenge areas, duty patrols, highlights, page &amp; layout</span></summary>
       <details class="card">
         <summary><span class="card-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg></span>Columns</summary>
         <div class="card-body">
@@ -234,13 +240,14 @@
           <div class="grid-3">
             <label class="field"><span>Paper</span><select data-bind="options.paper"><option value="A4">A4</option><option value="Letter">Letter</option></select></label>
             <label class="field"><span>Orientation</span><select data-bind="options.orientation"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></label>
-            <label class="field"><span>Margin (mm)</span><input type="number" min="4" max="25" step="1" data-bind="options.margin" data-type="number"></label>
+            <label class="field"><span>Page margin (mm)</span><input type="number" min="4" max="25" step="1" data-bind="options.margin" data-type="number"></label>
           </div>
           <label class="check"><input type="checkbox" data-bind="options.autoFit"> Shrink text to fit on one page</label>
           <div class="grid-2">
-            <label class="field"><span>Largest text (pt)</span><input type="number" min="6" max="16" step="0.5" data-bind="options.maxFont" data-type="number"></label>
-            <label class="field"><span>Smallest text (pt)</span><input type="number" min="5" max="12" step="0.5" data-bind="options.minFont" data-type="number"></label>
+            <label class="field"><span>Largest text size</span><input type="number" min="6" max="16" step="0.5" data-bind="options.maxFont" data-type="number"></label>
+            <label class="field"><span>Smallest text size</span><input type="number" min="5" max="12" step="0.5" data-bind="options.minFont" data-type="number"></label>
           </div>
+          <p class="hint">Text sizes are in points, as in a word processor: 11 is normal, 7 is small print.</p>
           <label class="check"><input type="checkbox" data-bind="options.fitDescription"> Shrink long descriptions to fit two lines</label>
           <label class="check"><input type="checkbox" data-bind="options.stretch"> Stretch rows to fill the page</label>
           <div class="grid-2">
@@ -252,6 +259,7 @@
           </div>
           <button class="btn btn-text btn-sm danger" id="btnReset" title="Clear this program's branding, leaders, lists and activities back to the defaults (you're asked first, and Undo brings it back)">Reset everything to defaults</button>
         </div>
+      </details>
       </details>
 
       <p class="sidebar-foot">Your programs save automatically, in this browser only (see <strong>Programs</strong>). Use <strong>Save file</strong> to keep a copy, move to another device or share one with other leaders. <button class="link-btn" id="btnTour">Take the tour</button> · <button class="link-btn" id="btnMobileView" title="Use the phone layout on this screen: a week-by-week list, with a preview of the page">Switch to the mobile view</button></p>
@@ -284,7 +292,7 @@
             <div class="page-guides" id="pageGuides"></div>
           </div>
         </div>
-        <p class="canvas-tip">Click any cell to edit it. Hover a row and use the <strong>⋮</strong> handle on its right-hand edge to add, move or delete it.</p>
+        <p class="canvas-tip">Click any cell to edit it. The <strong>⋮</strong> at the end of each row moves it, deletes it or marks a week off; the <strong>+</strong> by a week adds an activity.</p>
       </div>
     </main>
   </div>

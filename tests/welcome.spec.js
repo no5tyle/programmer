@@ -198,18 +198,23 @@ test('the tour has you open a row menu: clicking the ⋮ opens it and moves on, 
   await expect(page.locator('#rowHandle')).toBeHidden();
 });
 
-test('the ? beside Export shows the tour again', async ({ page }) => {
+test('the ? beside Export opens help, which has the tour', async ({ page }) => {
   await page.addInitScript(() => { if (!localStorage.getItem('scoutProgramBuilder.welcome')) localStorage.setItem('scoutProgramBuilder.welcome', 'done'); });
   await page.goto('/');
   await page.waitForFunction(() => typeof state === 'object');
   const help = page.locator('#btnHelp');
-  await expect(help).toHaveAttribute('aria-label', 'Help: take the tour');
+  await expect(help).toHaveAttribute('aria-label', 'Help');
   await expect(help).toHaveText('');
   // Just right of Export
   const h = await help.boundingBox(), x = await page.locator('#btnExport').boundingBox();
   expect(h.x).toBeGreaterThan(x.x + x.width);
   expect(Math.abs(h.y + h.height / 2 - (x.y + x.height / 2))).toBeLessThan(2);
   await help.click();
+  await expect(page.locator('.modal h2, .modal h3').first()).toHaveText('Help');
+  // Questions open to show their answers
+  await page.click('.help-list summary:has-text("give it to another leader")');
+  await expect(page.locator('.help-list details[open]')).toContainText('Save file');
+  await page.click('.modal button:has-text("Take the tour")');
   await expect(page.locator('.tour-count')).toHaveText('1 of 9');
   await page.keyboard.press('Escape');
   await expect(page.locator('.tour-layer')).toHaveCount(0);
@@ -219,7 +224,7 @@ test("the Program files highlight stops short of the Export button", async ({ pa
   await page.addInitScript(() => { if (!localStorage.getItem('scoutProgramBuilder.welcome')) localStorage.setItem('scoutProgramBuilder.welcome', 'done'); });
   await page.goto('/');
   await page.waitForFunction(() => typeof state === 'object');
-  await page.click('#btnHelp');
+  await page.evaluate(() => startTour());
   for (let i = 0; i < 7; i++) await page.click('[data-tour="next"]');
   await expect(page.locator('.tour-tip h3')).toHaveText('Program files');
   await expect.poll(async () => {
@@ -329,4 +334,50 @@ test('buttons whose purpose may be unclear have tooltips', async ({ page }) => {
   await expect(page.locator('#pDupProg')).toHaveAttribute('title', /copy/);
   // The tour's Weeks and activities stop no longer mentions generating dates
   expect(await page.evaluate(() => TOUR_DESKTOP.find((s) => s.title === 'Weeks and activities').text)).not.toContain('Generate');
+});
+
+test.describe('for leaders new to it', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => { if (!localStorage.getItem('scoutProgramBuilder.welcome')) localStorage.setItem('scoutProgramBuilder.welcome', 'done'); });
+    await page.goto('/');
+    await page.waitForFunction(() => typeof state === 'object' && document.querySelector('#fitStatus')?.textContent !== '—');
+  });
+
+  test('each row has a faint ⋮ that opens and closes its menu, and the week + shows faintly', async ({ page }) => {
+    await page.mouse.move(2, 400);
+    const dots = page.locator('#sheet tbody tr:nth-child(2) .row-dots');
+    await expect(dots).toBeVisible();
+    expect(Number(await dots.evaluate((e) => getComputedStyle(e).opacity))).toBeGreaterThan(0.3);
+    expect(Number(await page.locator('#sheet .ph.wk-add').first().evaluate((e) => getComputedStyle(e).opacity))).toBeGreaterThan(0.2);
+    // Pressing where it is opens the row's menu (on hover the solid ⋮ takes its place), and again closes it
+    const box = await dots.boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(page.locator('#popover')).toContainText('no meeting');
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(page.locator('#popover')).toBeHidden();
+    // The faint one works by itself too (as on a touch screen, with no hover)
+    await dots.dispatchEvent('click');
+    await expect(page.locator('#popover')).toContainText('no meeting');
+    await page.keyboard.press('Escape');
+    await page.emulateMedia({ media: 'print' });
+    await expect(dots).toBeHidden();
+  });
+
+  test('less-used settings sit under More settings, closed', async ({ page }) => {
+    const more = page.locator('#moreSettings');
+    await expect(more).not.toHaveAttribute('open', '');
+    for (const t of ['Columns', 'Challenge areas', 'Duty patrols', 'Page']) await expect(more.locator('details.card summary', { hasText: t })).toHaveCount(1);
+    for (const t of ['Term', 'Branding', 'Leaders', 'Dates']) await expect(more.locator('details.card summary', { hasText: t })).toHaveCount(0);
+    await more.locator('> summary').click();
+    await expect(more.locator('details.card summary', { hasText: 'Columns' })).toBeVisible();
+  });
+
+  test('says when changes are saved', async ({ page }) => {
+    const saved = page.locator('#saveState');
+    await expect(saved).toHaveText('All changes saved');
+    await page.click('tbody tr:nth-child(1) .ed[data-key="activity"]');
+    await page.keyboard.type('Hike');
+    await expect(saved).toHaveText('Saving…');
+    await expect(saved).toHaveText('All changes saved');
+  });
 });

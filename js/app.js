@@ -246,6 +246,14 @@ function newRowShape() {
 
 function readJSON(key) { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } }
 
+/** The 'All changes saved' message by Undo: saving, saved, or not saved. */
+function setSaveState(kind) {
+  const el = $('#saveState');
+  if (!el) return;
+  el.dataset.state = kind;
+  $('span', el).textContent = kind === 'saving' ? 'Saving…' : kind === 'failed' ? 'Not saved' : 'All changes saved';
+}
+
 function save() {
   try {
     localStorage.setItem(programKey(library.current), JSON.stringify(state));
@@ -253,11 +261,14 @@ function save() {
     const i = library.items.findIndex((x) => x.id === library.current);
     if (i < 0) library.items.push(info); else library.items[i] = info;
     localStorage.setItem(LIB_KEY, JSON.stringify(library));
+    setSaveState('saved');
   } catch {
+    setSaveState('failed');
     toast('Could not save in this browser (storage full?). Use "Save file" to keep a copy.', 'error');
   }
 }
-const saveSoon = debounce(save, 400);
+const saveLater = debounce(save, 400);
+function saveSoon() { setSaveState('saving'); saveLater(); }
 
 function freshState() {
   state = defaultState();
@@ -1095,7 +1106,10 @@ function renderSheet() {
       return `<td class="c-week${wcls}" rowspan="${g.rows.length}" data-align="${wst?.a || c.align || 'center'}"${ws ? ` data-week="${toISO(ws)}"` : ''}${wstyle}><span class="wk">${esc(label)}</span>${add}</td>`;
     }).join('');
     const cls = [r.noMeeting && 'no-meeting', r.emptyWeek && 'empty-week', i > 0 && cols[0]?.key === 'week' && 'cont'].filter(Boolean).join(' ');
-    return `<tr data-id="${r.id}"${cls ? ` class="${cls}"` : ''}>${cells}</tr>`;
+    // Screen only (.ph): a faint ⋮ on the row's right-hand edge, so its menu is easy to find; the ⋮ that
+    // shows on hover (#rowHandle) sits on top of it
+    const dots = `<button type="button" class="ph row-dots" data-row-menu="${r.id}" tabindex="-1" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>`;
+    return `<tr data-id="${r.id}"${cls ? ` class="${cls}"` : ''}>${cells.replace(/<\/td>$/, `${dots}</td>`)}</tr>`;
   }).join('')).join('');
 
   sheet.innerHTML = `
@@ -1379,11 +1393,13 @@ function fit() {
       guides.appendChild(g);
     }
     status.className = 'chip warn';
-    status.textContent = `${pages} pages · ${fs}pt`;
-    status.title = o.autoFit ? 'Too much content to fit one page at the smallest text size. Trim text, hide columns or lower the smallest text size.' : 'Turn on "Shrink text to fit" to fit one page.';
+    status.textContent = `Runs to ${pages} pages`;
+    status.dataset.pt = fs;
+    status.title = o.autoFit ? `Too much to fit on one page, even with the text at its smallest (${fs}pt). Shorten some text, hide a column, or lower the smallest text size under More settings, Page & layout.` : 'Turn on "Shrink text to fit on one page" under More settings, Page & layout.';
   } else {
     status.className = 'chip ok';
-    status.textContent = `Fits 1 page · ${fs}pt`;
+    status.textContent = 'Fits on one page';
+    status.dataset.pt = fs;
     status.title = `Fits on one printed page, with text at ${fs}pt${o.autoFit ? ' (shrunk to fit as needed)' : ''}`;
   }
   applyZoom();
@@ -1907,6 +1923,8 @@ function onOpenersButton(target) {
   if (target.closest('#rowHandle')) return popCtx.type === 'row' && popCtx.id === handleRow;
   if (target.closest('#btnExport')) return popCtx.type === 'export';
   if (target.closest('#btnPrograms')) return popCtx.type === 'programs';
+  const dots = target.closest('[data-row-menu]');
+  if (dots) return popCtx.type === 'row' && popCtx.id === dots.dataset.rowMenu;
   const cell = target.closest('#sheet td.clickable');
   if (cell) return popCtx.type === cell.dataset.pop && popCtx.id === cell.closest('tr')?.dataset.id;
   const add = target.closest('[data-add-week]');
@@ -2530,6 +2548,25 @@ async function downloadPdf() {
   }
 }
 
+/** Help: short answers to everyday questions, and the tour. */
+async function openHelp() {
+  const qa = [
+    ['How do I change the term or meeting night?', 'Open <b>Term &amp; meeting night</b> (in the sidebar, or the menu on a phone), choose the term and night, then press <b>Generate meeting dates</b>.'],
+    ['How do I add an activity?', 'Click any cell on the program and type. <b>Add activity</b> adds one on the next meeting night; the <b>+</b> by a week\'s name adds one on any day of that week.'],
+    ['How do I mark a week off, like a public holiday?', 'Click the <b>⋮</b> at the right-hand end of the row and choose <b>Mark as no meeting</b>. On a phone, tap the week and turn on <b>No meeting this week</b>.'],
+    ['How do I print it or send it to families?', '<b>Export</b>, then <b>Print</b> or <b>Save as PDF</b>. <b>Calendar for families</b> gives a file that adds every meeting to their phone\'s calendar. On a phone, use <b>Share</b>.'],
+    ['How do I give it to another leader?', 'Press <b>Save file</b> and send them the file (by email or message). They open it with <b>Open</b>. On a phone: <b>Share</b>, then <b>Full program file</b>.'],
+    ['How do I use it on another computer or phone?', 'Your programs are saved in this browser only. Save a file here (<b>Save file</b>), then use <b>Open</b> on the other one.'],
+    ['I made a mistake', '<b>Undo</b> (at the top; in the menu on a phone) takes back the last change, and the one before that.'],
+  ];
+  const choice = await modal({
+    title: 'Help',
+    body: `<div class="help-list">${qa.map(([q, a]) => `<details><summary>${q}</summary><p>${a}</p></details>`).join('')}</div>`,
+    buttons: [{ label: 'Take the tour', value: 'tour', cls: 'btn-outline' }, { label: 'Close', value: null, cls: 'btn-primary' }],
+  });
+  if (choice === 'tour' && typeof startTour === 'function') startTour();
+}
+
 /** Export: print, or save the PDF, the activities spreadsheet or the calendar for families. */
 function openExportPopover(anchor) {
   // Pressed again while its menu is open: close it
@@ -2537,9 +2574,9 @@ function openExportPopover(anchor) {
   openPopover(anchor, `
     <div class="menu">
       <button data-export="print"><svg viewBox="0 0 24 24"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg>Print</button>
-      <button data-export="pdf"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Save as PDF <small>.pdf</small></button>
-      <button data-export="csv"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>Activities spreadsheet <small>.csv</small></button>
-      <button data-export="ics"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/></svg>Calendar for families <small>.ics</small></button>
+      <button data-export="pdf"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Save as PDF</button>
+      <button data-export="csv"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>Activities spreadsheet</button>
+      <button data-export="ics"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/></svg>Calendar for families</button>
     </div>
     <p class="hint">The spreadsheet holds the activities, for editing in Excel or Google Sheets. The calendar adds every meeting to Google, Apple or Outlook calendars.</p>`, { type: 'export' });
   pop.querySelectorAll('[data-export]').forEach((b) => {
@@ -2819,6 +2856,14 @@ function bindEvents() {
   });
   sheet.addEventListener('click', (e) => {
     if (e.target.closest('[data-example]')) { fillExampleActivities(); return; }
+    const dots = e.target.closest('[data-row-menu]');
+    if (dots) {
+      const id = dots.dataset.rowMenu;
+      if (!pop.hidden && popCtx?.type === 'row' && popCtx.id === id) { closePopover(); return; }
+      handleRow = id;
+      openRowMenu(dots, id);
+      return;
+    }
     const addIn = e.target.closest('[data-add-week]');
     if (addIn) {
       // A week's + (or an empty week's Add) opens the day picker, or closes it if it's already open from there

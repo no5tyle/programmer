@@ -102,7 +102,7 @@ test.describe('files', () => {
     // The empty program already fits one page, so wait for the imported one before checking
     await expect.poll(() => page.evaluate(() => [state.branding.groupName, state.rows.filter((r) => r.noMeeting).length, state.extras.dates.length]))
       .toEqual(['1st Wattle Creek Scout Group', 3, 3]);
-    await expect(page.locator('#fitStatus')).toContainText('Fits 1 page');
+    await expect(page.locator('#fitStatus')).toHaveText('Fits on one page');
   });
 
   test('programs: new next term, switch, duplicate, delete, survive reload', async ({ page }) => {
@@ -130,7 +130,7 @@ test('Export holds print, PDF, spreadsheet and calendar; Save file saves the pro
   const errors = await openApp(page);
   await expect(page.locator('#btnCalendar, #btnPrint')).toHaveCount(0);
   await page.click('#btnExport');
-  await expect(page.locator('#popover [data-export]')).toHaveText(['Print', 'Save as PDF .pdf', 'Activities spreadsheet .csv', 'Calendar for families .ics']);
+  await expect(page.locator('#popover [data-export]')).toHaveText(['Print', 'Save as PDF', 'Activities spreadsheet', 'Calendar for families']);
   // Pressed again: closes
   await page.click('#btnExport');
   await expect(page.locator('#popover')).toBeHidden();

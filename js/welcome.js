@@ -280,7 +280,7 @@ const TOUR_DESKTOP = [
   { target: ['#btnAddRow', '#btnAddWeek'], title: 'Weeks and activities', text: 'Add one-off activities, or a week before or after the term. For a week off, use Mark as no meeting in the row\'s ⋮ menu.' },
   { target: ['#btnPrograms'], title: 'Your programs', text: 'Programs save automatically, in this browser only. Find them under Programs, which also starts a New one for next term with the same branding. To keep a copy or move to another device, use Save file.' },
   { target: ['#btnImport', '#btnSave'], padX: 1, title: 'Program files', text: 'Save file keeps the whole program as a file, to keep a copy, move to another device or share with other leaders. Open brings one back.' },
-  { target: ['#btnExport'], title: 'Export', text: 'When it\'s ready, print it, or save a PDF to send to families, a spreadsheet of the activities, or a calendar families can add to their phones. The ? beside it brings this tour back.' },
+  { target: ['#btnExport'], title: 'Export', text: 'When it\'s ready, print it, or save a PDF to send to families, a spreadsheet of the activities, or a calendar families can add to their phones. The ? beside it has help, and this tour again.' },
 ];
 
 const TOUR_MOBILE = [
@@ -468,7 +468,7 @@ function endTour() {
 
 function initWelcome() {
   $('#btnTour').onclick = startTour;
-  $('#btnHelp').onclick = startTour;   // the ? beside Export
+  $('#btnHelp').onclick = openHelp;   // the ? beside Export: help, with the tour
   if (firstVisit && !welcomeState()) setWelcomeState('pending');
   if (welcomeState() === 'pending') openWelcome();
 }

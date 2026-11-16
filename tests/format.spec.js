@@ -348,8 +348,8 @@ test.describe('week styles', () => {
     await expect(wk.locator('.wk')).toHaveCSS('color', 'rgb(0, 96, 223)');
     await expect(wk.locator('.wk')).toHaveCSS('font-style', 'italic');
     await expect(wk).toHaveAttribute('rowspan', '2');
-    // Its + isn't styled, and still adds to the week
-    await expect(wk.locator('.wk-add')).toHaveCSS('color', 'rgb(255, 255, 255)');
+    // Its + keeps its own blue (not the week's colour), and still adds to the week
+    await expect(wk.locator('.wk-add')).toHaveCSS('color', 'rgb(0, 122, 255)');
     await page.mouse.click(5, 300);
     await expect(bar).toBeHidden();
     // The style stays with the week when its activities change
