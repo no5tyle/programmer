@@ -160,6 +160,7 @@ function openMenu() {
         ${accountsOn() ? `<div class="m-group">
           ${signedIn()
     ? item('data-m="account"', '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>', 'Account', esc(session.email))
+      + item('data-m="qsaccount"', '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="12" cy="10" r="3"/><path d="M7 17a5 5 0 0 1 10 0"/></svg>', 'Your qstored account', 'Plan, billing and data, at account.qstored.org')
       + item('data-m="signout"', '<svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 8l-4 4 4 4M6 12h9"/></svg>', 'Sign out')
     : item('data-m="signin"', '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>', 'Sign in', 'Save your programs to your account, to use on any device')}
         </div>` : ''}
@@ -185,6 +186,7 @@ function openMenu() {
         if (m === 'help') { closeAllPanels(); openHelp(); }
         if (m === 'signin') { closeAllPanels(); openSignIn(); }
         if (m === 'account') { closeAllPanels(); openAccountPage(); }
+        if (m === 'qsaccount') { closeAllPanels(); openQstoredAccount(); }
         if (m === 'signout') { closeAllPanels(); signOut(); }
         if (m === 'desktop') { closeAllPanels(); setViewPref('desktop'); }
       };

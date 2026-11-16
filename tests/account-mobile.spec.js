@@ -25,6 +25,7 @@ test('signed in, the menu opens the Account page', async ({ page }) => {
   await page.click('#mMenu');
   await expect(page.locator('[data-m="account"]')).toContainText('akela@example.com');
   await expect(page.locator('[data-m="signout"]')).toBeVisible();
+  await expect(page.locator('[data-m="qsaccount"]')).toContainText('Your qstored account');
   await page.click('[data-m="account"]');
   await expect(page.locator('.account-page')).toContainText('Free account · 1 of 3 programs');
 });

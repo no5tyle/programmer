@@ -355,6 +355,17 @@ test.describe('signed in', () => {
     await expect.poll(() => page.evaluate(() => library.current)).toBe('prog2222');
   });
 
+  test('the menu under the initials links to the qstored account', async ({ page, context }) => {
+    await open(page);
+    await page.click('#btnAccount');
+    await expect(page.locator('#popover .menu button')).toHaveText(['Account', 'Your qstored account', 'Sign out']);
+    await context.route('https://account.qstored.org/**', (route) => route.fulfill({ contentType: 'text/html', body: '<p>account</p>' }));
+    const [tab] = await Promise.all([context.waitForEvent('page'), page.click('#pQsAccount')]);
+    await tab.waitForLoadState();
+    expect(tab.url()).toBe('https://account.qstored.org/');
+    await expect(page.locator('#popover')).toBeHidden();
+  });
+
   test('the Account page: name, download, support address', async ({ page }) => {
     const server = await open(page);
     await page.click('#btnAccount');
@@ -419,14 +430,14 @@ test.describe('signed in', () => {
   test('the app switcher lists the internal dashboard for sysadmins only', async ({ page }) => {
     const server = await open(page);
     await page.click('.appbar .qs-switch-btn');
-    await expect(page.locator('.appbar .qs-switch-name')).toHaveText(['Program Builder', 'Your qstored account']);
+    await expect(page.locator('.appbar .qs-switch-name')).toHaveText(['Program Builder']);
     await page.keyboard.press('Escape');
 
     server.sysadmin = true;
     await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));   // catches up with the account
     await expect(page.locator('.appbar qs-app-switcher')).toHaveAttribute('sysadmin', '');
     await page.click('.appbar .qs-switch-btn');
-    await expect(page.locator('.appbar .qs-switch-name')).toHaveText(['Program Builder', 'Internal', 'Your qstored account']);
+    await expect(page.locator('.appbar .qs-switch-name')).toHaveText(['Program Builder', 'Internal']);
     await expect(page.locator('.appbar .qs-switch-item:has-text("Internal")')).toHaveAttribute('href', 'https://internal.qstored.org/');
   });
 

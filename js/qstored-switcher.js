@@ -8,7 +8,8 @@
     </qs-app-switcher>
 
   The button shows the current site's icon; it opens a menu of qstored's apps, with the current one
-  marked, and a link to the qstored account at the bottom. Sysadmin-only pages (the internal dashboard)
+  marked. On a site that isn't one of them (the qstored account, current="account") none is marked. The
+  account itself is linked from each site's own account menu, not from here. Sysadmin-only pages (the internal dashboard)
   are listed only while the element has the `sysadmin` attribute, which the site sets once it knows
   the signed-in account has that role: el.toggleAttribute('sysadmin', true). Listing it hides nothing:
   the API is what refuses non-sysadmins.
@@ -33,7 +34,6 @@
     { id: 'programmer', name: 'Program Builder', tagline: 'Term programs for Scout families', url: 'https://program.qstored.org/' },
     { id: 'internal', name: 'Internal', tagline: 'Accounts and admin', url: 'https://internal.qstored.org/', sysadmin: true },
   ];
-  const ACCOUNT = { id: 'account', name: 'Your qstored account', tagline: 'account.qstored.org', url: 'https://account.qstored.org/' };
 
   const CHEVRON =
     '<svg class="qs-switch-chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -51,7 +51,7 @@
       const current = this.getAttribute('current');
       const id = `qs-switch-${++count}`;
       this.classList.add('qs-switch');
-      const name = [...APPS, ACCOUNT].find((app) => app.id === current)?.name;
+      const name = APPS.find((app) => app.id === current)?.name;
       const parts = document.createElement('template');
       parts.innerHTML = `
         <button type="button" class="qs-switch-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="${id}"
@@ -79,8 +79,8 @@
 
     drawMenu() {
       const current = this.getAttribute('current');
-      const item = (app, extra = '') => `
-        <a class="qs-switch-item ${extra}" role="menuitem" href="${escape(app.url)}" ${app.id === current ? 'aria-current="page"' : ''}>
+      const item = (app) => `
+        <a class="qs-switch-item" role="menuitem" href="${escape(app.url)}" ${app.id === current ? 'aria-current="page"' : ''}>
           <span class="qs-switch-item-icon">${ICONS[app.id]}</span>
           <span class="qs-switch-text"><span class="qs-switch-name">${escape(app.name)}</span><span class="qs-switch-tagline">${escape(app.tagline)}</span></span>
           ${app.id === current ? CHECK : ''}
@@ -88,8 +88,7 @@
       const sysadmin = this.hasAttribute('sysadmin');
       this.menu.innerHTML = `
         <div class="qs-switch-head" aria-hidden="true">qstored apps</div>
-        ${APPS.filter((app) => !app.sysadmin || sysadmin || app.id === current).map((app) => item(app)).join('')}
-        ${item(ACCOUNT, 'qs-switch-account')}`;
+        ${APPS.filter((app) => !app.sysadmin || sysadmin || app.id === current).map((app) => item(app)).join('')}`;
       this.items = [...this.menu.querySelectorAll('.qs-switch-item')];
     }
 

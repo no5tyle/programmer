@@ -169,13 +169,6 @@ qs-app-switcher.qs-switch > :not(.qs-switch-btn, .qs-switch-menu, .qs-switch-bac
   flex: none;
   color: var(--qs-tint);
 }
-.qs-switch-account {
-  margin-top: 4px;
-  border-top: 0.5px solid var(--qs-border);
-  border-radius: 0 0 0.75rem 0.75rem;
-  padding-top: 10px;
-}
-
 @media print {
   qs-app-switcher { display: none !important; }
 }

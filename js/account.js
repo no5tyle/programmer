@@ -735,11 +735,17 @@ function openAccountMenu(anchor) {
     <div class="pop-title">${esc(me?.user?.name || 'Your account')}<div class="pop-sub pop-email">${esc(session.email)}</div></div>
     <div class="menu">
       <button id="pAccount"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Account</button>
+      <button id="pQsAccount" title="Your plan, billing and data, across qstored's apps (opens account.qstored.org)"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="12" cy="10" r="3"/><path d="M7 17a5 5 0 0 1 10 0"/></svg>Your qstored account</button>
       <button id="pSignOut"><svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 8l-4 4 4 4M6 12h9"/></svg>Sign out</button>
     </div>`, { type: 'account' });
   $('#pAccount').onclick = () => { closePopover(); openAccountPage(); };
+  $('#pQsAccount').onclick = () => { closePopover(); openQstoredAccount(); };
   $('#pSignOut').onclick = signOut;
 }
+
+/** The qstored account site (plan, billing and data, across the apps), in a new tab. */
+const QSTORED_ACCOUNT_URL = 'https://account.qstored.org/';
+function openQstoredAccount() { window.open(QSTORED_ACCOUNT_URL, '_blank', 'noopener'); }
 
 function planText() {
   const p = me?.programs;
