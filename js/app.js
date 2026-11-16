@@ -1491,13 +1491,15 @@ const handle = $('#rowHandle');
 let handleRow = null;
 function showHandle(tr) {
   handleRow = tr.dataset.id;
-  // Anchor to this row's own first cell (normally Date), not the merged Week cell, so the
-  // mouse never has to cross another row's cell to reach the handle.
-  const cell = tr.querySelector('td:not(.c-week)') || tr.firstElementChild;
-  const r = cell.getBoundingClientRect();
+  // Just past the right-hand end of the whole row, level with it, so the mouse reaches it by
+  // moving straight along the row (never across another row's cells). The row's own box is its
+  // height even when a merged Week cell spans several rows.
+  // Zoomed in, the row can run past the visible area: then it sits at that area's right-hand edge.
+  const r = tr.getBoundingClientRect();
+  const view = $('#canvas').getBoundingClientRect();
   handle.hidden = false;
   handle.style.top = `${r.top + r.height / 2 - handle.offsetHeight / 2}px`;
-  handle.style.left = `${r.left - handle.offsetWidth / 2}px`;
+  handle.style.left = `${Math.min(r.right + 4, view.right - handle.offsetWidth - 6)}px`;
 }
 function hideHandle() { handle.hidden = true; handleRow = null; }
 
