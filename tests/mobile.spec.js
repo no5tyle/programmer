@@ -24,10 +24,9 @@ test.describe('phone', () => {
     await page.click('[data-chips="patrol"] .m-chip[data-v="Green"]');
     await page.click('[data-chips="leader"] .m-chip[data-v="Misia"]');
     await page.click('.days .day:has(b:text-is("Wed"))');
-    await page.click('[data-red="activity"]');
     await page.click('.m-panel:not([hidden]) [data-panel-done]');
-    const r = await page.evaluate(() => { const x = state.rows.find((y) => y.activity.startsWith('OAS')); return [x.date, x.activity, x.patrol, x.leader, x.red]; });
-    expect(r).toEqual(['2026-10-28', 'OAS Catchup & Investiture', 'Green', 'Misia', ['activity']]);
+    const r = await page.evaluate(() => { const x = state.rows.find((y) => y.activity.startsWith('OAS')); return [x.date, x.activity, x.patrol, x.leader]; });
+    expect(r).toEqual(['2026-10-28', 'OAS Catchup & Investiture', 'Green', 'Misia']);
   });
 
   test('settings screens use the same controls', async ({ page }) => {

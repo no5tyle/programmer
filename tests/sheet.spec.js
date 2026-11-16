@@ -232,10 +232,17 @@ test.describe('sheet', () => {
     expect(ratio).toBeGreaterThan(0.8);
   });
 
-  test('red text marks a single cell', async ({ page }) => {
-    await page.evaluate(() => { state.rows[0].red = ['time']; renderAll(); });
+  test("an older program's red text becomes formatting", async ({ page }) => {
+    await page.evaluate(() => {
+      const d = JSON.parse(JSON.stringify(state));
+      Object.assign(d.rows[0], { red: ['time', 'activity'], activity: 'Hike & <climb>' });
+      state = normalise(d); renderAll();
+    });
+    const r = await page.evaluate(() => [state.rows[0].red, state.rows[0].cellStyle, state.rows[0].rich, state.rows[0].activity]);
+    expect(r).toEqual([undefined, { time: { b: true, c: '#d0021b' } }, { activity: '<span class="r"><b>Hike &amp; &lt;climb&gt;</b></span>' }, 'Hike & <climb>']);
     const color = await page.evaluate(() => getComputedStyle(document.querySelector('tbody tr:nth-child(1) td.c-time .ed')).color);
     expect(color).toBe('rgb(208, 2, 27)');
+    await expect(page.locator('tbody tr:nth-child(1) td.c-activity .ed .r b')).toHaveText('Hike & <climb>');
   });
 
   test('dates under the program print their text and hide when empty', async ({ page }) => {

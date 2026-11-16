@@ -182,7 +182,6 @@ input[type=color]::-moz-color-swatch { border: 0; border-radius: 8px; }
 .list-row .w-full { flex: 1 0 100%; }
 textarea.bound-textarea { width: 100%; padding: 8px 10px; resize: vertical; font: inherit; border: 1px solid var(--input-border); border-radius: var(--radius); background: var(--surface); }
 textarea.bound-textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--focus-ring); }
-.swatch.red-swatch.on { background: var(--alert-danger-bg); color: var(--danger); border-color: var(--danger); outline-color: var(--danger); }
 .note-row textarea {
   flex: 1 0 100%; min-height: 52px; padding: 8px 10px; resize: vertical; font: inherit;
   border: 1px solid var(--input-border); border-radius: var(--radius); background: var(--surface);
@@ -405,8 +404,12 @@ textarea.bound-textarea:focus { outline: none; border-color: var(--primary); box
 .doc-strip:empty { display: none; }
 .doc-note.below { max-width: none; flex: 1; margin: -1mm 0 1.6mm; font-size: max(7pt, calc(var(--hfs) * .66)); }
 .doc-strip .doc-legend { margin-left: auto; }
-/* A single cell picked out in red ("Red text" in the row menu) */
-.prog td.red, .prog td.red .ed, .prog td.red .pick, .prog td.red .patrol, .prog td.red .dt { color: #d0021b !important; font-weight: 700; }
+/* A picked cell's own style (bold, italic, colour: cellHTML), over its contents' usual look */
+.prog td.fs-c, .prog td.fs-c *:not(.ph) { color: var(--fsc) !important; }
+.prog td.fs-b, .prog td.fs-b *:not(.ph) { font-weight: 800 !important; }
+.prog td.fs-nb, .prog td.fs-nb *:not(.ph) { font-weight: 400 !important; }
+.prog td.fs-i, .prog td.fs-i *:not(.ph) { font-style: italic !important; }
+.prog td.fs-ni, .prog td.fs-ni *:not(.ph) { font-style: normal !important; }
 
 /*
  * Grid lines are drawn in a layer above every cell background, not as cell borders.

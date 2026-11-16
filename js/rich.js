@@ -223,22 +223,42 @@ function styledField() {
   return el && el.matches?.('input[data-fs], textarea[data-fs]') && typeof fieldStyleRef === 'function' && fieldStyleRef(el.dataset.fs) ? el : null;
 }
 
+/*
+ * Besides a focused sidebar field, the bar can be put over something else: a program cell while its
+ * picker is open, or a field in the phone editor. { getEl, ref, avoid } (avoid: an element it mustn't
+ * cover, such as the open picker). null takes it away.
+ */
+let styleTarget = null;
+function setStyleTarget(t) { styleTarget = t || null; placeFsBar(); }
+
+/** What the bar styles now: { el, ref, avoid }, or null. */
+function currentStyle() {
+  const f = styledField();
+  if (f) return { el: f, ref: fieldStyleRef(f.dataset.fs) };
+  const el = styleTarget?.getEl();
+  if (el && el.isConnected && styleTarget.ref) return { el, ref: styleTarget.ref, avoid: styleTarget.avoid?.() };
+  return null;
+}
+
 function placeFsBar() {
-  const field = styledField();
-  if (!field) { fsBar.hidden = true; return; }
+  const cur = currentStyle();
+  if (!cur) { fsBar.hidden = true; return; }
   if (!fsBar.firstChild) drawFsBar();
   fsBar.hidden = false;
-  const r = field.getBoundingClientRect();
+  // Above the field (and above what it mustn't cover, such as an open picker), else below them
+  const r = cur.el.getBoundingClientRect();
+  const a = cur.avoid?.getBoundingClientRect();
+  const topEdge = a ? Math.min(r.top, a.top) : r.top, bottomEdge = a ? Math.max(r.bottom, a.bottom) : r.bottom;
   const w = fsBar.offsetWidth, h = fsBar.offsetHeight, gap = 6;
   const vv = window.visualViewport;
   const top0 = vv ? vv.offsetTop : 0, vh = vv ? vv.height : innerHeight;
-  let top = r.top - h - gap;
-  if (top < top0 + 4) top = r.bottom + gap;
+  let top = topEdge - h - gap;
+  if (top < top0 + 4) top = bottomEdge + gap;
   top = Math.min(top, top0 + vh - h - 4);
   fsBar.style.top = `${top}px`;
   fsBar.style.left = `${Math.max(8, Math.min(r.left, innerWidth - w - 8))}px`;
   // On if the field has it, by its own style or by default
-  const ref = fieldStyleRef(field.dataset.fs);
+  const ref = cur.ref;
   const st = ref.get(), d = ref.defaults || {};
   fsBar.querySelector('[data-fs-act="b"]').setAttribute('aria-pressed', (st.b ?? !!d.b) ? 'true' : 'false');
   fsBar.querySelector('[data-fs-act="i"]').setAttribute('aria-pressed', (st.i ?? !!d.i) ? 'true' : 'false');
@@ -248,10 +268,10 @@ function placeFsBar() {
 fsBar.addEventListener('pointerdown', (e) => e.preventDefault());
 fsBar.addEventListener('mousedown', (e) => e.preventDefault());
 fsBar.addEventListener('click', (e) => {
-  const field = styledField();
+  const cur = currentStyle();
   const b = e.target.closest('[data-fs-act], [data-fs-colour]');
-  if (!field || !b) return;
-  const ref = fieldStyleRef(field.dataset.fs);
+  if (!cur || !b) return;
+  const ref = cur.ref;
   const d = ref.defaults || {};
   let st = { ...ref.get() };
   if (b.dataset.fsColour) st.c = st.c === b.dataset.fsColour ? undefined : b.dataset.fsColour;  // again: back to the usual colour

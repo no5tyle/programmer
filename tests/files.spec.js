@@ -16,7 +16,7 @@ test.describe('files', () => {
 
   test('spreadsheet saves and opens back unchanged', async ({ page }, info) => {
     await page.evaluate(() => {
-      Object.assign(state.rows[0], { activity: 'Night Walk, with "torches"', description: 'Line one\nLine two – en dash', challenge: 'outdoors', category: 'out', leader: 'Roo (Joeys)', red: ['time'] });
+      Object.assign(state.rows[0], { activity: 'Night Walk, with "torches"', description: 'Line one\nLine two – en dash', challenge: 'outdoors', category: 'out', leader: 'Roo (Joeys)' });
       Object.assign(state.rows[1], { date: '2026-10-24', endDate: '2026-10-25', time: '9 AM Sat\n4 PM Sun' });
       Object.assign(state.rows[3], { noMeeting: true, activity: 'No Cubs – Public holiday', time: '' });
       renderAll();
@@ -33,6 +33,16 @@ test.describe('files', () => {
     await page.setInputFiles('#fileJson', file);
     await page.click('.modal [data-i="2"]');
     expect(await snapshot()).toBe(before);
+  });
+
+  test("an older spreadsheet's Red text column becomes formatting", async ({ page }, info) => {
+    const file = info.outputPath('old.csv');
+    fs.writeFileSync(file, 'Date,Time,Activity,Red text\r\n13/10/2026,18:15-19:45,Knots,"Time, Activity"\r\n');
+    await page.click('#btnImport');
+    await page.setInputFiles('#fileJson', file);
+    await page.click('.modal [data-i="2"]');
+    const r = await page.evaluate(() => [state.rows[0].cellStyle, state.rows[0].rich, state.rows[0].red]);
+    expect(r).toEqual([{ time: { c: '#d0021b', b: true } }, { activity: '<span class="r"><b>Knots</b></span>' }, undefined]);
   });
 
   test('a spreadsheet as Excel saves it opens correctly', async ({ page }, info) => {

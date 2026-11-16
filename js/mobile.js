@@ -225,18 +225,20 @@ function editorHTML(r) {
   const cols = state.columns.filter((c) => c.visible && !['week', 'date'].includes(c.key)).map((c) => c.key);
   const datalists = { forms: ['-', 'C2G', 'MyScout', 'Event form'] };
 
+  // "Aa" beside a picked field's name brings up its style toolbar (bold, italic, colour)
+  const aa = (k, text) => `<span class="m-label">${text}<button type="button" class="m-style" data-style-cell="${k}" aria-label="Style ${esc(label(k) || k)}">Aa</button></span>`;
   const field = (k) => {
     const v = r[k] || '';
     if (k === 'patrol') {
       const opts = state.patrols.filter((p) => p.name).map((p) => ({ value: p.name, html: `<span class="dot" style="background:${esc(p.color)}"></span>${esc(p.name)}` }));
-      return `<div class="m-field"><span>${esc(label(k))}</span>${chips('patrol', [...opts, { value: '', html: 'None' }], v)}</div>`;
+      return `<div class="m-field" data-style-field="patrol">${aa('patrol', esc(label(k)))}${chips('patrol', [...opts, { value: '', html: 'None' }], v)}</div>`;
     }
     if (k === 'leader' || k === 'uniform') {
       const cfg = PICKERS[k];
       const { section, others } = cfg.choices();
       const opts = [...section, ...others].map((n) => ({ value: n, html: esc(n) }));
       const isOther = v && !section.includes(v) && !others.includes(v);
-      return `<div class="m-field"><span>${esc(label(k))}</span>${chips(k, [...opts, { value: '', html: 'None' }], v)}
+      return `<div class="m-field" data-style-field="${k}">${aa(k, esc(label(k)))}${chips(k, [...opts, { value: '', html: 'None' }], v)}
         <input type="text" data-f="${k}" class="m-other" placeholder="${esc(cfg.otherLabel)}, ${esc(cfg.placeholder)}" value="${isOther ? esc(v) : ''}"></div>`;
     }
     if (k === 'challenge') {
@@ -248,7 +250,7 @@ function editorHTML(r) {
       const meet = defaultTimeText();
       const [st, en] = timesIn(v);
       const opts = [...(meet ? [{ value: meet, html: 'Meeting night' }] : []), { value: 'TBA', html: 'TBA' }, { value: '', html: 'No time' }];
-      return `<div class="m-field m-time"><span>${esc(label(k))}</span>${chips('time', opts, v)}
+      return `<div class="m-field m-time" data-style-field="time">${aa('time', esc(label(k)))}${chips('time', opts, v)}
         <div class="m-two">
           <label class="m-field"><span>Starts</span><input type="time" step="300" data-tm="start" value="${hhmm(st)}" data-prev="${hhmm(st)}"></label>
           <label class="m-field"><span>Finishes</span><input type="time" step="300" data-tm="end" value="${hhmm(en)}"></label>
@@ -268,7 +270,7 @@ function editorHTML(r) {
   }
   return `
     <div class="m-card">
-      <div class="m-field"><span>${wk ? `${esc(groupLabel({ key: wk }))} · ` : ''}Day</span>
+      <div class="m-field" data-style-field="date">${aa('date', `${wk ? `${esc(groupLabel({ key: wk }))} · ` : ''}Day`)}
         ${days.length ? `<div class="days">${days.map((d) => `<button class="day ${toISO(d) === r.date ? 'on' : ''}" data-day="${toISO(d)}"><b>${DAY_SHORT[d.getDay()]}</b><span>${d.getDate()}</span></button>`).join('')}</div>` : ''}
       </div>
       <div class="m-two">
@@ -284,9 +286,7 @@ function editorHTML(r) {
       <div class="m-card"><div class="m-field"><span>Highlight</span>
         ${chips('category', [...state.categories.map((c) => ({ value: c.id, html: `<span class="dot" style="background:${esc(c.color)}"></span>${esc(c.label)}` })), { value: '', html: 'None' }], r.category)}
       </div>
-      <div class="m-field"><span>Red text</span>
-        <div class="m-chips" data-red-chips>${state.columns.filter((c) => c.visible && c.key !== 'week').map((c) => `<button class="m-chip red ${(r.red || []).includes(c.key) ? 'on' : ''}" data-red="${c.key}">${esc(c.label)}</button>`).join('')}</div>
-      </div></div>`}
+</div>`}
     <div class="m-actions">
       <button class="btn btn-outline" data-act="add">Add another activity this week</button>
       <div class="m-two">
@@ -345,12 +345,14 @@ function wireEditor(body, id, draw) {
   body.addEventListener('click', (e) => {
     const r = rowById(id);
     if (!r) return;
-    const redChip = e.target.closest('[data-red]');
-    if (redChip) {
-      const k = redChip.dataset.red;
-      r.red = (r.red || []).includes(k) ? r.red.filter((x) => x !== k) : [...(r.red || []), k];
-      saveSoon(); draw(); return;
+    // "Aa" beside a picked field's name: the style toolbar over that field (a tap elsewhere takes it away)
+    const styleBtn = e.target.closest('[data-style-cell]');
+    if (styleBtn) {
+      const k = styleBtn.dataset.styleCell;
+      setStyleTarget({ getEl: () => document.querySelector(`.m-panel:not([hidden]) [data-style-field="${k}"]`), ref: cellStyleRef(id, k) });
+      return;
     }
+    setStyleTarget(null);
     const chip = e.target.closest('.m-chip');
     if (chip) {
       const key = chip.parentElement.dataset.chips;

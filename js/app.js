@@ -168,7 +168,7 @@ function newRow(date = '', patch = {}) {
   return {
     id: uid(), date, endDate: '', dateLabel: '', time: defaultTimeText(),
     activity: '', description: '', uniform: 'Yes', forms: '', where: '', patrol: '',
-    leader: '', cost: '', challenge: '', notes: '', category: '', noMeeting: false, red: [], ...patch,
+    leader: '', cost: '', challenge: '', notes: '', category: '', noMeeting: false, ...patch,
   };
 }
 
@@ -226,6 +226,7 @@ function normalise(raw) {
   }
   s.challenges.forEach((c) => { if (OLD_CHALLENGE_COLORS[c.id] && c.color?.toUpperCase() === OLD_CHALLENGE_COLORS[c.id]) c.color = DEFAULT_CHALLENGES.find((d) => d.id === c.id).color; });
   s.rows = Array.isArray(raw.rows) ? raw.rows.map((r) => ({ ...newRowShape(), ...r, id: r.id || uid(), rich: normaliseRich(r.rich) })) : [];
+  s.rows.forEach((r) => { migrateRed(r); normaliseCellStyle(r); });
   s.styles = normaliseStyles(raw.styles);
   s.branding.leaders.forEach((l) => normaliseItemStyle(l, STYLED_LISTS.leaders));
   s.extras.dates.forEach((d) => normaliseItemStyle(d, STYLED_LISTS.dates));
@@ -725,6 +726,64 @@ function previewFieldStyles() {
   });
 }
 
+/*
+ * The program's cells you pick rather than type (date, time, duty patrol, leader, uniform) take the
+ * same whole-cell style, from the same toolbar, shown while the cell's picker is open. Stored per row
+ * in row.cellStyle[key]. (They replace the row menu's old "Red text", which is moved over on loading.)
+ */
+const CELL_STYLE_KEYS = ['date', 'time', 'patrol', 'leader', 'uniform'];
+const CELL_DEFAULTS = { patrol: { b: true } };
+const FREE_TEXT_KEYS = ['activity', 'description', 'forms', 'where', 'cost', 'notes'];
+
+function cellStyleRef(rowId, key) {
+  if (!CELL_STYLE_KEYS.includes(key)) return null;
+  return {
+    defaults: CELL_DEFAULTS[key] || {},
+    get: () => rowById(rowId)?.cellStyle?.[key] || {},
+    set: (st) => {
+      const r = rowById(rowId); if (!r) return;
+      const next = { ...(r.cellStyle || {}) };
+      if (cleanStyle(st)) next[key] = cleanStyle(st); else delete next[key];
+      if (Object.keys(next).length) r.cellStyle = next; else delete r.cellStyle;
+    },
+  };
+}
+
+/** The style toolbar over a cell while its picker is open (desktop). */
+function styleCellWhilePicking(rowId, key) {
+  const ref = cellStyleRef(rowId, key);
+  if (!ref || typeof setStyleTarget !== 'function') return;
+  setStyleTarget({
+    getEl: () => $(`#sheet tr[data-id="${rowId}"] td.c-${key}`),
+    avoid: () => (pop.hidden ? null : pop),
+    ref,
+  });
+}
+
+/**
+ * Older programs marked whole cells "Red text" (red and bold): typed cells become red, bold formatting,
+ * picked cells a red, bold style.
+ */
+function migrateRed(r) {
+  const keys = Array.isArray(r.red) ? r.red : [];
+  delete r.red;
+  keys.forEach((k) => {
+    if (FREE_TEXT_KEYS.includes(k)) {
+      if (!r[k]) return;
+      const inner = r.rich?.[k] && richToText(r.rich[k]) === r[k] ? r.rich[k] : richEsc(r[k]);
+      r.rich = { ...(r.rich || {}), [k]: `<span class="r"><b>${inner}</b></span>` };
+    } else if (CELL_STYLE_KEYS.includes(k)) {
+      r.cellStyle = { ...(r.cellStyle || {}), [k]: { ...(cleanStyle(r.cellStyle?.[k]) || {}), c: '#d0021b', b: true } };
+    }
+  });
+}
+
+function normaliseCellStyle(r) {
+  const out = {};
+  CELL_STYLE_KEYS.forEach((k) => { const st = cleanStyle(r.cellStyle?.[k]); if (st) out[k] = st; });
+  if (Object.keys(out).length) r.cellStyle = out; else delete r.cellStyle;
+}
+
 /** Saved styles from a file, checked. */
 function normaliseStyles(raw) {
   const out = {};
@@ -793,10 +852,20 @@ function dateText(r, includeTime) {
 
 const HL_KEYS = { 'date-activity': ['date', 'time', 'activity'], activity: ['activity'] };
 
-/** A cell, in red bold if the row marks it ("red text" in the row menu). */
+/** A cell, with its style (bold, italic, colour) if it has one: see CELL_STYLE_KEYS. */
 function cellHTML(col, r) {
   const html = cellInner(col, r);
-  return (r.red || []).includes(col.key) ? html.replace('<td class="', '<td class="red ') : html;
+  const st = CELL_STYLE_KEYS.includes(col.key) ? cleanStyle(r.cellStyle?.[col.key]) : null;
+  if (!st) return html;
+  const cls = [st.c && 'fs-c', st.b === true && 'fs-b', st.b === false && 'fs-nb', st.i === true && 'fs-i', st.i === false && 'fs-ni']
+    .filter(Boolean).join(' ');
+  let out = html.replace('<td class="', `<td class="${cls} `);
+  if (st.c) {
+    const tagEnd = out.indexOf('>');
+    const at = out.indexOf(' style="');
+    out = at > -1 && at < tagEnd ? out.replace(' style="', ` style="--fsc:${st.c};`) : out.replace('<td ', `<td style="--fsc:${st.c}" `);
+  }
+  return out;
 }
 
 function cellInner(col, r) {
@@ -1434,7 +1503,10 @@ function openPopover(anchor, html, ctx) {
   pop.style.top = `${top}px`;
   $('input, button', pop)?.focus();
 }
-function closePopover() { pop.hidden = true; pop.onclick = null; popCtx = null; }
+function closePopover() {
+  pop.hidden = true; pop.onclick = null; popCtx = null;
+  if (typeof setStyleTarget === 'function') setStyleTarget(null);
+}
 
 function rowById(id) { return state.rows.find((r) => r.id === id); }
 
@@ -1631,25 +1703,17 @@ function openRowMenu(anchor, rowId) {
         <button class="swatch none ${r.category ? '' : 'on'}" data-cat="" title="No highlight"><span>None</span></button>
       </div>
       <div class="menu-sep"></div>
-      <div class="menu-label">Red text</div>
-      <div class="swatches">
-        ${state.columns.filter((c) => c.visible && c.key !== 'week' && (!r.noMeeting || c.key === 'date' || c.key === 'activity')).map((c) => `<button class="swatch none red-swatch ${(r.red || []).includes(c.key) ? 'on' : ''}" data-red="${c.key}"><span>${esc(c.label)}</span></button>`).join('')}
-      </div>
-      <div class="menu-sep"></div>
       <button data-act="del" class="danger">${icon('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>')}Delete</button>
     </div>`, { type: 'row', id: rowId });
 
   pop.onclick = (e) => {
-    const btn = e.target.closest('[data-act],[data-cat],[data-red]');
+    const btn = e.target.closest('[data-act],[data-cat]');
     if (!btn || btn.disabled) return;
     if (btn.dataset.act === 'week') { openAddToWeekPopover(anchor, rowWeekStart(rowById(rowId))); return; }
     pushHistory();
     const i = state.rows.findIndex((x) => x.id === rowId);
     const row = state.rows[i];
-    if (btn.dataset.red) {
-      const k = btn.dataset.red;
-      row.red = (row.red || []).includes(k) ? row.red.filter((x) => x !== k) : [...(row.red || []), k];
-    } else if (btn.dataset.cat !== undefined) row.category = btn.dataset.cat;
+    if (btn.dataset.cat !== undefined) row.category = btn.dataset.cat;
     else {
       switch (btn.dataset.act) {
         case 'below': state.rows.splice(i + 1, 0, newRow(row.date, { uniform: row.uniform })); break;
@@ -1710,7 +1774,7 @@ function openEmptyWeekMenu(anchor, r) {
 }
 
 document.addEventListener('mousedown', (e) => {
-  if (!pop.hidden && !pop.contains(e.target) && !e.target.closest('#rowHandle')) {
+  if (!pop.hidden && !pop.contains(e.target) && !e.target.closest('#rowHandle') && !e.target.closest('.fs-bar')) {
     if (popCtx?.type === 'date' || popCtx?.type === 'time') { sortRows(); save(); renderDoc(); }
     pop.onclick = null;
     closePopover();
@@ -2036,7 +2100,7 @@ const CSV_FIELDS = [
   ['week', 'Week'], ['date', 'Date'], ['endDate', 'End date'], ['dateLabel', 'Date text'], ['time', 'Time'],
   ['activity', 'Activity'], ['description', 'Description'], ['uniform', 'Uniform'], ['forms', 'Forms'],
   ['where', 'Where'], ['patrol', 'Duty Patrol'], ['leader', 'Leader'], ['cost', 'Cost'],
-  ['challenge', 'Challenge Area'], ['notes', 'Notes'], ['category', 'Highlight'], ['noMeeting', 'No meeting'], ['red', 'Red text'],
+  ['challenge', 'Challenge Area'], ['notes', 'Notes'], ['category', 'Highlight'], ['noMeeting', 'No meeting'],
 ];
 const CSV_ALIASES = {
   week: 'week', date: 'date', enddate: 'endDate', ends: 'endDate', finishdate: 'endDate', datetext: 'dateLabel',
@@ -2070,7 +2134,6 @@ function exportCsv() {
     if (k === 'challenge') return state.challenges.find((c) => c.id === r.challenge)?.label || '';
     if (k === 'category') return state.categories.find((c) => c.id === r.category)?.label || '';
     if (k === 'noMeeting') return r.noMeeting ? 'Yes' : '';
-    if (k === 'red') return (r.red || []).map((key) => state.columns.find((c) => c.key === key)?.label || key).join(', ');
     return r[k] ?? '';
   };
   const lines = [CSV_FIELDS.map(([, h]) => h), ...state.rows.filter((r) => !r.emptyWeek).map((r) => CSV_FIELDS.map(([k]) => value(r, k)))];
@@ -2157,6 +2220,7 @@ function rowsFromCsv(text) {
       else r[k] = v;
     });
     if (r.noMeeting && !keys.includes('time')) r.time = '';
+    migrateRed(r);   // a "Red text" column from an older spreadsheet
     return r;
   });
   return { rows, unread };
@@ -2544,6 +2608,8 @@ function bindEvents() {
     else if (td.dataset.pop === 'time') openTimePopover(td, r);
     else if (PICKERS[td.dataset.pop]) openPickPopover(td, r, td.dataset.pop);
     else openChoicePopover(td, r, td.dataset.pop);
+    // The style toolbar for the cell, above it and its picker
+    styleCellWhilePicking(r.id, td.dataset.pop);
   });
   sheet.addEventListener('pointerdown', startColumnResize);
   sheet.addEventListener('mouseover', (e) => {

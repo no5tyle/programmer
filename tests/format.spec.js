@@ -242,3 +242,82 @@ test.describe('whole-field styles on other fields', () => {
     expect(await page.evaluate(() => normalise({ styles: { 'branding.groupName': { b: false } } }).styles)).toEqual({ 'branding.groupName': { b: false } });
   });
 });
+
+test.describe('styles on picked cells', () => {
+  let errors;
+  test.beforeEach(async ({ page }) => { errors = await openApp(page); await fillCubs(page); });
+  test.afterEach(() => { expect(errors, 'browser errors').toEqual([]); });
+
+  test("a picked cell's picker brings the style toolbar, above the cell and the picker", async ({ page }) => {
+    const td = '#sheet tbody tr:nth-child(2) td.c-patrol';
+    await page.click(td);
+    const bar = page.locator('.fs-bar');
+    await expect(page.locator('#popover')).toBeVisible();
+    await expect(bar).toBeVisible();
+    // Duty patrols print bold, so Bold shows as on
+    await expect(bar.locator('[data-fs-act="b"]')).toHaveAttribute('aria-pressed', 'true');
+    const b = await bar.boundingBox(), c = await page.locator(td).boundingBox(), p = await page.locator('#popover').boundingBox();
+    const overlaps = (x, y) => x.x < y.x + y.width && y.x < x.x + x.width && x.y < y.y + y.height && y.y < x.y + x.height;
+    expect(overlaps(b, c)).toBe(false);
+    expect(overlaps(b, p)).toBe(false);
+
+    await bar.locator('[data-fs-colour="#6f42c1"]').click();
+    await bar.locator('[data-fs-act="b"]').click();
+    await expect(page.locator('#popover')).toBeVisible();          // still open
+    expect(await page.evaluate(() => state.rows[1].cellStyle)).toEqual({ patrol: { c: '#6f42c1', b: false } });
+    await expect(page.locator(`${td} .patrol`)).toHaveCSS('color', 'rgb(111, 66, 193)');
+    await expect(page.locator(`${td} .patrol`)).toHaveCSS('font-weight', '400');
+
+    // Closing the picker takes the toolbar away
+    await page.mouse.click(5, 300);
+    await expect(page.locator('#popover')).toBeHidden();
+    await expect(bar).toBeHidden();
+  });
+
+  test('date, time, leader and uniform cells too, and Undo', async ({ page }) => {
+    for (const [key, sel] of [['date', 'td.c-date'], ['time', 'td.c-time'], ['leader', 'td.c-leader'], ['uniform', 'td.c-uniform']]) {
+      await page.click(`#sheet tbody tr:nth-child(3) ${sel}`);
+      await page.click('.fs-bar [data-fs-act="i"]');
+      await page.mouse.click(5, 300);
+      expect(await page.evaluate((k) => state.rows[2].cellStyle[k], key)).toEqual({ i: true });
+      await expect(page.locator(`#sheet tbody tr:nth-child(3) ${sel}`)).toHaveCSS('font-style', 'italic');
+    }
+    await page.click('#btnUndo');
+    expect(await page.evaluate(() => state.rows[2].cellStyle.uniform)).toBeUndefined();
+  });
+
+  test('the row menu no longer has Red text', async ({ page }) => {
+    await page.hover('#sheet tbody tr:nth-child(1) td.c-description');
+    await page.click('#rowHandle');
+    await expect(page.locator('#popover .menu')).toBeVisible();
+    await expect(page.locator('#popover')).not.toContainText('Red text');
+    await expect(page.locator('#popover [data-red]')).toHaveCount(0);
+  });
+});
+
+test.describe('styles on picked fields (phone)', () => {
+  const { defaultBrowserType, ...iPhone } = devices['iPhone 13'];
+  test.use(iPhone);
+
+  test('"Aa" beside a field brings its style toolbar', async ({ page }) => {
+    const errors = await openApp(page);
+    await fillCubs(page);
+    await page.click('.m-row:has-text("Night Walk")');
+    const panel = page.locator('.m-panel:not([hidden])');
+    await expect(panel.locator('[data-red]')).toHaveCount(0);
+    await panel.locator('[data-chips="leader"] .m-chip[data-v="Plover"]').click();
+    await panel.locator('[data-style-cell="leader"]').click();
+    const bar = page.locator('.fs-bar');
+    await expect(bar).toBeVisible();
+    const b = await bar.boundingBox();
+    expect(b.x + b.width).toBeLessThanOrEqual(390);
+    await bar.locator('[data-fs-colour="#1e8e3e"]').tap();
+    expect(await page.evaluate(() => state.rows[0].cellStyle)).toEqual({ leader: { c: '#1e8e3e' } });
+    // A tap elsewhere in the editor takes it away
+    await panel.locator('.m-card').first().click({ position: { x: 5, y: 5 } });
+    await expect(bar).toBeHidden();
+    await panel.locator('[data-panel-done]').click();
+    await expect(page.locator('#sheet tbody tr:nth-child(1) td.c-leader .pick')).toHaveCSS('color', 'rgb(30, 142, 62)');
+    expect(errors).toEqual([]);
+  });
+});
