@@ -510,7 +510,7 @@ function showLimitBox(extra = '') {
   const limit = me?.programs?.limit ?? 3;
   return modal({
     title: `A free account keeps ${limit} programs`,
-    body: `${extra}<p>Your account has ${limit} programs already. To keep another, delete one you no longer need. Deleted programs can be brought back for 30 days, from <strong>Account</strong>.</p>
+    body: `${extra}<p>Your account has ${limit} programs already. To keep another, delete one you no longer need. Deleted programs can be brought back for 30 days, under <strong>Data</strong> in your qstored account.</p>
       <p class="hint">Premium, with as many programs as you like, is on its way.</p>`,
     buttons: [{ label: 'Not now', value: null, cls: 'btn-text' }, { label: 'Delete an old program', value: 'delete', cls: 'btn-primary' }],
   }).then((choice) => { if (choice === 'delete') showDirectoryToDelete(); });
@@ -697,7 +697,7 @@ function clearDevice() {
 }
 let accountLeaving = false;   // stops the page's last save from writing the program back
 
-/* ---------------------------------------------------------------- the Sign in button, its menu and the Account page */
+/* ---------------------------------------------------------------- the Sign in button and its menu */
 
 function renderAccountButton() {
   // The app switcher lists the internal dashboard for sysadmins (the API is what refuses everyone else)
@@ -734,122 +734,19 @@ function openAccountMenu(anchor) {
   openPopover(anchor, `
     <div class="pop-title">${esc(me?.user?.name || 'Your account')}<div class="pop-sub pop-email">${esc(session.email)}</div></div>
     <div class="menu">
-      <button id="pAccount"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Account</button>
-      <button id="pQsAccount" title="Your plan, billing and data, across qstored's apps (opens account.qstored.org)"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="12" cy="10" r="3"/><path d="M7 17a5 5 0 0 1 10 0"/></svg>Your qstored account</button>
+      <button id="pAccount" title="Your name, plan, billing and data, across qstored's apps (opens account.qstored.org)"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Account</button>
       <button id="pSignOut"><svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 8l-4 4 4 4M6 12h9"/></svg>Sign out</button>
     </div>`, { type: 'account' });
-  $('#pAccount').onclick = () => { closePopover(); openAccountPage(); };
-  $('#pQsAccount').onclick = () => { closePopover(); openQstoredAccount(); };
+  $('#pAccount').onclick = () => { closePopover(); openQstoredAccount(); };
   $('#pSignOut').onclick = signOut;
 }
 
-/** The qstored account site (plan, billing and data, across the apps), in a new tab. */
+/**
+ * The qstored account site, in a new tab: the name, plan and billing, and the data (download, the bin of
+ * deleted programs, delete the account). The same for every qstored app, so the builder keeps none of it.
+ */
 const QSTORED_ACCOUNT_URL = 'https://account.qstored.org/';
 function openQstoredAccount() { window.open(QSTORED_ACCOUNT_URL, '_blank', 'noopener'); }
-
-function planText() {
-  const p = me?.programs;
-  if (!p) return '';
-  if (me.premium?.active) return `qstored Premium · ${p.count} program${p.count === 1 ? '' : 's'}`;
-  return `Free account · ${p.count} of ${p.limit} programs`;
-}
-
-async function openAccountPage() {
-  if (!signedIn()) { openSignIn(); return; }
-  try { await loadMe(); } catch { /* offline: show what's known */ }
-  const support = ACCOUNT.supportEmail
-    ? `<p class="hint">Need a hand? Email <a href="mailto:${esc(ACCOUNT.supportEmail)}">${esc(ACCOUNT.supportEmail)}</a>.</p>` : '';
-  const done = modal({
-    title: 'Account',
-    body: `<div class="account-page">
-        <p>Signed in as <strong>${esc(session.email)}</strong><br><span id="acPlan">${esc(planText())}</span></p>
-        <div class="account-name"><label class="field"><span>Your name</span><input type="text" id="acName" maxlength="80" value="${esc(me?.user?.name || '')}" placeholder="Shown to other leaders, e.g. Akela"></label>
-          <button class="btn btn-outline" id="acSaveName" type="button">Save</button></div>
-        <p class="hint">Your account works across qstored's apps. <a href="https://account.qstored.org/" target="_blank" rel="noopener">Manage it at account.qstored.org</a>.</p>
-        <div class="account-actions">
-          <button class="btn btn-outline" id="acExport" type="button">Download all my programs</button>
-          <button class="btn btn-text btn-danger-text" id="acDelete" type="button">Delete my account</button>
-        </div>
-        <div id="acBin"></div>
-        ${support}${policyLinks()}
-      </div>`,
-    buttons: [{ label: 'Close', value: null, cls: 'btn-primary' }],
-  });
-  const close = () => $('#modal .modal-actions .btn').click();
-
-  $('#acSaveName').onclick = async () => {
-    const name = $('#acName').value.trim();
-    if (!name) { toast('Please enter a name.', 'error'); return; }
-    try {
-      const r = await api('PATCH', '/me', { body: { name } });
-      if (!r.ok) { toast(errorText(r), 'error'); return; }
-      me = { ...me, user: r.json.user };
-      renderAccountButton();
-      toast('Name saved.');
-    } catch { toast('You\'re offline. Try again when you\'re connected.', 'error'); }
-  };
-  $('#acExport').onclick = downloadAllPrograms;
-  $('#acDelete').onclick = () => { close(); deleteAccount(); };
-  renderBin();
-  await done;
-}
-
-/** Programs deleted in the last 30 days, with Restore. */
-async function renderBin() {
-  let r;
-  try { r = await api('GET', '/programs?owner=me&deleted=true'); } catch { return; }
-  const box = $('#acBin');
-  if (!box || !r.ok || !r.json.programs.length) return;
-  box.innerHTML = `<div class="account-bin-title">Deleted in the last 30 days</div>
-    ${r.json.programs.map((p) => `<div class="account-bin-item"><span><b>${esc(p.name)}</b><small>${esc([p.groupName, `deleted ${relTime(Date.parse(p.deletedAt))}`].filter(Boolean).join(' · '))}</small></span>
-      <button class="btn btn-outline btn-sm" type="button" data-restore="${esc(p.id)}">Restore</button></div>`).join('')}`;
-  box.onclick = async (e) => {
-    const b = e.target.closest('[data-restore]');
-    if (!b) return;
-    b.disabled = true;
-    try {
-      const back = await api('POST', `/programs/${b.dataset.restore}/restore`);
-      if (errorCode(back) === 'program_limit') { $('#modal .modal-actions .btn').click(); showLimitBox(); return; }
-      if (!back.ok) { toast(errorText(back), 'error'); b.disabled = false; return; }
-      b.closest('.account-bin-item').remove();
-      toast('Restored. It\'s back with your programs.');
-      await loadMe(); await refreshPrograms();
-      const plan = $('#acPlan'); if (plan) plan.textContent = planText();
-    } catch { toast('You\'re offline. Try again when you\'re connected.', 'error'); b.disabled = false; }
-  };
-}
-
-async function downloadAllPrograms() {
-  try {
-    await runSync();   // so the download has the latest changes
-    const r = await api('GET', '/me/export');
-    if (!r.ok) { toast(errorText(r), 'error'); return; }
-    downloadFile('qstored-programs.zip', await r.res.blob(), 'application/zip');
-  } catch { toast('You\'re offline. Try again when you\'re connected.', 'error'); }
-}
-
-async function deleteAccount() {
-  for (;;) {
-    const choice = await modal({
-      title: 'Delete your account?',
-      body: `<p>Your account and every program in it, including deleted ones, are removed for good, from this device too. This can't be undone.</p>
-        <p>To keep your programs, download them first.</p>`,
-      buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' }, { label: 'Download my programs', value: 'export', cls: 'btn-outline' },
-        { label: 'Delete my account', value: 'delete', cls: 'btn-danger' }],
-    });
-    if (choice === 'export') { await downloadAllPrograms(); continue; }
-    if (choice !== 'delete') return;
-    break;
-  }
-  try {
-    const r = await api('DELETE', '/me');
-    if (!r.ok) { toast(errorText(r), 'error'); return; }
-  } catch (err) {
-    if (err.offline) toast('You\'re offline. Try again when you\'re connected.', 'error');
-    return;
-  }
-  clearDevice();
-}
 
 /* ---------------------------------------------------------------- start */
 

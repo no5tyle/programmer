@@ -866,15 +866,5 @@ body.mobile .prog .col-grip { display: none; }
 .conflict-side b { font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
 .modal-body .hint { margin: 0; }
 .modal-body .field { margin-top: 10px; }
-.account-page { display: flex; flex-direction: column; gap: 12px; }
-.account-page p { margin: 0; }
-.account-name { display: flex; align-items: flex-end; gap: 8px; }
-.account-name .field { flex: 1; margin: 0; }
-.account-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.btn-danger-text { color: var(--danger); }
-.account-bin-title { font-weight: 700; font-size: 13px; margin-bottom: 4px; color: var(--text); }
-.account-bin-item { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border); }
-.account-bin-item span { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.account-bin-item b { font-weight: 600; font-size: 13.5px; color: var(--text); }
-.account-bin-item small { font-size: 12px; color: var(--muted); }
+.help-support { margin-top: 12px !important; }
 @media (max-width: 520px) { .conflict { grid-template-columns: 1fr; } }

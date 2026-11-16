@@ -325,24 +325,23 @@ test.describe('signed in', () => {
     await expect.poll(() => page.evaluate(() => state.branding.groupName)).toBe(EXAMPLE.branding.groupName);
   });
 
-  test('deleting moves the program to the bin, and Account brings it back', async ({ page }) => {
+  test('deleting moves the program to the bin, and one restored at the account site comes back', async ({ page }) => {
     const other = program('prog2222', EXAMPLE, { name: 'Other', updatedAt: '2026-01-01T00:00:00.000Z' });
     const server = await open(page, { programs: [program('prog1111', EXAMPLE, { name: 'Cubs Term 3' }), other] });
     await page.hover('#directory .dir-row:has([data-delprog="prog1111"])');
     await page.click('#directory [data-delprog="prog1111"]');
-    await expect(page.locator('.modal-body')).toContainText('brought back for 30 days');
+    await expect(page.locator('.modal-body')).toContainText('brought back for 30 days, under Data in your qstored account');
     await page.click('.modal .btn-danger');
     await expect.poll(() => server.programs.get('prog1111').deletedAt).not.toBeNull();
     await expect.poll(() => page.evaluate(() => library.current)).toBe('prog2222');
 
-    await page.click('#btnAccount');
-    await page.click('#pAccount');
-    await expect(page.locator('#acPlan')).toHaveText('Free account · 1 of 3 programs');
-    await expect(page.locator('.account-bin-item')).toContainText('Cubs Term 3');
-    await page.click('[data-restore="prog1111"]');
-    await expect(page.locator('#acPlan')).toHaveText('Free account · 2 of 3 programs');
-    await page.click('.modal-actions .btn');
+    await expect(page.locator('#directory .dir-item')).toHaveCount(1);
+
+    // Restored at account.qstored.org (its Data page), it's back here once this page catches up
+    server.programs.get('prog1111').deletedAt = null;
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));   // coming back to the page catches up
     await expect(page.locator('#directory .dir-item')).toHaveCount(2);
+    await expect(page.locator('#directory [data-open="prog1111"]')).toContainText('Cubs Term 3');
   });
 
   test('a program deleted on another device goes from the list', async ({ page }) => {
@@ -355,32 +354,30 @@ test.describe('signed in', () => {
     await expect.poll(() => page.evaluate(() => library.current)).toBe('prog2222');
   });
 
-  test('the menu under the initials links to the qstored account', async ({ page, context }) => {
+  test('Account, under the initials, opens the qstored account site', async ({ page, context }) => {
     await open(page);
     await page.click('#btnAccount');
-    await expect(page.locator('#popover .menu button')).toHaveText(['Account', 'Your qstored account', 'Sign out']);
+    await expect(page.locator('#popover')).toContainText('akela@example.com');
+    await expect(page.locator('#popover .menu button')).toHaveText(['Account', 'Sign out']);
     await context.route('https://account.qstored.org/**', (route) => route.fulfill({ contentType: 'text/html', body: '<p>account</p>' }));
-    const [tab] = await Promise.all([context.waitForEvent('page'), page.click('#pQsAccount')]);
+    const [tab] = await Promise.all([context.waitForEvent('page'), page.click('#pAccount')]);
     await tab.waitForLoadState();
     expect(tab.url()).toBe('https://account.qstored.org/');
     await expect(page.locator('#popover')).toBeHidden();
   });
 
-  test('the Account page: name, download, support address', async ({ page }) => {
+  test('a name changed at the account site shows in the initial', async ({ page }) => {
     const server = await open(page);
-    await page.click('#btnAccount');
-    await expect(page.locator('#popover')).toContainText('akela@example.com');
-    await page.click('#pAccount');
-    await expect(page.locator('.account-page')).toContainText('Signed in as akela@example.com');
-    await expect(page.locator('.account-page a[href="mailto:help@example.com"]')).toBeVisible();
-    await page.fill('#acName', 'Baloo');
-    await page.click('#acSaveName');
-    await expect(page.locator('.toast', { hasText: 'Name saved' })).toBeVisible();
-    expect(server.name).toBe('Baloo');
+    await expect(page.locator('#btnAccount .avatar')).toHaveText('A');
+    server.name = 'Baloo';
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));   // coming back to the page catches up
     await expect(page.locator('#btnAccount .avatar')).toHaveText('B');
+  });
 
-    const [download] = await Promise.all([page.waitForEvent('download'), page.click('#acExport')]);
-    expect(download.suggestedFilename()).toBe('qstored-programs.zip');
+  test('Help gives the support address', async ({ page }) => {
+    await open(page);
+    await page.click('#btnHelp');
+    await expect(page.locator('.help-support a[href="mailto:help@example.com"]')).toBeVisible();
   });
 
   test('Sign out clears this device and starts again with one program', async ({ page }) => {
@@ -405,17 +402,6 @@ test.describe('signed in', () => {
     await expect(page.locator('.modal-body')).toContainText("isn't in your account yet");
     await page.click('.modal button:has-text("Cancel")');
     await expect(page.locator('#btnAccount .avatar')).toBeVisible();
-  });
-
-  test('Delete my account removes it, and signs out', async ({ page }) => {
-    const server = await open(page);
-    await page.click('#btnAccount');
-    await page.click('#pAccount');
-    await page.click('#acDelete');
-    await expect(page.locator('.modal h2')).toHaveText('Delete your account?');
-    await page.click('.modal .btn-danger');
-    await expect(page.locator('#btnAccount')).toHaveText('Sign in');
-    expect(server.deleted).toBe(true);
   });
 
   test('a sign-in that is no longer good asks to sign in again, keeping the program here', async ({ page }) => {

@@ -365,7 +365,7 @@ async function deleteProgram(id) {
   const ok = await modal({
     title: 'Delete this program?',
     body: signedIn() && item.version != null
-      ? `<p><strong>${esc(item.name)}</strong>${item.group ? ` (${esc(item.group)})` : ''} will be deleted from your account, on every device. It can be brought back for 30 days, from <strong>Account</strong>.</p>`
+      ? `<p><strong>${esc(item.name)}</strong>${item.group ? ` (${esc(item.group)})` : ''} will be deleted from your account, on every device. It can be brought back for 30 days, under <strong>Data</strong> in your qstored account.</p>`
       : `<p><strong>${esc(item.name)}</strong>${item.group ? ` (${esc(item.group)})` : ''} will be removed from this browser. This can't be undone, so use <strong>Save file</strong> first if you might want it again.</p>`,
     buttons: [{ label: 'Cancel', value: false, cls: 'btn-text' }, { label: 'Delete', value: true, cls: 'btn-danger' }],
   });
@@ -2737,7 +2737,8 @@ async function openHelp() {
   ];
   const choice = await modal({
     title: 'Help',
-    body: `<div class="help-list">${qa.map(([q, a]) => `<details><summary>${q}</summary><p>${a}</p></details>`).join('')}</div>`,
+    body: `<div class="help-list">${qa.map(([q, a]) => `<details><summary>${q}</summary><p>${a}</p></details>`).join('')}</div>
+      ${ACCOUNT.supportEmail ? `<p class="hint help-support">Still stuck? Email <a href="mailto:${esc(ACCOUNT.supportEmail)}">${esc(ACCOUNT.supportEmail)}</a>.</p>` : ''}`,
     buttons: [{ label: 'Take the tour', value: 'tour', cls: 'btn-outline' }, { label: 'Close', value: null, cls: 'btn-primary' }],
   });
   if (choice === 'tour' && typeof startTour === 'function') startTour();
