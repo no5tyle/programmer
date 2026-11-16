@@ -286,3 +286,81 @@ test.describe('menu buttons', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test.describe('final touches', () => {
+  let errors;
+  test.beforeEach(async ({ page }) => { errors = await openApp(page); });
+  test.afterEach(() => { expect(errors, 'browser errors').toEqual([]); });
+
+  test('the calendar leaves out "-" for leader, duty patrol, notes and the rest', async ({ page }) => {
+    const ics = await page.evaluate(() => {
+      Object.assign(state.rows[0], { activity: 'Unit Council', description: 'Patrol leaders only.', leader: '-', patrol: '-', notes: '-', forms: '-', cost: '-', uniform: '-', where: '-' });
+      Object.assign(state.rows[1], { activity: 'Knots', leader: 'Baloo', patrol: 'Green', notes: 'Bring rope' });
+      let text = ''; const real = downloadFile; downloadFile = (n, t) => { text = t; }; exportCalendar(); downloadFile = real;
+      return text.replace(/\r\n /g, '');
+    });
+    const ev = (name) => ics.split('BEGIN:VEVENT').find((e) => e.includes(`SUMMARY:Cubs: ${name}`));
+    expect(ev('Unit Council')).toContain('DESCRIPTION:Patrol leaders only.\r\n');
+    expect(ev('Unit Council')).not.toMatch(/Leader|Duty patrol|LOCATION|\\n-/);
+    expect(ev('Knots')).toContain('Leader: Baloo\\nDuty patrol: Green\\nBring rope');
+  });
+
+  test("a term ending before its last week's meeting night: that night is a week off, and the whole week counts", async ({ page }) => {
+    // SA Term 4 2026 ends on Friday 11 December; with Saturday meetings, its last week's Saturday is after it
+    const rows = await page.evaluate(() => {
+      state.term.meetingDay = 6; state.rows = generateRows(); renderAll();
+      return state.rows.slice(-2).map((r) => ({ date: r.date, noMeeting: r.noMeeting, activity: r.activity, wk: weekOf(r.date) }));
+    });
+    expect(rows).toEqual([
+      { date: '2026-12-05', noMeeting: false, activity: '', wk: 8 },
+      { date: '2026-12-12', noMeeting: true, activity: 'No Cubs – Term ends Fri 11 Dec', wk: 9 },
+    ]);
+    await expect(page.locator('#sheet tbody tr').last().locator('.c-week .wk')).toHaveText('Week 9');
+    await expect(page.locator('#termHint')).toContainText('8 Saturday meetings');
+    // Tuesdays: the last week's Tuesday is in the term, so nothing extra
+    const tue = await page.evaluate(() => { state.term.meetingDay = 2; return generateRows().slice(-1)[0].date; });
+    expect(tue).toBe('2026-12-08');
+  });
+
+  test('with the Time column hidden, the date picker sets the time too (and the phone editor still has it)', async ({ page }) => {
+    await page.evaluate(() => { state.columns.find((c) => c.key === 'time').visible = false; renderAll(); });
+    const td = page.locator('#sheet tbody tr:nth-child(1) td.c-date');
+    await expect(td).toContainText('18:15–19:45');
+    await td.click();
+    await expect(page.locator('#pTime')).toHaveText('18:15–19:45');
+    await page.click('#pTime');
+    await expect(page.locator('#tStart')).toHaveValue('18:15');
+    await page.fill('#tStart', '17:00');
+    await page.click('#tDone');
+    expect(await page.evaluate(() => state.rows[0].time)).toBe('17:00–18:30');
+    await expect(page.locator('#sheet tbody tr:nth-child(1) td.c-date')).toContainText('17:00–18:30');
+    // Shown, the Time column has the time picker itself, so the date picker doesn't offer it
+    await page.evaluate(() => { state.columns.find((c) => c.key === 'time').visible = true; renderAll(); });
+    await page.click('#sheet tbody tr:nth-child(1) td.c-date');
+    await expect(page.locator('#pTime')).toHaveCount(0);
+  });
+
+  test('the tip under the program and the tour say what they should', async ({ page }) => {
+    await expect(page.locator('.canvas-tip')).not.toContainText('highlight');
+    await expect(page.locator('.canvas-tip')).toContainText('add, move or delete');
+    const t = await page.evaluate(() => TOUR_DESKTOP.map((s) => s.text).join(' '));
+    expect(t).toContain('bold, italic, colour and alignment');
+    expect(t).toContain('in this browser only');
+    await expect(page.locator('.sidebar-foot')).toContainText('in this browser only');
+  });
+});
+
+test.describe('final touches (phone)', () => {
+  const { defaultBrowserType, ...iPhone } = devices['iPhone 13'];
+  test.use(iPhone);
+  test('the menu says programs stay on this phone; the editor has the time with its column hidden', async ({ page }) => {
+    const errors = await openApp(page);
+    await page.click('#mMenu');
+    await expect(page.locator('.m-panel:not([hidden]) .m-note')).toContainText('saved on this phone only');
+    await page.click('.m-panel:not([hidden]) [data-panel-back]');
+    await page.evaluate(() => { state.columns.find((c) => c.key === 'time').visible = false; renderAll(); });
+    await page.locator('.m-row').first().click();
+    await expect(page.locator('.m-panel:not([hidden]) [data-tm="start"]')).toHaveValue('18:15');
+    expect(errors).toEqual([]);
+  });
+});

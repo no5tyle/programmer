@@ -145,3 +145,8 @@ test.describe('phone', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test('the wizard says where programs are saved', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.wz')).toContainText('saved in this browser only');
+});

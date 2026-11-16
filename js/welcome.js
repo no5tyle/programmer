@@ -36,6 +36,7 @@ function openWelcome() {
       title: 'Welcome to Program Builder',
       body: () => `
         <p>Make a one-page term program to share with your section's families. First, four quick questions so it's set up for you.</p>
+        <p class="hint">Your programs are saved in this browser only. To keep a copy or use another device, save a file (Save file on a computer; Share, then Full program file on a phone).</p>
         <label class="field"><span>Your Scout Group's name</span>
           <input type="text" id="wzGroup" value="${esc(draft.groupName)}" placeholder="e.g. 1st Example Scout Group"></label>`,
       check() {
@@ -256,19 +257,19 @@ function termSummary(t) {
 
 const TOUR_DESKTOP = [
   { target: ['#sidebar'], title: 'Settings', text: 'Your term dates, meeting night, branding and leaders are here. Open any section to change it.' },
-  { target: ['#paper'], title: 'Your program', text: 'This is the page families get. Click any cell to type in it. Hover a row and use the ⋮ handle on its right-hand edge to add, move, highlight or delete it.' },
+  { target: ['#paper'], title: 'Your program', text: 'This is the page families get. Click any cell to edit it: a toolbar above it sets bold, italic, colour and alignment. Click a Week cell to style the whole week. Use the ⋮ on a row\'s right-hand edge to add, move or delete it.' },
   { target: ['#btnGenerate', '#btnAddRow', '#btnAddBreak', '#btnAddWeek'], title: 'Weeks and activities', text: 'Generate dates adds a row for every meeting night of the term. Add one-off activities, a week off for a holiday, or a week before or after the term.' },
-  { target: ['#btnPrograms', '#btnNew'], title: 'Your programs', text: 'Programs save automatically in this browser. Find them under Programs, or start a New one for next term with the same branding.' },
+  { target: ['#btnPrograms', '#btnNew'], title: 'Your programs', text: 'Programs save automatically, in this browser only. Find them under Programs, or start a New one for next term with the same branding. To keep a copy or move to another device, use Save file.' },
   { target: ['#btnImport', '#btnExport', '#btnCalendar'], title: 'Files and calendars', text: 'Save a file to share with other leaders, and download a calendar families can add to their phones.' },
   { target: ['#btnPrint'], title: 'Print or PDF', text: 'When it\'s ready, print it or save a PDF to send to families.' },
 ];
 
 const TOUR_MOBILE = [
-  { target: ['#mList'], title: 'Your program', text: 'Each meeting night, week by week. Tap one to fill in its activity, leader and duty patrol.' },
+  { target: ['#mList'], title: 'Your program', text: 'Each meeting night, week by week. Tap one to fill in its activity, leader and duty patrol. Its text fields have a toolbar for bold, colour and alignment; Aa styles the others.' },
   { target: ['#mAdd'], title: 'Add', text: 'Add an activity, a week off for a holiday, or a week before or after the term.' },
   { target: ['#mPreview'], title: 'Preview', text: 'See the page as families will.' },
   { target: ['#mShare'], title: 'Share', text: 'Send it as a PDF, add it to a calendar, or save a file for other leaders.' },
-  { target: ['#mTitle'], title: 'Your programs', text: 'Programs save automatically. Tap the title to switch between them.' },
+  { target: ['#mTitle'], title: 'Your programs', text: 'Programs save automatically, on this phone only. Tap the title to switch between them. To keep a copy or move to another device, use Share, then Full program file.' },
   { target: ['#mMenu'], title: 'Menu and settings', text: 'Term dates, branding, leaders and more. You can take this tour again from here.' },
 ];
 

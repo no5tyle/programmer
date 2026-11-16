@@ -153,7 +153,8 @@ function openMenu() {
         <div class="m-group">
           ${item('data-m="tour"', '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg>', 'Take the tour', 'A quick look around')}
           ${item('data-m="desktop"', '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>', 'Use the desktop editor', 'Edit on the sheet itself')}
-        </div>`;
+        </div>
+        <p class="hint m-note">Programs are saved on this phone only. To keep a copy or move to another device, use Share, then Full program file.</p>`;
       body.onclick = (e) => {
         const b = e.target.closest('[data-m], [data-card]');
         if (!b) return;
@@ -223,6 +224,8 @@ function editorHTML(r) {
   const wk = ws ? weekOf(toISO(ws)) ?? weekOf(toISO(addDays(ws, 6))) : null;
   const label = (k) => state.columns.find((c) => c.key === k)?.label || FIELD_LABELS[k];
   const cols = state.columns.filter((c) => c.visible && !['week', 'date'].includes(c.key)).map((c) => c.key);
+  // With the Time column hidden, the time is shown with the date: still set here
+  if (!cols.includes('time') && !r.noMeeting) cols.unshift('time');
   const datalists = { forms: ['-', 'C2G', 'MyScout', 'Event form'] };
 
   // "Aa" beside a picked field's name brings up its style toolbar (bold, italic, colour)

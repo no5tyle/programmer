@@ -438,7 +438,28 @@ function generateRows(existing = []) {
     turn++;
     if (usedDates.has(date)) return null;
     return newRow(date, { patrol });
-  }).filter(Boolean));
+  }).filter(Boolean), after());
+
+  // A term that ends partway through a week, before the meeting night: that night is a week off too
+  function after() {
+    const n = lastWeekNightAfterTerm();
+    if (!n || usedDates.has(n) || n === night) return [];
+    return [newRow(n, { noMeeting: true, autoHoliday: true, activity: weekOffText(`Term ends ${termDayText(state.term.end)}`), time: '', uniform: '' })];
+  }
+}
+
+/** "Fri 11 Dec": a date as plain text for a week-off row. */
+function termDayText(iso) {
+  const d = parseDate(iso);
+  return d ? `${DAY_SHORT[d.getDay()]} ${d.getDate()} ${MONTH_SHORT[d.getMonth()]}` : '';
+}
+
+/** The meeting night of the term's last week when it falls after the term ends, else ''. */
+function lastWeekNightAfterTerm() {
+  const e = parseDate(state.term.end);
+  if (!e) return '';
+  const night = addDays(startOfWeek(e), (state.term.meetingDay - weekStartDay() + 7) % 7);
+  return night > e ? toISO(night) : '';
 }
 
 /** "Thu 28 Jan": the term's first day, as plain text for a week-off row. */
@@ -459,12 +480,12 @@ function firstWeekNightBeforeTerm() {
 function weekStartDay() { return state.options.weekStart === 0 ? 0 : 1; }
 function startOfWeek(d) { return addDays(d, -((d.getDay() - weekStartDay() + 7) % 7)); }
 
-/** The term week number of a date, or null outside the term. The whole of the first week counts,
- * even the days before a term that starts partway through it. */
+/** The term week number of a date, or null outside the term. The whole of the first and last weeks
+ * count, even the days before a term that starts partway through a week, or after one that ends so. */
 function weekOf(iso) {
   const d = parseDate(iso), s = parseDate(state.term.start), e = parseDate(state.term.end);
   if (!d || !s) return null;
-  if (d < startOfWeek(s) || (e && d > e)) return null;
+  if (d < startOfWeek(s) || (e && d > addDays(startOfWeek(e), 6))) return null;
   return Math.floor(dayDiff(startOfWeek(s), d) / 7) + 1;
 }
 
@@ -1599,6 +1620,9 @@ function closePopover() {
 
 function rowById(id) { return state.rows.find((r) => r.id === id); }
 
+/** True when the Time column is hidden, so a row's time is shown (and set) with its date. */
+function timeShownInDate(row) { return !row.noMeeting && !state.columns.find((c) => c.key === 'time')?.visible; }
+
 function openDatePopover(td, row) {
   const ws = rowWeekStart(row);
   const days = ws ? Array.from({ length: 7 }, (_, i) => addDays(ws, i)) : [];
@@ -1613,6 +1637,8 @@ function openDatePopover(td, row) {
     <label class="field"><span>Date</span><input type="date" id="pDate" value="${esc(row.date)}"></label>
     <label class="field"><span>Ends (multi-day, optional)</span><input type="date" id="pEnd" value="${esc(row.endDate)}"></label>
     <label class="field"><span>Custom text (replaces date)</span><input type="text" id="pLabel" value="${esc(row.dateLabel)}" placeholder="e.g. Sat or Sun 7 or 8 Nov"></label>
+    ${timeShownInDate(row) ? `<div class="field"><span>Time <em class="muted">— shown with the date, as the Time column is hidden</em></span>
+      <button type="button" class="btn btn-outline btn-sm" id="pTime">${esc((row.time || '').replace('\n', ' – ')) || 'Set a time'}</button></div>` : ''}
     <div class="pop-actions"><button class="btn btn-text btn-sm" id="pClear">Clear</button><button class="btn btn-primary btn-sm" id="pDone">Done</button></div>`,
   { type: 'date', id: row.id });
   pushHistory();
@@ -1625,6 +1651,13 @@ function openDatePopover(td, row) {
   $('#pLabel').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#pDone').click(); });
   $('#pClear').onclick = () => { $('#pDate').value = ''; $('#pEnd').value = ''; $('#pLabel').value = ''; apply(); };
   $('#pDone').onclick = () => { closePopover(); sortRows(); save(); renderDoc(); };
+  // The time picker, in place of the date's (the cell is drawn again, so find it afresh)
+  $('#pTime')?.addEventListener('click', () => {
+    sortRows(); save(); renderDoc();
+    const cell = $(`#sheet tr[data-id="${row.id}"] td.c-date`);
+    const r = rowById(row.id);
+    if (cell && r) openTimePopover(cell, r);
+  });
   pop.querySelectorAll('.day').forEach((b) => {
     b.onclick = () => {
       const r = rowById(row.id); if (!r) return;
@@ -2162,10 +2195,12 @@ function exportCalendar() {
     ev.push(`SUMMARY:${icsText(title)}`);
     if (r.noMeeting) ev.push('TRANSP:TRANSPARENT');
     else {
-      if (r.where) ev.push(`LOCATION:${icsText(r.where)}`);
-      const patrol = r.patrol ? `Duty patrol: ${r.patrol}` : '';
-      const details = [r.description, r.uniform && `Uniform: ${r.uniform}`, r.forms && r.forms !== '-' && `Forms: ${r.forms}`,
-        r.cost && r.cost !== '-' && `Cost: ${r.cost}`, r.leader && `Leader: ${r.leader}`, patrol, r.notes].filter((x) => x && x.trim());
+      // "-" (as typed for "nothing") is left out like an empty cell
+      const real = (v) => !!v && !!v.trim() && v.trim() !== '-';
+      if (real(r.where)) ev.push(`LOCATION:${icsText(r.where)}`);
+      const details = [real(r.description) && r.description, real(r.uniform) && `Uniform: ${r.uniform}`, real(r.forms) && `Forms: ${r.forms}`,
+        real(r.cost) && `Cost: ${r.cost}`, real(r.leader) && `Leader: ${r.leader}`, real(r.patrol) && `Duty patrol: ${r.patrol}`,
+        real(r.notes) && r.notes].filter(Boolean);
       if (details.length) ev.push(`DESCRIPTION:${icsText(details.join('\n'))}`);
     }
     ev.push('END:VEVENT');

@@ -238,3 +238,5 @@ body.mobile .popover:has(.prog-list) { min-width: min(340px, calc(100vw - 24px))
   background: var(--fill); color: var(--text-2); font: 600 13px/1 system-ui, sans-serif; cursor: pointer;
 }
 .m-style:active { background: var(--tint-fill); color: var(--primary); }
+
+.m-note { margin: 4px 8px 12px; }
