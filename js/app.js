@@ -13,6 +13,9 @@ let undoStack = [];
 let zoom = 'fit';
 let firstVisit = false;   // nothing saved in this browser yet: js/welcome.js shows the setup wizard
 
+// Shown under the program, and in the phone editor (in line with Scouts Australia's child safety and privacy guidance)
+const PRIVACY_NOTE = 'Please keep young people\'s names, contact details and other personal information out of programs. Families see the program, and it\'s saved to your account when you\'re signed in.';
+
 /* ---------------------------------------------------------------- utils */
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -3035,6 +3038,7 @@ function watchNoAutofill() {
 
 function init() {
   watchNoAutofill();
+  $('#privacyNote').textContent = PRIVACY_NOTE;
   STYLED_FIELDS.forEach((k) => { const el = $(`[data-bind="${k}"]`); if (el) el.dataset.fs = k; });
   $('[data-bind="term.region"]').innerHTML = REGIONS.map(([v, label]) => `<option value="${v}">${esc(label)}</option>`).join('');
   const ys = $('#yearSelect');

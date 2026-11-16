@@ -693,6 +693,13 @@ let accountLeaving = false;   // stops the page's last save from writing the pro
 /* ---------------------------------------------------------------- the Sign in button, its menu and the Account page */
 
 function renderAccountButton() {
+  // The line under the sidebar says where programs are saved
+  const where = $('#saveWhere');
+  if (where && accountsOn()) {
+    where.innerHTML = signedIn()
+      ? 'Your programs save to your account as you work, and on this device when you\'re offline.'
+      : 'Your program saves on this device. <strong>Sign in</strong> to save your programs to your account and use them on any device.';
+  }
   const btn = $('#btnAccount');
   if (!btn) return;
   btn.hidden = !accountsOn();

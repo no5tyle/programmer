@@ -307,6 +307,7 @@ function editorHTML(r) {
     ${r.noMeeting
     ? `<div class="m-card">${richField('activity', 'Text shown', r, `No ${state.branding.sectionName || 'meeting'} – Public holiday`)}</div>`
     : `<div class="m-card">${cols.map(field).join('')}</div>
+      <p class="hint m-note m-privacy">${esc(PRIVACY_NOTE)}</p>
       <div class="m-card"><div class="m-field"><span>Highlight</span>
         ${chips('category', [...state.categories.map((c) => ({ value: c.id, html: `<span class="dot" style="background:${esc(c.color)}"></span>${esc(c.label)}` })), { value: '', html: 'None' }], r.category)}
       </div>

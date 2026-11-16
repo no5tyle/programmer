@@ -2,7 +2,8 @@
 // versions, the bin and the free cap, as the real API does (see the programmer-api repository).
 const { fontsLoaded } = require('./helpers');
 
-const API = 'https://api.test';
+// The real API's address: the page's Content-Security-Policy only lets it talk to that one
+const API = 'https://api.qstored.org';
 const CORS = {
   'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization,content-type,if-match',
   'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE', 'Access-Control-Expose-Headers': 'ETag',

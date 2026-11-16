@@ -382,11 +382,13 @@ test.describe('toolbar and menus', () => {
       await td.click();
       await expect(page.locator('#popover')).toBeHidden();
     }
-    // Another row's cell moves the picker there
+    // Another row's cell moves the picker there. A row well below: the picker covers the rows just under its
+    // cell, and the formatting bar the row above. Clicked where it is, as scrolling the program closes the picker.
     await page.click('#sheet tbody tr:nth-child(2) td.c-leader');
-    await page.click('#sheet tbody tr:nth-child(3) td.c-leader');
+    const other = await page.locator('#sheet tbody tr:nth-child(8) td.c-leader').boundingBox();
+    await page.mouse.click(other.x + other.width / 2, other.y + other.height / 2);
     await expect(page.locator('#popover')).toBeVisible();
-    expect(await page.evaluate(() => popCtx.id)).toBe(await page.evaluate(() => state.rows[2].id));
+    expect(await page.evaluate(() => popCtx.id)).toBe(await page.evaluate(() => state.rows[7].id));
     expect(errors).toEqual([]);
   });
 

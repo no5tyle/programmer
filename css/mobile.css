@@ -102,7 +102,7 @@ body.mobile.m-preview .m-preview-bar {
   border-bottom: .5px solid var(--border);
 }
 body.mobile.m-preview .layout, body.mobile.m-preview .workspace { display: block; height: auto; }
-body.mobile.m-preview .sidebar, body.mobile.m-preview .ws-toolbar, body.mobile.m-preview .canvas-tip { display: none; }
+body.mobile.m-preview .sidebar, body.mobile.m-preview .ws-toolbar, body.mobile.m-preview .canvas-tip, body.mobile.m-preview .canvas-note { display: none; }
 body.mobile.m-preview .canvas { overflow: visible; padding: 72px 12px 24px; }
 body.mobile.m-preview .sheet { pointer-events: none; }
 body.mobile.m-preview .prog .ph, body.mobile.m-preview .prog .ed:empty::before, body.mobile.m-preview .doc-group .ph { visibility: hidden; }

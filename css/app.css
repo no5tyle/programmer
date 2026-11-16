@@ -229,6 +229,7 @@ textarea.bound-textarea:focus { outline: none; border-color: var(--primary); box
   position: absolute; top: 0; left: 0;
 }
 .canvas-tip { text-align: center; color: var(--muted); font-size: 13px; margin: 18px 0 0; }
+.canvas-note { text-align: center; color: var(--muted); font-size: 12.5px; margin: 6px auto 0; max-width: 640px; }
 .page-guides { position: absolute; inset: 0; pointer-events: none; }
 .page-guide {
   position: absolute; left: 0; right: 0; height: 0;
@@ -582,7 +583,7 @@ body.mobile .prog .col-grip { display: none; }
 
 @media print {
   html, body { height: auto; overflow: visible; background: #fff; }
-  .appbar, .sidebar, .ws-toolbar, .canvas-tip, .row-handle, .popover, .modal-backdrop, .toasts, .page-guides { display: none !important; }
+  .appbar, .sidebar, .ws-toolbar, .canvas-tip, .canvas-note, .row-handle, .popover, .modal-backdrop, .toasts, .page-guides { display: none !important; }
   .layout, .workspace, .canvas { display: block; height: auto; overflow: visible; padding: 0; }
   .paper-wrap { width: auto !important; height: auto !important; margin: 0; }
   .paper { position: static; transform: none !important; box-shadow: none; padding: 0; min-height: 0; width: auto; border-radius: 0; }

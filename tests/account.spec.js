@@ -28,6 +28,10 @@ test.describe('signed out', () => {
     errors = await openAccountApp(page);
   });
 
+  test('the sidebar says the program saves on this device', async ({ page }) => {
+    await expect(page.locator('#saveWhere')).toContainText('saves on this device');
+  });
+
   test('says the program is saved on this device, and offers Sign in', async ({ page }) => {
     await expect(page.locator('#btnAccount')).toHaveText('Sign in');
     await edit(page, 'Night hike');
@@ -417,6 +421,11 @@ test.describe('signed in', () => {
     await expect(page.locator('.toast.error')).toContainText('sign in again');
     await expect(page.locator('#btnAccount')).toHaveText('Sign in');
     expect(await page.evaluate(() => state.rows[0].activity)).toBe('Kept');
+  });
+
+  test('the sidebar says programs save to the account', async ({ page }) => {
+    await open(page);
+    await expect(page.locator('#saveWhere')).toContainText('save to your account');
   });
 
   test('Help answers the account questions', async ({ page }) => {

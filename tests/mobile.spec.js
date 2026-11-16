@@ -29,6 +29,12 @@ test.describe('phone', () => {
     expect(r).toEqual(['2026-10-28', 'OAS Catchup & Investiture', 'Green', 'Misia']);
   });
 
+  test("the editor asks leaders to keep young people's details out", async ({ page }) => {
+    await fillCubs(page);
+    await page.click('.m-row:has-text("OAS Catchup")');
+    await expect(page.locator('.m-panel:not([hidden]) .m-privacy')).toContainText("keep young people's names");
+  });
+
   test('settings screens use the same controls', async ({ page }) => {
     await page.click('#mMenu');
     await page.click('.m-item:has-text("Styling")');

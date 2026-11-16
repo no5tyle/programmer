@@ -3,6 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- What the page may load and talk to. The sign-in token is held by the page's own script, so no
+       script may come from anywhere else: the app itself, the shared app switcher, and the PDF
+       libraries. connect-src is the API and Firebase's sign-in (and the emulators, for local work). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://no5tyle.github.io https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://no5tyle.github.io; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://no5tyle.github.io; connect-src 'self' blob: https://api.qstored.org https://identitytoolkit.googleapis.com https://securetoken.googleapis.com http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'self'; form-action 'none'">
   <title>Scout Program Builder</title>
   <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
@@ -265,7 +269,7 @@
       </details>
       </details>
 
-      <p class="sidebar-foot">Your programs save automatically, in this browser only (see <strong>Programs</strong>). Use <strong>Save file</strong> to keep a copy, move to another device or share one with other leaders. <button class="link-btn" id="btnTour">Take the tour</button> · <button class="link-btn" id="btnMobileView" title="Use the phone layout on this screen: a week-by-week list, with a preview of the page">Switch to the mobile view</button></p>
+      <p class="sidebar-foot"><span id="saveWhere">Your programs save automatically, in this browser only (see <strong>Programs</strong>). Use <strong>Save file</strong> to keep a copy, move to another device or share one with other leaders.</span> <button class="link-btn" id="btnTour">Take the tour</button> · <button class="link-btn" id="btnMobileView" title="Use the phone layout on this screen: a week-by-week list, with a preview of the page">Switch to the mobile view</button></p>
     </aside>
 
     <main class="workspace">
@@ -296,6 +300,7 @@
           </div>
         </div>
         <p class="canvas-tip">Click any cell to edit it. Hover a row and use the <strong>⋮</strong> handle on its right-hand edge to add, move or delete it.</p>
+        <p class="canvas-note" id="privacyNote"></p>
       </div>
     </main>
   </div>
