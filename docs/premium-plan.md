@@ -11,6 +11,7 @@ This scopes a **Premium** offering for the Program Builder: accounts, an API tha
 | Saved to an account (any device) | Yes, the same 3 *(decide, 6.1)* | Yes | Yes |
 | Leaders with every Premium feature | Just you | Just you | The owner **plus up to 10 leaders** *(decide, 6.2)* |
 | Programs shared across the group | – | – | Yes |
+| Group program, linked both ways with every unit's program (section 8) | – | – | Yes |
 | The Premium features in section 2 | – | Yes | Yes, for every leader in the group |
 | Suggested price (AUD, incl. GST) *(decide)* | Free | $4/month or $36/year | $12/month or $99/year |
 
@@ -31,18 +32,19 @@ How the rules work:
 
 1. **Unlimited programs saved to the account,** on any device. Free accounts get the same thing for up to 3.
 2. **Group library** (Group tier). Programs saved to the group are visible to and editable by every leader in it, and stay with the group when a leader leaves. A leader picks *My programs* or *[Group name]* when saving.
-3. **Shared styling** (Group tier). The group's styling, leaders, patrols, challenge areas and highlights are saved once and used by every new program in the group. The settings that `newProgram()` already carries over become group-level settings.
+3. **Group program** (Group tier). One program of group events (camps, parades, fundraisers, working bees) that appear automatically in each unit's program, with each unit's own activities showing back in a week-by-week overview of the whole group. See section 8.
+4. **Shared styling** (Group tier). The group's styling, leaders, patrols, challenge areas and highlights are saved once and used by every new program in the group. The settings that `newProgram()` already carries over become group-level settings.
 
 **Soon after** (the reasons to stay subscribed):
 
-4. **Version history.** Every save is kept for 90 days, and any earlier version can be restored. This covers "someone in the group deleted my week".
-5. **Live family link.** A read-only web page of the program at a short address, always the latest version, for the group's Facebook page or newsletter. It replaces sending a new PDF after every change.
-6. **Calendar subscription.** A `webcal://` address families add once. Their calendar then updates when the program changes, rather than the one-off `.ics` file they get now.
+5. **Version history.** Every save is kept for 90 days, and any earlier version can be restored. This covers "someone in the group deleted my week".
+6. **Live family link.** A read-only web page of the program at a short address, always the latest version, for the group's Facebook page or newsletter. It replaces sending a new PDF after every change.
+7. **Calendar subscription.** A `webcal://` address families add once. Their calendar then updates when the program changes, rather than the one-off `.ics` file they get now.
 
 **Later, if there's demand:**
 
-7. **Activity library.** Search and reuse activities from past programs (with their descriptions, costs and forms).
-8. **Templates.** Start a term from last year's Term 2, or from a group template.
+8. **Activity library.** Search and reuse activities from past programs (with their descriptions, costs and forms).
+9. **Templates.** Start a term from last year's Term 2, or from a group template.
 
 Out of scope for now: editing together live (two leaders typing at once; section 4.3 handles clashes instead), youth member records, payments from families, and Terrain integration.
 
@@ -96,7 +98,7 @@ Everything is under `/api/v1` and uses JSON. Errors are always `{ "error": { "co
 | Method and path | Does |
 | --- | --- |
 | `GET /groups/{id}` and `PATCH /groups/{id}` `{ name }` | The group's details, and renaming it. |
-| `GET /groups/{id}/settings` and `PUT /groups/{id}/settings` | Shared styling and lists (feature 3). |
+| `GET /groups/{id}/settings` and `PUT /groups/{id}/settings` | Shared styling and lists (feature 4). |
 | `GET /groups/{id}/members` | Members and pending invites, with the seats used out of 10. |
 | `POST /groups/{id}/invites` `{ email }` | Emails an invite. Answers **409 `seats_full`** when all 10 are taken, counting pending invites. Owner and admins only. |
 | `POST /invites/{token}/accept` | Joins the group (signing in first if needed). |
@@ -172,7 +174,7 @@ When a `PUT` gets `412 version_conflict`, the builder shows both versions side b
 - *Keep theirs*
 - *Keep both* (theirs stays; mine is saved as a copy)
 
-Nothing is ever lost silently. This is enough while live joint editing is out of scope. Version history (feature 4) is the backstop.
+Nothing is ever lost silently. This is enough while live joint editing is out of scope. Version history (feature 5) is the backstop.
 
 ### 4.4 The free cap on this device
 
@@ -191,7 +193,7 @@ Programs hold leaders' names and phone numbers, and sometimes young people's nam
 - **Where data is kept.** In Australia if the VPS is (check its region), encrypted in transit, with database backups encrypted.
 - **Downloading and deleting.** Leaders can download everything (`GET /me/export`) and delete their account (`DELETE /me`) themselves. Deleted programs are purged from backups within 35 days.
 - **A note in the editor.** Ask leaders not to put young people's personal details in programs, in line with Scouts Australia's child safety and privacy guidance.
-- **Live family links (feature 5).** They're off by default, and each program's link is turned on separately. The page shows only what the printout shows. Leader phone numbers are hidden unless the owner chooses to show them.
+- **Live family links (feature 6).** They're off by default, and each program's link is turned on separately. The page shows only what the printout shows. Leader phone numbers are hidden unless the owner chooses to show them.
 - **What gets logged.** Ids and error codes, never program contents. Stripe holds the card details; the API never sees them.
 - **GST.** If the business registers for GST, Stripe Tax can add it to prices.
 
@@ -203,6 +205,9 @@ Programs hold leaders' names and phone numbers, and sometimes young people's nam
 4. **Prices,** and whether to offer annual billing only for Group. Groups usually pay once a year from group funds, and some will want an invoice rather than a card.
 5. **One group per leader, or several?** Proposed: several, for a leader who helps at two groups. Each group needs its own subscription.
 6. **The domain** (section 3.1). Accounts need the builder and the API on the same domain.
+7. **Who edits the group program?** Proposed: a new *group leader* role, plus the owner and admins. Unit leaders can suggest a group event, and propose joint activities to other sections.
+8. **Do group changes apply automatically, or wait for the unit to accept?** Proposed: they apply automatically, with a notice of what changed and the option to hide an event. Joint activities that one unit proposes to another are the exception: they wait for the other unit to accept.
+9. **What of a unit's program shows in the group overview?** Proposed: date, time, activity, where and weeks off. Leaders, contacts, costs and notes stay in the unit's program.
 
 ## 7. Building it, in phases
 
@@ -211,13 +216,162 @@ Programs hold leaders' names and phone numbers, and sometimes young people's nam
 | 1. Accounts and saving | Domain and API service on the VPS, email codes, `/me`, the program endpoints with version checks, the offline queue, the conflict box, uploading on first sign-in, the free cap, the Account page, Help updates | Large: most of the work, and everything later builds on it |
 | 2. Paying | Stripe products, Checkout and Portal, the webhook, Individual and Group plans, the grace period and lapse rules, the Premium prompts | Medium |
 | 3. Groups | Groups, invites and seats, the group library, moving programs, shared styling, roles, handing over ownership | Medium |
+| 3b. Group program | Group events, linked unit programs, joint activities, the overview, group printout and group calendar, *From the group* notices (section 8) | Large: the most involved part, after Groups are working |
 | 4. Reasons to stay | Version history, live family links, calendar subscriptions | Medium |
 | 5. Later | Activity library, templates, Google and Microsoft sign-in | As needed |
 
-Phases 1 and 2 can ship together as the first release: unlimited programs for Individual, and the free cap of 3. Group follows as phase 3.
+Phases 1 and 2 can ship together as the first release: unlimited programs for Individual, and the free cap of 3. Group follows as phase 3, then the group program as 3b.
 
 **Testing.**
 
 - **The API:** tests against a real Postgres in CI, covering the cap, seats (including two invites at once), version conflicts, every webhook and the lapse rules.
 - **The builder:** Playwright tests with the API mocked, covering offline, conflicts, the 4th program and first sign-in upload.
 - **One end-to-end test** against a test deployment, using Stripe's test mode.
+
+## 8. The group program
+
+A Scout group runs several units (Joeys, Cubs, Scouts, Venturers, Rovers), each with its own program. Some things belong to the whole group: Anzac Day, the group camp, the Bunnings sausage sizzle, a working bee, a joint Cubs and Scouts night. Today each unit leader types those into their own program by hand. When one moves, every program is out of date.
+
+The **group program** is one program of group events. It's linked both ways:
+
+- **Down:** group events appear in each unit's program automatically, and stay up to date when they change.
+- **Up:** each unit's activities show in the group program's overview, a week-by-week view of every section, which is always current.
+
+It's part of the Group tier.
+
+### 8.1 What it holds
+
+A **group event** has:
+
+- the same details as a program row: date and end date, time, title, description, where, uniform, cost and forms;
+- **Sections:** which units it's for (*All*, or for example Cubs and Scouts).
+- **How it fits:** either
+  - *Instead of the meeting*: it replaces that week's meeting for those sections, as a camp weekend or a parade on the meeting night would;
+  - *In addition*: it's added on its own day, and the meeting goes ahead.
+- **Status:** *Confirmed*, or *Proposed* while a joint activity waits for the other sections to accept (section 8.4).
+
+A unit program is **linked** to the group program when it's saved to the group with its section and term set. There's one linked program per section per term (for example "Cubs, Term 3 2027"). Copies and drafts aren't linked. When a unit leader saves a program to the group, the builder asks *Is this your Cubs program for Term 3 2027?*.
+
+### 8.2 Down: group events in unit programs
+
+- **New programs.** A new unit program for a term starts with that term's group events already in it, after *Generate meeting dates*.
+- **Changes.** When a group event is added, changed or removed, every linked unit program for its sections updates. The unit leader sees a *From the group* notice next time they open it: "Group camp moved to 14–16 Aug · Working bee added, Sat 2 May". From the notice they can go to each changed row.
+- **How they show.** Linked rows are marked with a small group badge. The group program sets the event's details:
+  - date, time and title;
+  - description, where, uniform, cost and forms.
+
+  Clicking one of those says *Set by the group program* and offers *Ask the group leader*, or *Make it our own*. *Make it our own* turns the row into an ordinary row that no longer updates.
+
+  The unit keeps its own:
+  - leader;
+  - duty patrol;
+  - notes;
+  - highlight and styling.
+
+  These are never overwritten.
+- **Instead of the meeting.** That week's meeting row becomes the group event. If the unit had already planned an activity that night, it isn't deleted. It moves to a **Needs a new date** list at the bottom of the program, to drag into another week or delete.
+- **Not going.** A unit can choose *Not attending* for a group event, so it's hidden from their program and printout. The group program shows "Joeys: not attending". The unit can't delete a linked row outright, because it would come back on the next change.
+- **Weeks outside the term.** An event in the holidays adds that week to the unit's program, using the existing week-before/week-after handling, and the *Hols* row.
+
+**How this avoids clashes.** Group events are stored once, on the server, not copied into each unit program.
+
+- The API sends them with the unit program, and the builder places them among its rows.
+- The unit's own settings for a linked row (its leader, patrol, notes, styling, *Not attending*) are stored in the unit program, by event id.
+- A group change therefore never edits a unit program, and never causes a version clash with a unit leader's own edits (section 4.3).
+- When the builder is offline it uses the group events it last fetched, and catches up when back online.
+
+### 8.3 Up: the group overview
+
+The group program has two views:
+
+- **Group events:** the list the group leader edits. It's like a program, with columns for Date, Event, Sections, *Instead of the meeting*, Where and Cost.
+- **Overview:** a table of weeks down the side and sections across the top. Each cell shows that unit's activities for the week, with group events across all their sections. Weeks off, *Not attending* and clashes are marked; a clash is, for example, two sections booked into the hall at the same time.
+
+The overview is built from the linked unit programs each time it's opened, so it's always current, and nothing is copied. It shows only what the unit's printout shows (date, time, activity, where, weeks off), never leader contacts or notes.
+
+It can be:
+
+- printed, or saved as a PDF, landscape, for families with children in several sections;
+- shared as a live family link, with a section filter;
+- subscribed to as a calendar of the whole group or chosen sections, with each event labelled by section.
+
+### 8.4 Up: from a unit to the group
+
+From a unit row's ⋮ menu, *Share with the group* offers:
+
+- **Joint activity:** invites other sections (for example "Cubs invite Scouts to the Night Hike"). It shows as *Proposed* in the group program and in the invited units' *From the group* notices. When a unit's leader accepts, it becomes a linked row in their program. If they decline, the proposing unit is told.
+- **Suggest a group event:** puts it to the group leader, who can confirm it for any sections.
+
+Once confirmed, the row in the proposing unit's program becomes a linked row like any other.
+
+### 8.5 Who can do what
+
+| | Group leader, owner, admin | Unit leader (their sections) | Other leaders in the group |
+| --- | --- | --- | --- |
+| Add, change, remove group events | Yes | Suggest only | Suggest only |
+| Their unit's program, and linked rows' own fields | Yes | Yes | View |
+| Accept or decline joint activities | Yes | Yes | – |
+| *Not attending*, *Make it our own* | Yes | Yes | – |
+| See the overview | Yes | Yes | Yes |
+
+Group members get a `sections` list (for example Cubs) alongside their role, and a new `group_leader` role.
+
+### 8.6 API additions
+
+| Method and path | Does |
+| --- | --- |
+| `GET /groups/{id}/terms/{year}-{term}` | The group program for a term: its events, with each section's response. |
+| `POST /groups/{id}/events` | Adds a group event (group leader, owner or admin). |
+| `PATCH /groups/{id}/events/{eventId}` with `If-Match` | Changes it, and answers `412 version_conflict` if someone changed it first. |
+| `DELETE /groups/{id}/events/{eventId}` | Removes it from the group program and every linked program, keeping a notice. |
+| `POST /groups/{id}/events/{eventId}/responses` `{ section, response: "accept" \| "decline" \| "not_attending" \| "attending" }` | A unit's answer to a joint activity, or *Not attending*. |
+| `POST /programs/{id}/rows/{rowId}/share` `{ kind: "joint" \| "suggest", sections, fits: "instead" \| "extra" }` | Shares a unit row with the group (section 8.4). |
+| `PATCH /programs/{id}` `{ linked: true, section, year, term }` | Makes a program the linked one for its section and term. Answers `409 already_linked` with the current one, which can be swapped. |
+| `GET /programs/{id}` | Adds `groupEvents` (this term's events for its section) and `groupEventsVersion` to the existing response. `GET /programs/{id}/group-events?since=` fetches only changes. |
+| `GET /groups/{id}/overview?year=&term=` | The overview table. |
+| `GET /groups/{id}/changes?since=&section=` | The *From the group* notices. |
+| `GET /g/{slug}` and `GET /g/{slug}.ics?sections=cubs,scouts` | The public group page and group calendar (when turned on). |
+
+Data:
+
+```
+group_events          id, group_id, year, term, date, end_date, time, title, description, where_text, uniform,
+                      cost, forms, sections text[], fits (instead|extra), status (proposed|confirmed),
+                      proposed_by_program_id, version, created_by, updated_by, updated_at, deleted_at
+group_event_responses event_id, section, response (accepted|declined|not_attending), by, at   -- one per section
+group_changes         id, group_id, event_id, sections text[], kind (added|changed|removed|proposed|answered),
+                      summary, by, at                                                    -- kept 1 year
+group_members         + role 'group_leader', + sections text[]
+programs              + section, + linked (bool)                       -- unique (group, section, year, term) when linked
+```
+
+A unit program's data keeps, for each group event, `groupLinks: { [eventId]: { leader, patrol, notes, category, style, notAttending } }`, and its own rows as now. The builder joins the two to render, print and export.
+
+### 8.7 In the builder
+
+- **Programs.** It lists *Group program, Term 3 2027* at the top of the group's programs, for everyone in the group. Only group leaders and admins can change it.
+- **Group program editor.** It reuses the program sheet, with the group event columns and a **Sections** picker (chips for each section). It has tabs for *Group events* and *Overview*.
+- **Unit programs.**
+  - Linked rows show the group badge.
+  - The *From the group* notice appears on opening.
+  - The *Needs a new date* list sits under the program, and only shows when it has something in it.
+  - The row menu gains *Share with the group*, and, on linked rows, *Not attending* and *Make it our own*.
+- **Phones.**
+  - Linked rows show the badge in the week list.
+  - The editor shows the group's fields as read-only, with the unit's own fields below.
+  - The *From the group* notice appears as a banner above the list.
+- **Help.** New answers: *Where do group events come from?* and *How do I invite another section?*.
+
+### 8.8 Testing
+
+- **API:**
+  - changing or removing an event updates every linked program's `groupEvents`, and only those for its sections;
+  - *Instead of the meeting* moves a planned activity to *Needs a new date*, without losing it;
+  - responses and permissions behave as section 8.5 sets out;
+  - the overview leaves out notes and contacts;
+  - a group change never causes a `412` on a unit program.
+- **Builder** (with the API mocked):
+  - linked rows render, print and export (PDF, spreadsheet, calendar) like ordinary rows;
+  - group fields can't be edited, and the unit's own fields can;
+  - the notice and *Not attending* work;
+  - offline uses the last fetched events.
