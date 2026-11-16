@@ -1,5 +1,5 @@
 /*
- * First visit: a short setup wizard (group name, section, leaders), then a tour of the screen with
+ * First visit: a short setup wizard (group name, section, term, leaders), then a tour of the screen with
  * tooltips. The tour can be taken again from the sidebar (desktop) or the menu (phone).
  * Uses the state, saving and rendering in js/app.js and the view switch in js/mobile.js.
  */
@@ -22,6 +22,7 @@ function openWelcome() {
     leaders: b.leaders.filter((l) => !placeholder(l)).map((l) => ({ ...l })),
   };
   if (!draft.leaders.length) draft.leaders.push({ name: '', phone: '' });
+  draft.term = suggestedTerm();
   let step = 0;
 
   const back = document.createElement('div');
@@ -34,7 +35,7 @@ function openWelcome() {
     {
       title: 'Welcome to Program Builder',
       body: () => `
-        <p>Make a one-page term program to share with your section's families. First, three quick questions so it's set up for you.</p>
+        <p>Make a one-page term program to share with your section's families. First, four quick questions so it's set up for you.</p>
         <label class="field"><span>Your Scout Group's name</span>
           <input type="text" id="wzGroup" value="${esc(draft.groupName)}" placeholder="e.g. 1st Example Scout Group" autocomplete="organization"></label>`,
       check() {
@@ -55,6 +56,38 @@ function openWelcome() {
       check: () => '',
     },
     {
+      title: 'Which term?',
+      body: () => {
+        const t = draft.term;
+        const thisYear = new Date().getFullYear();
+        const years = Array.from({ length: 5 }, (_, i) => thisYear - 1 + i);
+        if (!years.includes(t.year)) years.push(t.year);
+        return `
+        <p>Pick the term this program is for: its dates come from your state's school terms. Meeting nights are filled in for you.</p>
+        <div class="wz-term">
+          <label class="field wz-wide"><span>State or territory</span>
+            <select data-wt="region">${REGIONS.map(([v, label]) => `<option value="${v}" ${v === t.region ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select></label>
+          <label class="field"><span>Year</span>
+            <select data-wt="year">${years.sort().map((y) => `<option ${y === t.year ? 'selected' : ''}>${y}</option>`).join('')}</select></label>
+          <label class="field"><span>Term</span>
+            <select data-wt="term">${[1, 2, 3, 4].map((n) => `<option value="${n}" ${n === t.term ? 'selected' : ''}>Term ${n}</option>`).join('')}</select></label>
+          <label class="field wz-wide"><span>Meeting night</span>
+            <select data-wt="meetingDay">${[1, 2, 3, 4, 5, 6, 0].map((d) => `<option value="${d}" ${d === t.meetingDay ? 'selected' : ''}>${DAY_LONG[d]}</option>`).join('')}</select></label>
+          <div class="wz-dates wz-wide" ${termPreset(t) ? 'hidden' : ''}>
+            <label class="field"><span>Term starts</span><input type="date" data-wt="start" value="${esc(t.start)}"></label>
+            <label class="field"><span>Term ends</span><input type="date" data-wt="end" value="${esc(t.end)}"></label>
+          </div>
+        </div>
+        <p class="wz-summary" aria-live="polite">${termSummary(t)}</p>`;
+      },
+      check() {
+        const t = draft.term;
+        if (!t.start || !t.end) return 'Enter the term\'s first and last days.';
+        if (t.end < t.start) return 'The term ends before it starts.';
+        return '';
+      },
+    },
+    {
       title: 'Who are the leaders?',
       body: () => `
         <p>Leaders' names go at the top of the program, and you can pick them for each activity. Contact details, like a phone number or email, are optional.</p>
@@ -73,6 +106,24 @@ function openWelcome() {
       },
     },
   ];
+
+  /** Term fields changed: the preset dates follow region, year and term; the summary updates in place. */
+  function readTerm(e) {
+    const el = e.target.closest('[data-wt]');
+    if (!el) return;
+    const t = draft.term;
+    const k = el.dataset.wt;
+    t[k] = ['year', 'term', 'meetingDay'].includes(k) ? +el.value : el.value;
+    if (['region', 'year', 'term'].includes(k)) {
+      const preset = termPreset(t);
+      if (preset) [t.start, t.end] = preset;
+      const dates = $('.wz-dates', box);
+      dates.hidden = !!preset;
+      $('[data-wt="start"]', box).value = t.start;
+      $('[data-wt="end"]', box).value = t.end;
+    }
+    $('.wz-summary', box).innerHTML = termSummary(t);
+  }
 
   function readLeaders() {
     $$('[data-wl]', box).forEach((el) => { draft.leaders[+el.dataset.wl][el.dataset.f] = el.value; });
@@ -111,6 +162,9 @@ function openWelcome() {
     state.branding.sectionName = sec.name;
     state.branding.color = sec.color;
     state.branding.titleColor = luminance(sec.color) < 0.45 ? 'auto' : 'dark';
+    // The term: if nothing has been typed into the program yet, its meeting nights follow it
+    Object.assign(state.term, draft.term);
+    if (!rowsHaveContent()) state.rows = generateRows();
     state.branding.leaders = draft.leaders
       .map((l) => ({ name: l.name.trim(), phone: l.phone.trim() }))
       .filter((l) => l.name);
@@ -136,6 +190,8 @@ function openWelcome() {
   }
   document.addEventListener('keydown', onKey, true);
 
+  box.addEventListener('change', readTerm);
+  box.addEventListener('input', (e) => { if (e.target.type === 'date') readTerm(e); });
   box.addEventListener('click', (e) => {
     const sec = e.target.closest('[data-section]');
     if (sec) { draft.section = sec.dataset.section; render(false); $(`[data-section="${draft.section}"]`, box).focus(); return; }
@@ -166,6 +222,34 @@ function openWelcome() {
   });
 
   render();
+}
+
+/* ---------------------------------------------------------------- term step */
+
+/** A term's built-in [start, end], or null (custom region, or a year not in the app's dates). */
+function termPreset(t) { return TERM_DATES[t.region]?.[t.year]?.[t.term - 1] || null; }
+
+/** The term on now, or the next one, in the program's region (else the program's own term). */
+function suggestedTerm() {
+  const t = { region: state.term.region, year: state.term.year, term: state.term.term, meetingDay: state.term.meetingDay, start: state.term.start, end: state.term.end };
+  const today = toISO(new Date());
+  const thisYear = new Date().getFullYear();
+  for (const year of [thisYear, thisYear + 1]) {
+    const terms = TERM_DATES[t.region]?.[year] || [];
+    const i = terms.findIndex(([, end]) => end >= today);
+    if (i >= 0) return { ...t, year, term: i + 1, start: terms[i][0], end: terms[i][1] };
+  }
+  return t;
+}
+
+/** "12 Oct – 11 Dec 2026 · 9 Tuesday meetings" */
+function termSummary(t) {
+  const s = parseDate(t.start), e = parseDate(t.end);
+  if (!s || !e || e < s) return termPreset(t) ? '' : 'This term\'s dates aren\'t built in: enter them above.';
+  let n = 0;
+  for (let d = addDays(s, (t.meetingDay - s.getDay() + 7) % 7); d <= e; d = addDays(d, 7)) n++;
+  const day = (d) => `${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`;
+  return `<b>${day(s)} – ${day(e)} ${e.getFullYear()}</b> · ${n} ${esc(DAY_LONG[t.meetingDay])} meeting${n === 1 ? '' : 's'}`;
 }
 
 /* ---------------------------------------------------------------- tour */

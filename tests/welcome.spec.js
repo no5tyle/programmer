@@ -18,6 +18,21 @@ async function runWizard(page) {
   await expect(page.locator('.wz h2')).toHaveText('Which section?');
   await page.click('[data-section="scouts"]');
   await page.click('[data-wz="next"]');
+  await expect(page.locator('.wz h2')).toHaveText('Which term?');
+  await page.selectOption('[data-wt="region"]', 'VIC');
+  await page.selectOption('[data-wt="year"]', '2027');
+  await page.selectOption('[data-wt="term"]', '1');
+  await page.selectOption('[data-wt="meetingDay"]', '3');
+  await expect(page.locator('.wz-summary')).toHaveText('28 Jan – 25 Mar 2027 · 8 Wednesday meetings');
+  await expect(page.locator('.wz-dates')).toBeHidden();
+  // A region without built-in dates asks for them
+  await page.selectOption('[data-wt="region"]', 'custom');
+  await expect(page.locator('.wz-dates')).toBeVisible();
+  await page.fill('[data-wt="end"]', '2027-03-01');
+  await expect(page.locator('.wz-summary')).toHaveText('28 Jan – 1 Mar 2027 · 4 Wednesday meetings');
+  await page.selectOption('[data-wt="region"]', 'VIC');
+  await expect(page.locator('.wz-summary')).toHaveText('28 Jan – 25 Mar 2027 · 8 Wednesday meetings');
+  await page.click('[data-wz="next"]');
   await expect(page.locator('.wz h2')).toHaveText('Who are the leaders?');
   await page.click('[data-wz="next"]');
   await expect(page.locator('.wz-error')).toHaveText("Enter at least one leader's name.");
@@ -51,6 +66,10 @@ test('first visit: setup wizard, then the tour', async ({ page }) => {
   expect(b.groupName).toBe('1st Example Scout Group');
   expect([b.section, b.sectionName]).toEqual(['scouts', 'Scouts']);
   expect(b.leaders).toEqual([{ name: 'Akela', phone: '0400 000 001' }, { name: 'Baloo', phone: '' }]);
+  const t = await page.evaluate(() => [state.term, state.rows.map((r) => r.date)]);
+  expect(t[0]).toMatchObject({ region: 'VIC', year: 2027, term: 1, meetingDay: 3, start: '2027-01-28', end: '2027-03-25' });
+  expect(t[1]).toEqual(['2027-02-03', '2027-02-10', '2027-02-17', '2027-02-24', '2027-03-03', '2027-03-10', '2027-03-17', '2027-03-24']);
+  await expect(page.locator('[data-bind="term.region"]')).toHaveValue('VIC');
   await expect(page.locator('#sheet')).toContainText('Akela');
   await stepThroughTour(page, 6);
 
