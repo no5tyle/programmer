@@ -221,3 +221,13 @@ body.mobile .popover:has(.prog-list) { min-width: min(340px, calc(100vw - 24px))
 .m-row.m-empty-week .m-add-hint { color: var(--primary); font-weight: 600; }
 .m-week-title { margin: 0 0 4px; }
 .m-card .days .day { padding: 10px 0; }
+
+/* Formattable text fields (js/rich.js), styled as the text boxes */
+.m-rich {
+  width: 100%; min-height: 44px; padding: 10px; white-space: pre-wrap; overflow-wrap: anywhere;
+  border: 1px solid var(--input-border); border-radius: var(--radius); background: var(--surface); color: var(--text);
+  line-height: 1.35; cursor: text;
+}
+.m-rich.tall { min-height: 84px; }
+.m-rich:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--focus-ring); }
+.m-rich:empty::before { content: attr(data-ph); color: var(--muted); pointer-events: none; }

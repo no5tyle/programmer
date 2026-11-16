@@ -685,3 +685,23 @@ body.mobile .prog .col-grip { display: none; }
 .prog td.c-time .ed { cursor: pointer; }
 #tLen { margin: -2px 0 8px; }
 #tLen[hidden] { display: none; }
+
+/* Text formatting (js/rich.js): the toolbar that hovers above a field being edited, and the formats */
+.fmt-bar {
+  position: fixed; z-index: 35; display: flex; gap: 2px; padding: 4px;
+  background: var(--surface); border: .5px solid var(--border); border-radius: 12px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, .18);
+}
+.fmt-bar[hidden] { display: none; }
+.fmt-bar button {
+  display: grid; place-items: center; width: 34px; height: 32px; padding: 0;
+  border: 0; border-radius: 8px; background: none; color: var(--text);
+  font: 600 15px/1 system-ui, -apple-system, sans-serif; cursor: pointer;
+}
+.fmt-bar button:hover { background: var(--fill); }
+.fmt-bar button[aria-pressed="true"] { background: var(--tint-fill); color: var(--primary); }
+.fmt-bar button svg { width: 17px; height: 17px; }
+.fmt-bar .fmt-red { color: #d0021b; font-weight: 700; border-bottom: 3px solid #d0021b; line-height: .9; padding: 0 2px; }
+.prog .ed b, .m-rich b { font-weight: 800; }
+.prog .ed .r, .m-rich .r { color: #d0021b; }
+@media print { .fmt-bar { display: none !important; } }

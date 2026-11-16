@@ -223,7 +223,7 @@ function normalise(raw) {
     s.branding.color = SECTIONS[s.branding.section].color;
   }
   s.challenges.forEach((c) => { if (OLD_CHALLENGE_COLORS[c.id] && c.color?.toUpperCase() === OLD_CHALLENGE_COLORS[c.id]) c.color = DEFAULT_CHALLENGES.find((d) => d.id === c.id).color; });
-  s.rows = Array.isArray(raw.rows) ? raw.rows.map((r) => ({ ...newRowShape(), ...r, id: r.id || uid() })) : [];
+  s.rows = Array.isArray(raw.rows) ? raw.rows.map((r) => ({ ...newRowShape(), ...r, id: r.id || uid(), rich: normaliseRich(r.rich) })) : [];
   return s;
 }
 function newRowShape() {
@@ -716,7 +716,8 @@ function cellInner(col, r) {
     return `<td class="c-${k} clickable" data-pop="${k}"${align}${tint}>${r[k] ? `<span class="pick">${esc(r[k])}</span>` : `<span class="ph">${prompt}</span>`}</td>`;
   }
   const ph = { activity: 'Activity', description: 'Add a description' }[k] || '';
-  return `<td class="c-${k}"${align}${tint}><div class="ed" contenteditable="plaintext-only" spellcheck="true" data-key="${k}"${ph ? ` data-ph="${ph}"` : ''}>${esc(r[k])}</div></td>`;
+  // Formattable (js/rich.js): the toolbar hovers above it while it's being edited
+  return `<td class="c-${k}"${align}${tint}><div class="ed" contenteditable="true" data-rich spellcheck="true" data-key="${k}"${ph ? ` data-ph="${ph}"` : ''}>${richHTML(r, k)}</div></td>`;
 }
 
 /** "Friday 6 November", "23–25 October" or "30 October – 1 November". */
@@ -799,7 +800,7 @@ function renderSheet() {
       if (r.noMeeting && c.key !== 'week' && c.key !== 'date') {
         if (spanned) return '';
         spanned = true;
-        return `<td class="c-break" colspan="${spanCols}" data-align="center"><div class="ed" contenteditable="plaintext-only" spellcheck="true" data-key="activity" data-ph="No meeting">${esc(r.activity)}</div></td>`;
+        return `<td class="c-break" colspan="${spanCols}" data-align="center"><div class="ed" contenteditable="true" data-rich spellcheck="true" data-key="activity" data-ph="No meeting">${richHTML(r, 'activity')}</div></td>`;
       }
       if (c.key !== 'week') return cellHTML(c, r);
       if (i > 0) return '';
@@ -2422,15 +2423,11 @@ function bindEvents() {
   sheet.addEventListener('input', (e) => {
     const ed = e.target.closest('.ed'); if (!ed) return;
     const r = rowById(ed.closest('tr').dataset.id); if (!r) return;
-    r[ed.dataset.key] = ed.innerText.replace(/\n$/, '');
+    readRichField(r, ed.dataset.key, ed);
     r.autoHoliday = false;
     saveSoon(); fitSoon();
   });
-  sheet.addEventListener('paste', (e) => {
-    if (!e.target.closest('.ed')) return;
-    e.preventDefault();
-    document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain'));
-  });
+  // (Pasting into a cell brings plain text: js/rich.js)
   sheet.addEventListener('click', (e) => {
     const addIn = e.target.closest('[data-add-week]');
     if (addIn) { openAddToWeekPopover(addIn, parseDate(addIn.dataset.addWeek)); return; }

@@ -255,14 +255,17 @@ function editorHTML(r) {
         </div>
         <label class="m-field"><span>Shown as, or type anything</span><textarea data-f="time" rows="2" placeholder="e.g. Pick up 9 AM">${esc(v)}</textarea></label></div>`;
     }
-    if (k === 'description' || k === 'notes') {
-      return `<label class="m-field"><span>${esc(label(k))}</span><textarea data-f="${k}" rows="3">${esc(v)}</textarea></label>`;
-    }
+    if (['activity', 'description', 'notes', 'where', 'cost'].includes(k)) return richField(k, label(k), r);
     const list = datalists[k] ? `<datalist id="dl-${k}">${datalists[k].map((x) => `<option value="${esc(x)}">`).join('')}</datalist>` : '';
     return `<label class="m-field"><span>${esc(label(k))}</span><input type="text" data-f="${k}" value="${esc(v)}" ${list ? `list="dl-${k}"` : ''}>${list}</label>`;
   };
 
   const up = movePlan(r.id, -1), down = movePlan(r.id, 1);
+  // A formattable text field (js/rich.js): its toolbar hovers above it while it's being edited
+  function richField(k, text, row, ph = '') {
+    const tall = k === 'description' || k === 'notes';
+    return `<div class="m-field"><span id="mf-${k}">${esc(text)}</span><div class="m-rich ${tall ? 'tall' : ''}" contenteditable="true" data-rich data-f="${k}" role="textbox" aria-multiline="true" aria-labelledby="mf-${k}" spellcheck="true"${ph ? ` data-ph="${esc(ph)}"` : ''}>${richHTML(row, k)}</div></div>`;
+  }
   return `
     <div class="m-card">
       <div class="m-field"><span>${wk ? `${esc(groupLabel({ key: wk }))} · ` : ''}Day</span>
@@ -276,7 +279,7 @@ function editorHTML(r) {
       <label class="m-switch"><input type="checkbox" data-f="noMeeting" ${r.noMeeting ? 'checked' : ''}><span>No meeting this week</span></label>
     </div>
     ${r.noMeeting
-    ? `<div class="m-card"><label class="m-field"><span>Text shown</span><input type="text" data-f="activity" value="${esc(r.activity)}" placeholder="No ${esc(state.branding.sectionName || 'meeting')} – Public holiday"></label></div>`
+    ? `<div class="m-card">${richField('activity', 'Text shown', r, `No ${state.branding.sectionName || 'meeting'} – Public holiday`)}</div>`
     : `<div class="m-card">${cols.map(field).join('')}</div>
       <div class="m-card"><div class="m-field"><span>Highlight</span>
         ${chips('category', [...state.categories.map((c) => ({ value: c.id, html: `<span class="dot" style="background:${esc(c.color)}"></span>${esc(c.label)}` })), { value: '', html: 'None' }], r.category)}
@@ -331,7 +334,8 @@ function wireEditor(body, id, draw) {
       if (r.noMeeting && !r.activity.trim()) r.activity = `No ${state.branding.sectionName || 'meeting'} this week`;
       saveSoon(); draw(); return;
     }
-    r[f] = el.value;
+    if (el.isContentEditable) readRichField(r, f, el);
+    else r[f] = el.value;
     r.autoHoliday = false;
     if (f === 'time') body.querySelectorAll('[data-chips="time"] .m-chip').forEach((c) => c.classList.toggle('on', c.dataset.v === el.value));
     if (el.classList.contains('m-other')) body.querySelectorAll(`[data-chips="${f}"] .m-chip`).forEach((c) => c.classList.toggle('on', c.dataset.v === el.value));
