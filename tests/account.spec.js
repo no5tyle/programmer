@@ -80,6 +80,13 @@ test.describe('signing in', () => {
     await edit(page, 'Night hike');
 
     await page.click('#btnAccount');
+    // The email field looks like the app's other fields
+    const field = page.locator('#askInput');
+    await expect(field).toHaveAttribute('type', 'email');
+    const look = (sel) => page.locator(sel).first().evaluate((el) => {
+      const cs = getComputedStyle(el); return [cs.height, cs.borderTopWidth, cs.borderTopLeftRadius, cs.backgroundColor];
+    });
+    expect(await look('#askInput')).toEqual(await look('#sidebar input[type=text]'));
     await page.fill('#askInput', 'not an email');
     await page.keyboard.press('Enter');
     await expect(page.locator('.toast.error')).toContainText('enter your email');

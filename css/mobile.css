@@ -185,7 +185,7 @@ body.mobile.m-preview .prog .ph, body.mobile.m-preview .prog .ed:empty::before, 
 @keyframes m-spin { to { transform: rotate(360deg); } }
 
 /* Touch sizes; 16px text in inputs stops iOS zooming in when one is focused */
-body.mobile input[type=text], body.mobile input[type=date], body.mobile input[type=time],
+body.mobile input[type=text], body.mobile input[type=email], body.mobile input[type=date], body.mobile input[type=time],
 body.mobile input[type=number], body.mobile select, body.mobile textarea { min-height: 44px; font-size: 16px; }
 body.mobile .popover { max-width: calc(100vw - 24px); }
 body.mobile .popover:has(.prog-list) { min-width: min(340px, calc(100vw - 24px)); }
