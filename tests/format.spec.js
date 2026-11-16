@@ -33,7 +33,7 @@ test.describe('desktop', () => {
 
     await bar.locator('[data-fmt="italic"]').click();
     await bar.locator('[data-fmt="underline"]').click();
-    await bar.locator('[data-fmt="red"]').click();
+    await bar.locator('[data-colour="#d0021b"]').click();
     let r = await row0(page);
     expect(r.description).toBe('Bring a torch');
     expect(r.rich.description).toMatch(/class="r"/);
@@ -119,7 +119,7 @@ test.describe('desktop', () => {
     await page.evaluate(() => { state.rows[3].noMeeting = true; state.rows[3].activity = 'No Cubs this week'; renderAll(); });
     const off = '#sheet tbody tr:nth-child(4) td.c-break .ed';
     await typeAndSelectLast(page, off, 'No Cubs – Show Day', 8);
-    await page.click('.fmt-bar:not(.fs-bar) [data-fmt="red"]');
+    await page.click('.fmt-bar:not(.fs-bar) [data-colour="#d0021b"]');
     expect(await page.evaluate(() => state.rows[3].rich.activity)).toBe('No Cubs – <span class="r">Show Day</span>');
     await expect(page.locator('#sheet .fmt-bar')).toHaveCount(0);
   });
@@ -373,6 +373,39 @@ test.describe('week styles (phone)', () => {
     expect(await page.evaluate(() => state.weekStyles)).toEqual({ '2026-10-19': { b: false } });
     await panel.locator('[data-panel-done]').click();
     await expect(page.locator('#sheet td.c-week', { hasText: 'Week 2' })).toHaveCSS('font-weight', '400');
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('colours in formatted text', () => {
+  test('all five colours, switching between them, and back to the usual colour', async ({ page }) => {
+    const errors = await openApp(page);
+    await fillCubs(page);
+    await typeAndSelectLast(page, cell, 'Bring a torch', 5);
+    const bar = page.locator('.fmt-bar:not(.fs-bar)');
+    await expect(bar.locator('[data-fmt="colour"]')).toHaveCount(5);
+    await bar.locator('[data-colour="#0060df"]').click();
+    expect((await row0(page)).rich).toEqual({ description: 'Bring a <span class="cb">torch</span>' });
+    await expect(bar.locator('[data-colour="#0060df"]')).toHaveAttribute('aria-pressed', 'true');
+    // Another colour replaces it
+    await bar.locator('[data-colour="#1e8e3e"]').click();
+    expect((await row0(page)).rich).toEqual({ description: 'Bring a <span class="cg">torch</span>' });
+    await expect(bar.locator('[data-colour="#1e8e3e"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(bar.locator('[data-colour="#0060df"]')).toHaveAttribute('aria-pressed', 'false');
+    // The same one again: back to the usual colour
+    await bar.locator('[data-colour="#1e8e3e"]').click();
+    expect((await row0(page)).rich).toEqual({});
+    // Each colour shows when the cell is drawn again
+    for (const [hex, cls, rgb] of [['#d9480f', 'co', 'rgb(217, 72, 15)'], ['#6f42c1', 'cp', 'rgb(111, 66, 193)']]) {
+      await typeAndSelectLast(page, cell, 'Bring a torch', 5);
+      await bar.locator(`[data-colour="${hex}"]`).click();
+      await page.mouse.click(5, 300);
+      await page.evaluate(() => renderAll());
+      await expect(page.locator(`${cell} .${cls}`)).toHaveCSS('color', rgb);
+    }
+    // Saved colours from a file are kept, and unknown classes dropped
+    const clean = await page.evaluate(() => cleanRich('<span class="cg">a</span><span class="evil">b</span><font color="#0060df">c</font>'));
+    expect(clean).toBe('<span class="cg">a</span>b<span class="cb">c</span>');
     expect(errors).toEqual([]);
   });
 });

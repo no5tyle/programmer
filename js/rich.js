@@ -5,27 +5,53 @@
  * A row keeps each field's plain text where it always has (row.activity, row.description, ...), so the
  * calendar file, the spreadsheet, sorting and the phone list are unchanged. Only a field that has
  * formatting also has row.rich[key]: the same text as a small, cleaned subset of HTML (<b>, <i>, <u>,
- * <span class="r"> and <br>). It's used only while its text still matches the plain text, so a field
+ * a colour as <span class="r|co|cg|cb|cp"> (TEXT_COLOURS) and <br>). It's used only while its text still matches the plain text, so a field
  * changed some other way (a spreadsheet, an older copy of the app) simply shows unformatted.
  *
  * Fields with formatting are contenteditable elements marked [data-rich]. Loaded before js/app.js.
  */
 'use strict';
 
-const RICH_RED = '#d0021b';
+/** The text colours, for formatted text (a span's class) and whole-field styles. Red's class is "r", as it always was. */
+const TEXT_COLOURS = [
+  { hex: '#d0021b', name: 'Red', cls: 'r' },
+  { hex: '#d9480f', name: 'Orange', cls: 'co' },
+  { hex: '#1e8e3e', name: 'Green', cls: 'cg' },
+  { hex: '#0060df', name: 'Blue', cls: 'cb' },
+  { hex: '#6f42c1', name: 'Purple', cls: 'cp' },
+];
+const TEXT_COLOUR_CLASSES = TEXT_COLOURS.map((c) => c.cls);
 
 const richEsc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-/** True for a colour that reads as red ("#d0021b", "rgb(208, 2, 27)", "red"). */
-function isRedColour(c) {
-  if (!c) return false;
-  if (/^red$/i.test(c.trim())) return true;
-  let m = /^#([0-9a-f]{6})$/i.exec(c.trim());
-  let rgb = m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)) : null;
-  if (!rgb) { m = /^#([0-9a-f]{3})$/i.exec(c.trim()); if (m) rgb = [...m[1]].map((x) => parseInt(x + x, 16)); }
-  if (!rgb) { m = /rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i.exec(c); if (m) rgb = [+m[1], +m[2], +m[3]]; }
-  return !!rgb && rgb[0] >= 150 && rgb[1] < 100 && rgb[2] < 100;
+/** [r, g, b] of "#d0021b", "#d02", "rgb(208, 2, 27)" or "red"; else null. */
+function parseRgb(c) {
+  if (!c) return null;
+  c = String(c).trim();
+  if (/^red$/i.test(c)) return [255, 0, 0];
+  let m = /^#([0-9a-f]{6})$/i.exec(c);
+  if (m) return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16));
+  m = /^#([0-9a-f]{3})$/i.exec(c);
+  if (m) return [...m[1]].map((x) => parseInt(x + x, 16));
+  m = /rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i.exec(c);
+  return m ? [+m[1], +m[2], +m[3]] : null;
 }
+
+/** Which of TEXT_COLOURS a colour is (the nearest, if it's close), or null; any strong red counts as red. */
+function textColourOf(c) {
+  const rgb = parseRgb(c);
+  if (!rgb) return null;
+  let best = null, dist = Infinity;
+  TEXT_COLOURS.forEach((tc) => {
+    const d = parseRgb(tc.hex).reduce((a, v, i) => a + Math.abs(v - rgb[i]), 0);
+    if (d < dist) { dist = d; best = tc; }
+  });
+  if (dist <= 60) return best;
+  return rgb[0] >= 150 && rgb[1] < 100 && rgb[2] < 100 ? TEXT_COLOURS[0] : null;
+}
+
+/** True for a colour that reads as red ("#d0021b", "rgb(208, 2, 27)", "red"). */
+function isRedColour(c) { return textColourOf(c)?.cls === 'r'; }
 
 /**
  * Any HTML (an edited field, or a loaded file) reduced to the allowed formatting. Text is escaped and
@@ -45,18 +71,19 @@ function cleanRich(html) {
     const bold = tag === 'B' || tag === 'STRONG' || st.fontWeight === 'bold' || +st.fontWeight >= 600;
     const italic = tag === 'I' || tag === 'EM' || st.fontStyle === 'italic';
     const under = tag === 'U' || /underline/.test(`${st.textDecoration || ''} ${st.textDecorationLine || ''}`);
-    const red = n.classList?.contains('r') || isRedColour(n.getAttribute('color')) || isRedColour(st.color);
+    const colour = TEXT_COLOURS.find((tc) => n.classList?.contains(tc.cls))
+      || textColourOf(n.getAttribute('color')) || textColourOf(st.color);
     if (under) inner = `<u>${inner}</u>`;
     if (italic) inner = `<i>${inner}</i>`;
     if (bold) inner = `<b>${inner}</b>`;
-    if (red) inner = `<span class="r">${inner}</span>`;
+    if (colour) inner = `<span class="${colour.cls}">${inner}</span>`;
     // A new line inside the field is a <div> or <p> in some browsers
     if ((tag === 'DIV' || tag === 'P') && i > 0) inner = `<br>${inner}`;
     return inner;
   }).join('');
   return walk(t.content)
     .replace(/<(b|i|u)><\/\1>/g, '')
-    .replace(/<span class="r"><\/span>/g, '');
+    .replace(new RegExp(`<span class="(${TEXT_COLOUR_CLASSES.join('|')})"></span>`, 'g'), '');
 }
 
 /** The plain text of cleaned rich text (line breaks as \n). */
@@ -100,7 +127,9 @@ const FMT_BUTTONS = [
   { cmd: 'bold', label: 'Bold', key: 'B', html: '<b>B</b>' },
   { cmd: 'italic', label: 'Italic', key: 'I', html: '<i>I</i>' },
   { cmd: 'underline', label: 'Underline', key: 'U', html: '<u>U</u>' },
-  { cmd: 'red', label: 'Red text', html: '<span class="fmt-red">A</span>' },
+  { sep: true },
+  ...TEXT_COLOURS.map((c) => ({ cmd: 'colour', colour: c.hex, label: `${c.name} text`, cls: 'fs-swatch', html: `<span style="background:${c.hex}"></span>` })),
+  { sep: true },
   { cmd: 'clear', label: 'Clear formatting', html: '<svg viewBox="0 0 24 24"><path d="M6 5h11M11 5l-3 14M4 20l16-16"/></svg>' },
 ];
 
@@ -109,7 +138,8 @@ fmtBar.className = 'fmt-bar';
 fmtBar.setAttribute('role', 'toolbar');
 fmtBar.setAttribute('aria-label', 'Text formatting');
 fmtBar.hidden = true;
-fmtBar.innerHTML = FMT_BUTTONS.map((b) => `<button type="button" data-fmt="${b.cmd}" title="${b.label}${b.key ? ` (${/Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl+'}${b.key})` : ''}" aria-label="${b.label}" aria-pressed="false">${b.html}</button>`).join('');
+fmtBar.innerHTML = FMT_BUTTONS.map((b) => (b.sep ? '<span class="fs-sep" aria-hidden="true"></span>'
+  : `<button type="button" data-fmt="${b.cmd}"${b.colour ? ` data-colour="${b.colour}"` : ''}${b.cls ? ` class="${b.cls}"` : ''} title="${b.label}${b.key ? ` (${/Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl+'}${b.key})` : ''}" aria-label="${b.label}" aria-pressed="false">${b.html}</button>`)).join('');
 
 /** The formatted field being edited, if any. */
 function richField() {
@@ -117,11 +147,14 @@ function richField() {
   return el && el.matches?.('[data-rich][contenteditable="true"]') ? el : null;
 }
 
-function selectionIsRed() {
+/** The text colour (TEXT_COLOURS) where the selection starts, if it isn't just the field's own colour. */
+function selectionColour() {
   const sel = getSelection();
   let n = sel.rangeCount ? sel.getRangeAt(0).startContainer : null;
   if (n && n.nodeType === 3) n = n.parentElement;
-  return !!n && isRedColour(getComputedStyle(n).color) && !isRedColour(getComputedStyle(richField() || document.body).color);
+  if (!n) return null;
+  const c = textColourOf(getComputedStyle(n).color);
+  return c && c !== textColourOf(getComputedStyle(richField() || document.body).color) ? c : null;
 }
 
 function placeFmtBar() {
@@ -146,18 +179,21 @@ function placeFmtBar() {
   const left = Math.max(8, Math.min(cx - w / 2, innerWidth - w - 8));
   fmtBar.style.top = `${top}px`;
   fmtBar.style.left = `${left}px`;
-  FMT_BUTTONS.forEach((b) => {
-    const on = b.cmd === 'red' ? selectionIsRed() : b.cmd === 'clear' ? false : document.queryCommandState(b.cmd);
-    fmtBar.querySelector(`[data-fmt="${b.cmd}"]`).setAttribute('aria-pressed', on ? 'true' : 'false');
+  const colour = selectionColour();
+  fmtBar.querySelectorAll('[data-fmt]').forEach((el) => {
+    const cmd = el.dataset.fmt;
+    const on = cmd === 'colour' ? colour?.hex === el.dataset.colour : cmd === 'clear' ? false : document.queryCommandState(cmd);
+    el.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
 }
 
-function applyFmt(cmd) {
+function applyFmt(cmd, colour) {
   const field = richField();
   if (!field) return;
   document.execCommand('styleWithCSS', false, false);
   if (cmd === 'clear') document.execCommand('removeFormat');
-  else if (cmd === 'red') document.execCommand('foreColor', false, selectionIsRed() ? getComputedStyle(field).color : RICH_RED);
+  // A colour; the same colour again goes back to the field's own
+  else if (cmd === 'colour') document.execCommand('foreColor', false, selectionColour()?.hex === colour ? getComputedStyle(field).color : colour);
   else document.execCommand(cmd);
   placeFmtBar();
 }
@@ -167,7 +203,7 @@ fmtBar.addEventListener('pointerdown', (e) => e.preventDefault());
 fmtBar.addEventListener('mousedown', (e) => e.preventDefault());
 fmtBar.addEventListener('click', (e) => {
   const b = e.target.closest('[data-fmt]');
-  if (b) applyFmt(b.dataset.fmt);
+  if (b) applyFmt(b.dataset.fmt, b.dataset.colour);
 });
 
 document.addEventListener('selectionchange', placeFmtBar);

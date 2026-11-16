@@ -653,7 +653,7 @@ function titleText() {
 const STYLED_FIELDS = ['branding.groupName', 'branding.titleTemplate', 'branding.versionText', 'branding.headerNote',
   'branding.footerText', 'branding.leadersLabel', 'extras.datesTitle', 'extras.notesTitle'];
 const STYLED_LISTS = { leaders: ['name', 'phone'], dates: ['what', 'when'], notes: ['heading', 'text'] };
-const FIELD_COLOURS = [['#d0021b', 'Red'], ['#d9480f', 'Orange'], ['#1e8e3e', 'Green'], ['#0060df', 'Blue'], ['#6f42c1', 'Purple']];
+const FIELD_COLOURS = TEXT_COLOURS.map((c) => [c.hex, c.name]);   // the same colours as formatted text (js/rich.js)
 /*
  * How a field prints when it has no style of its own (from css/app.css): the toolbar shows these as
  * on, and turning one off is saved as false. List fields are keyed "list:<list>:<field>".
