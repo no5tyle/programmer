@@ -178,7 +178,7 @@ test.describe('Sign in with Microsoft', () => {
     await edit(page, 'Night hike');
     await page.click('#btnAccount');
     await expect(page.locator('.modal .btn-ms')).toHaveText('Sign in with Microsoft');
-    await expect(page.locator('.modal-body')).toContainText('Microsoft account you have for Scouts');
+    await expect(page.locator('.modal-body')).toContainText('Sign in with your Microsoft account, or get a link');
     await page.click('.modal .btn-ms');
     // Off to Microsoft and back: the page finishes signing in
     await expect(page.locator('.modal h2')).toHaveText('Add this program to your account?');

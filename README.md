@@ -93,7 +93,7 @@ Each address keeps its own saved programs in the browser, so programs saved at t
 
 ## Sign in with Microsoft
 
-Scout leaders have a Microsoft account for Scouts, so the sign-in box can offer **Sign in with Microsoft**
+The sign-in box can offer **Sign in with Microsoft**
 above the email link, here and on account.qstored.org and internal.qstored.org. It's off until it's set up, and
 then switched on with a repository variable. Firebase does the OAuth with Microsoft, through its REST API, so
 no script from Google or Microsoft is loaded (`startMicrosoftSignIn` in `js/account.js`).
@@ -102,7 +102,7 @@ no script from Google or Microsoft is loaded (`startMicrosoftSignIn` in `js/acco
    registrations* → *New registration*.
    - *Name*: qstored.
    - *Supported account types*: **Accounts in any organizational directory and personal Microsoft accounts**,
-     so Scouts' own Microsoft 365 accounts, and anyone else's, both work.
+     so work, school and personal Microsoft accounts all work.
    - *Redirect URI*: **Web**, and the address Firebase shows in step 2 (`https://qstored.firebaseapp.com/__/auth/handler`).
 
    Then, under *Authentication*, add three more **Web** redirect URIs, one for each site, since each comes back
@@ -119,11 +119,11 @@ no script from Google or Microsoft is loaded (`startMicrosoftSignIn` in `js/acco
    qstored-internal (Settings → Secrets and variables → Actions → Variables), and re-run each one's latest
    publish or deploy.
 
-**Scouts' Microsoft 365 may ask for approval.** Many organisations only let their people sign in to apps from a
+**An organisation's Microsoft 365 may ask for approval.** Many organisations only let their people sign in to apps from a
 *verified publisher*, or that an administrator has approved. If a leader sees *Need admin approval*, either:
 - verify qstored as a publisher (*App registrations* → qstored → *Branding & properties* → *Publisher verification*,
   which needs a free Microsoft Partner Network ID and the qstored.org domain), or
-- ask Scouts' Microsoft 365 administrators to approve qstored for everyone.
+- ask that organisation's Microsoft 365 administrators to approve qstored for everyone in it.
 
 The sign-in only asks Microsoft for the leader's name and email address.
 

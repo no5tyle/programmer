@@ -587,7 +587,7 @@ function askSignIn(email) {
   const done = modal({
     title: 'Sign in',
     body: `<p>Save your programs to your account, to use on any device. ${microsoft
-      ? 'Use the Microsoft account you have for Scouts, or get a link to sign in by email.'
+      ? 'Sign in with your Microsoft account, or get a link to sign in by email.'
       : 'Enter your email and we\'ll send you a link to sign in. There\'s no password.'}</p>
       ${microsoft ? `<button class="btn btn-ms" type="button" data-i="2">${MS_LOGO}Sign in with Microsoft</button>
         <div class="or"><span>or use an email link</span></div>` : ''}

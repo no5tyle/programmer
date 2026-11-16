@@ -100,7 +100,7 @@ Ground rules:
 
 ### 3.2 Signing in
 
-**With Microsoft, or by email link.** Scout leaders have a Microsoft account for Scouts, so *Sign in with Microsoft* comes first, and works with any work, school or personal Microsoft account. It's done through Firebase's REST API (`createAuthUri`, then `signInWithIdp`), so no script from Google or Microsoft is loaded. Firebase keeps one account per email: someone who signed in by email link first is asked to do that once more, and Microsoft is then linked to the same account. It's switched on with the `MICROSOFT_SIGN_IN` setting, once it's set up (the Program Builder's README).
+**With Microsoft, or by email link.** *Sign in with Microsoft* comes first, and works with any work, school or personal Microsoft account. It's done through Firebase's REST API (`createAuthUri`, then `signInWithIdp`), so no script from Google or Microsoft is loaded. Firebase keeps one account per email: someone who signed in by email link first is asked to do that once more, and Microsoft is then linked to the same account. It's switched on with the `MICROSOFT_SIGN_IN` setting, once it's set up (the Program Builder's README).
 
 
 **By email link, with no passwords.** The leader enters their email. Firebase sends a link, and tapping it signs them in. There's no password to forget, which suits leaders who aren't comfortable with technology. On a phone, the link opens in the phone's default browser. Firebase keeps them signed in, renewing the session as it's used, until *Sign out*.
