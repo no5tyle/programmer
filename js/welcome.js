@@ -258,6 +258,9 @@ function termSummary(t) {
 const TOUR_DESKTOP = [
   { target: ['#sidebar'], title: 'Settings', text: 'Your term dates, meeting night, branding and leaders are here. Open any section to change it.' },
   { target: ['#paper'], title: 'Your program', text: 'This is the page families get. Click any cell to edit it: a toolbar above it sets bold, italic, colour and alignment. Click a Week cell to style the whole week. Use the ⋮ on a row\'s right-hand edge to add, move or delete it.' },
+  // Shown on a row and opened by the person taking the tour (or by Next)
+  { target: ['#rowHandle'], title: 'Row options', text: 'Each row has a ⋮ on its right-hand edge (hover a row to see it). Click this one to open its menu.', always: true, interactive: true, enter: tourShowHandle },
+  { target: ['#popover'], title: 'The row menu', text: 'Add an activity on the same date or another day of the week, mark a week as no meeting (a public holiday or school holidays), duplicate a row, move it a week, highlight it, or delete it.', always: true, enter: tourOpenRowMenu, leave: tourCloseRowMenu },
   { target: ['#btnGenerate', '#btnAddRow', '#btnAddWeek'], title: 'Weeks and activities', text: 'Generate dates adds a row for every meeting night of the term. Add one-off activities, or a week before or after the term. For a week off, use Mark as no meeting in the row\'s ⋮ menu.' },
   { target: ['#btnPrograms'], title: 'Your programs', text: 'Programs save automatically, in this browser only. Find them under Programs, which also starts a New one for next term with the same branding. To keep a copy or move to another device, use Save file.' },
   { target: ['#btnImport', '#btnSave'], title: 'Program files', text: 'Save file keeps the whole program as a file, to keep a copy, move to another device or share with other leaders. Open brings one back.' },
@@ -279,14 +282,17 @@ function startTour() {
   endTour();
   const mobile = document.body.classList.contains('mobile');
   if (mobile && document.body.classList.contains('m-preview')) showPreview(false);
-  const steps = (mobile ? TOUR_MOBILE : TOUR_DESKTOP).filter((s) => s.target.some((sel) => visibleEl($(sel))));
+  const steps = (mobile ? TOUR_MOBILE : TOUR_DESKTOP).filter((s) => s.always || s.target.some((sel) => visibleEl($(sel))));
   if (!steps.length) return;
   const layer = document.createElement('div');
   layer.className = 'tour-layer';
-  layer.innerHTML = `<div class="tour-dim"></div><div class="tour-spot"></div>
+  layer.innerHTML = `<div class="tour-dim"></div><div class="tour-spot"></div><div class="tour-block"></div>
     <div class="tour-tip" role="dialog" aria-live="polite" aria-labelledby="tourTitle"><span class="tour-arrow"></span><div class="tour-content"></div></div>`;
   document.body.appendChild(layer);
-  tour = { steps, i: 0, layer, mobile, onMove: () => placeTour(), onKey: (e) => tourKey(e) };
+  // Clicking the ⋮ on its step opens the menu (the app does that) and moves on to the menu
+  const onHandle = () => { if (tour?.steps[tour.i].enter === tourShowHandle) setTimeout(() => tourGo(1), 0); };
+  $('#rowHandle').addEventListener('click', onHandle);
+  tour = { steps, i: 0, layer, mobile, onHandle, onMove: () => placeTour(), onKey: (e) => tourKey(e) };
   window.addEventListener('resize', tour.onMove);
   window.addEventListener('scroll', tour.onMove, true);
   document.addEventListener('keydown', tour.onKey, true);
@@ -308,6 +314,7 @@ function visibleEl(el) {
 function tourGo(d) {
   const i = tour.i + d;
   if (i < 0) return;
+  tour.steps[tour.i].leave?.();
   if (i >= tour.steps.length) { endTour(); return; }
   tour.i = i;
   showTourStep();
@@ -324,6 +331,8 @@ function showTourStep() {
   const { steps, i, layer } = tour;
   const s = steps[i];
   const last = i === steps.length - 1;
+  s.enter?.();
+  layer.classList.toggle('interactive', !!s.interactive);
   $('.tour-content', layer).innerHTML = `
     <div class="tour-count">${i + 1} of ${steps.length}</div>
     <h3 id="tourTitle">${esc(s.title)}</h3>
@@ -393,8 +402,32 @@ function holePath(r, vw, vh) {
   return `path(evenodd, 'M0 0H${vw}V${vh}H0Z M${x + k} ${y}H${x2 - k}A${k} ${k} 0 0 1 ${x2} ${y + k}V${y2 - k}A${k} ${k} 0 0 1 ${x2 - k} ${y2}H${x + k}A${k} ${k} 0 0 1 ${x} ${y2 - k}V${y + k}A${k} ${k} 0 0 1 ${x + k} ${y}Z')`;
 }
 
+/** The Row options step: a row's ⋮ showing (on the second row, if there is one), kept showing. */
+function tourShowHandle() {
+  if (!pop.hidden) closePopover();
+  const rows = $$('#sheet tbody tr[data-id]');
+  const tr = rows[1] || rows[0];
+  if (!tr) return;
+  tr.scrollIntoView({ block: 'nearest' });
+  document.body.classList.remove('tour-handle');
+  showHandle(tr);
+  document.body.classList.add('tour-handle');
+}
+
+/** The row menu step: its menu open (Next on the step before opens it, as clicking the ⋮ does). */
+function tourOpenRowMenu() {
+  if (handle.hidden) tourShowHandle();
+  if (pop.hidden || popCtx?.type !== 'row') openRowMenu(handle, handleRow);
+}
+
+function tourCloseRowMenu() { if (!pop.hidden) closePopover(); }
+
 function endTour() {
   if (!tour) return;
+  tour.steps[tour.i]?.leave?.();
+  $('#rowHandle').removeEventListener('click', tour.onHandle);
+  document.body.classList.remove('tour-handle');
+  hideHandle();
   window.removeEventListener('resize', tour.onMove);
   window.removeEventListener('scroll', tour.onMove, true);
   document.removeEventListener('keydown', tour.onKey, true);

@@ -632,7 +632,14 @@ body.mobile .prog .col-grip { display: none; }
 .wz-actions { display: flex; justify-content: space-between; gap: 8px; margin-top: 16px; }
 .wz-actions .btn-primary { margin-left: auto; min-width: 96px; justify-content: center; }
 
-.tour-layer { position: fixed; inset: 0; z-index: 60; }
+/* The page is dimmed and can't be used, except (on a step that asks for it) what the spotlight shows */
+.tour-layer { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+.tour-layer > * { pointer-events: auto; }
+.tour-layer .tour-spot { pointer-events: none; }
+/* Takes every press on a step that only shows something; a step that asks for a click hides it, so the
+   spotlit part (through the hole in the dimming) can be used */
+.tour-block { position: fixed; inset: 0; }
+.tour-layer.interactive .tour-block { display: none; }
 .tour-spot {
   position: fixed; border-radius: 12px; pointer-events: none;
   box-shadow: 0 0 0 2px var(--primary);
@@ -735,10 +742,5 @@ body.mobile .prog .col-grip { display: none; }
   .fmt-bar .fs-sep { margin: 0 2px; }
 }
 
-/* Menu items with a line saying what they do (mi() in js/app.js) */
-.menu .mi { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
-.menu .mi-s, .menu-label .mi-s { color: var(--muted); font-size: 12px; font-weight: 400; text-transform: none; letter-spacing: 0; }
-.menu-label .mi-s { display: block; margin-top: 1px; }
-.menu button:not(.swatch):has(.mi) { padding-top: 6px; padding-bottom: 6px; }
 /* A tall menu scrolls rather than running off the screen */
 .popover { max-height: calc(100vh - 24px); overflow-y: auto; }

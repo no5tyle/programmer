@@ -168,7 +168,7 @@ test.describe('moving outside the term', () => {
     };
     await menuFor('Gingerbread Camps');
     await expect(page.locator('#popover [data-act="down"]')).toBeEnabled();
-    await expect(page.locator('#popover [data-act="down"] .mi-t')).toHaveText('Move to Hols (14–20 Dec)');
+    await expect(page.locator('#popover [data-act="down"]')).toHaveText('Move to Hols (14–20 Dec)');
     await page.click('#popover [data-act="down"]');
     let last = page.locator('#sheet tbody tr').last();
     await expect(last.locator('.c-week .wk')).toHaveText('Hols');
@@ -176,13 +176,13 @@ test.describe('moving outside the term', () => {
 
     // And a week further, and back again
     await menuFor('Gingerbread Camps');
-    await expect(page.locator('#popover [data-act="down"] .mi-t')).toHaveText('Move to Hols (21–27 Dec)');
-    await expect(page.locator('#popover [data-act="up"] .mi-t')).toHaveText('Move to Week 9');
+    await expect(page.locator('#popover [data-act="down"]')).toHaveText('Move to Hols (21–27 Dec)');
+    await expect(page.locator('#popover [data-act="up"]')).toHaveText('Move to Week 9');
     await page.click('#popover [data-act="up"]');
     await expect(page.locator('#sheet tbody tr').last().locator('.c-week .wk')).toHaveText('Week 9');
 
     await menuFor('Night Walk');
-    await expect(page.locator('#popover [data-act="up"] .mi-t')).toHaveText('Move to Hols (5–11 Oct)');
+    await expect(page.locator('#popover [data-act="up"]')).toHaveText('Move to Hols (5–11 Oct)');
     await page.click('#popover [data-act="up"]');
     const first = page.locator('#sheet tbody tr').first();
     await expect(first.locator('.c-week .wk')).toHaveText('Hols');
@@ -389,14 +389,12 @@ test.describe('toolbar and menus', () => {
     expect(errors).toEqual([]);
   });
 
-  test("the row menu says what each item does, and Mark as no meeting makes a week off", async ({ page }) => {
+  test("the row menu is compact (no description lines), and Mark as no meeting makes a week off", async ({ page }) => {
     const errors = await openApp(page);
     await fillCubs(page);
     await page.hover('#sheet tbody tr:nth-child(2) td.c-description');
     await page.click('#rowHandle');
-    const items = page.locator('#popover .menu button[data-act] .mi-s');
-    await expect(items).toHaveCount(8);
-    await expect(page.locator('#popover [data-act="break"]')).toContainText('A week off, e.g. a public holiday');
+    await expect(page.locator('#popover .mi-s')).toHaveCount(0);
     await page.click('#popover [data-act="break"]');
     await expect(page.locator('#sheet tbody tr:nth-child(2)')).toHaveClass(/no-meeting/);
     expect(errors).toEqual([]);

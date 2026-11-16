@@ -91,7 +91,7 @@ test('first visit: setup wizard, then the tour', async ({ page }) => {
   expect(t[1]).toEqual(['2027-01-27', '2027-02-03', '2027-02-10', '2027-02-17', '2027-02-24', '2027-03-03', '2027-03-10', '2027-03-17', '2027-03-24']);
   await expect(page.locator('[data-bind="term.region"]')).toHaveValue('VIC');
   await expect(page.locator('#sheet')).toContainText('Akela');
-  await stepThroughTour(page, 6);
+  await stepThroughTour(page, 8);
 
   // Not shown again, and the tour can be taken from the sidebar
   await page.reload();
@@ -99,7 +99,7 @@ test('first visit: setup wizard, then the tour', async ({ page }) => {
   await expect(page.locator('.wz-backdrop')).toHaveCount(0);
   expect(await page.evaluate(() => state.branding.groupName)).toBe('1st Example Scout Group');
   await page.click('#btnTour');
-  await expect(page.locator('.tour-count')).toHaveText('1 of 6');
+  await expect(page.locator('.tour-count')).toHaveText('1 of 8');
   await page.keyboard.press('Escape');
   await expect(page.locator('.tour-layer')).toHaveCount(0);
   expect(errors).toEqual([]);
@@ -149,4 +149,40 @@ test.describe('phone', () => {
 test('the wizard says where programs are saved', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.wz')).toContainText('saved in this browser only');
+});
+
+test('the tour has you open a row menu: clicking the ⋮ opens it and moves on, and the menu is only shown', async ({ page }) => {
+  await page.addInitScript(() => { if (!localStorage.getItem('scoutProgramBuilder.welcome')) localStorage.setItem('scoutProgramBuilder.welcome', 'done'); });
+  await page.goto('/');
+  await page.waitForFunction(() => typeof state === 'object');
+  await page.click('#btnTour');
+  await page.click('[data-tour="next"]');
+  await page.click('[data-tour="next"]');
+  await expect(page.locator('.tour-tip h3')).toHaveText('Row options');
+  await expect(page.locator('#rowHandle')).toBeVisible();
+  // The ⋮ itself can be clicked through the tour
+  await page.click('#rowHandle');
+  await expect(page.locator('.tour-tip h3')).toHaveText('The row menu');
+  await expect(page.locator('#popover .menu')).toBeVisible();
+  // ...but not the menu's items while the tour shows them
+  const rows = await page.evaluate(() => state.rows.length);
+  const del = await page.locator('#popover [data-act="del"]').boundingBox();
+  await page.mouse.click(del.x + del.width / 2, del.y + del.height / 2);
+  expect(await page.evaluate(() => state.rows.length)).toBe(rows);
+  await expect(page.locator('#popover .menu')).toBeVisible();      // and it stays open
+  // Nor the rest of the page
+  await page.mouse.click(600, 400);
+  expect(await page.evaluate(() => document.activeElement?.closest?.('.ed'))).toBeNull();
+  // Back reopens the step before (menu closed, ⋮ showing); Next on it opens the menu too
+  await page.click('[data-tour="back"]');
+  await expect(page.locator('#popover')).toBeHidden();
+  await expect(page.locator('#rowHandle')).toBeVisible();
+  await page.click('[data-tour="next"]');
+  await expect(page.locator('#popover .menu')).toBeVisible();
+  // Moving on closes it; ending the tour puts the ⋮ away
+  await page.click('[data-tour="next"]');
+  await expect(page.locator('#popover')).toBeHidden();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.tour-layer')).toHaveCount(0);
+  await expect(page.locator('#rowHandle')).toBeHidden();
 });

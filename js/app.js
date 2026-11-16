@@ -1810,9 +1810,6 @@ function openChoicePopover(td, row, key) {
   if (t) t.addEventListener('keydown', (e) => { if (e.key === 'Enter') { set(t.value.trim()); closePopover(); } });
 }
 
-/** A menu item's name with a line under it saying what it does. */
-function mi(title, sub) { return `<span class="mi"><span class="mi-t">${title}</span><span class="mi-s">${esc(sub)}</span></span>`; }
-
 function openRowMenu(anchor, rowId) {
   const r = rowById(rowId); if (!r) return;
   if (r.emptyWeek) { openEmptyWeekMenu(anchor, r); return; }
@@ -1821,23 +1818,21 @@ function openRowMenu(anchor, rowId) {
   const icon = (d) => `<svg viewBox="0 0 24 24">${d}</svg>`;
   openPopover(anchor, `
     <div class="menu">
-      <button data-act="below">${icon('<path d="M12 5v14M5 12h14"/>')}${mi('Add activity below', 'A new row on the same date, under this one')}</button>
-      <button data-act="above">${icon('<path d="M12 5v14M5 12h14"/>')}${mi('Add activity above', 'A new row on the same date, above this one')}</button>
-      <button data-act="week">${icon('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/>')}${mi('Add activity this week…', 'Pick any day of this week for it')}</button>
-      <button data-act="break">${icon(r.noMeeting ? '<path d="M3 12h4l3-8 4 16 3-8h4"/>' : '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M9 14l6 5M15 14l-6 5"/>')}${r.noMeeting
-    ? mi('Turn back into an activity', 'Make it a meeting night again')
-    : mi('Mark as no meeting', 'A week off, e.g. a public holiday or school holidays')}</button>
-      <button data-act="dup">${icon('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>')}${mi('Duplicate', 'A copy of this row, just below it')}</button>
-      <button data-act="up" ${up ? '' : 'disabled'}>${icon('<path d="m6 15 6-6 6 6"/>')}${mi(moveLabel(up, 'up'), 'The same weekday, a week earlier')}</button>
-      <button data-act="down" ${down ? '' : 'disabled'}>${icon('<path d="m6 9 6 6 6-6"/>')}${mi(moveLabel(down, 'down'), 'The same weekday, a week later')}</button>
+      <button data-act="below">${icon('<path d="M12 5v14M5 12h14"/>')}Add activity below <small>same date</small></button>
+      <button data-act="above">${icon('<path d="M12 5v14M5 12h14"/>')}Add activity above</button>
+      <button data-act="week">${icon('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/>')}Add activity this week… <small>pick the day</small></button>
+      <button data-act="break">${icon(r.noMeeting ? '<path d="M3 12h4l3-8 4 16 3-8h4"/>' : '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M9 14l6 5M15 14l-6 5"/>')}${r.noMeeting ? 'Turn back into an activity' : 'Mark as no meeting'}</button>
+      <button data-act="dup">${icon('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>')}Duplicate</button>
+      <button data-act="up" ${up ? '' : 'disabled'}>${icon('<path d="m6 15 6-6 6 6"/>')}${moveLabel(up, 'up')}</button>
+      <button data-act="down" ${down ? '' : 'disabled'}>${icon('<path d="m6 9 6 6 6-6"/>')}${moveLabel(down, 'down')}</button>
       <div class="menu-sep"></div>
-      <div class="menu-label">Highlight <span class="mi-s">Colours the row's cells, as in the legend</span></div>
+      <div class="menu-label">Highlight</div>
       <div class="swatches">
         ${state.categories.map((c) => `<button class="swatch ${r.category === c.id ? 'on' : ''}" data-cat="${c.id}" style="background:${esc(c.color)}" title="${esc(c.label)}"><span>${esc(c.label)}</span></button>`).join('')}
         <button class="swatch none ${r.category ? '' : 'on'}" data-cat="" title="No highlight"><span>None</span></button>
       </div>
       <div class="menu-sep"></div>
-      <button data-act="del" class="danger">${icon('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>')}${mi('Delete', 'Undo brings it back')}</button>
+      <button data-act="del" class="danger">${icon('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>')}Delete</button>
     </div>`, { type: 'row', id: rowId });
 
   pop.onclick = (e) => {
@@ -1882,12 +1877,12 @@ function openEmptyWeekMenu(anchor, r) {
   openPopover(anchor, `
     <div class="menu">
       <div class="menu-label">${esc(weekName(ws))} · ${esc(weekRangeText(ws))}</div>
-      <button data-act="add">${icon('<path d="M12 5v14M5 12h14"/>')}${mi('Add an activity…', 'Pick any day of this week for it')}</button>
-      <button data-act="off">${icon('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M9 14l6 5M15 14l-6 5"/>')}${mi('Make it a week off', 'Shown as no meeting, on the meeting night')}</button>
-      <button data-act="up" ${busy(earlier) ? 'disabled' : ''}>${icon('<path d="m6 15 6-6 6 6"/>')}${mi(`Move to ${moveTo(earlier)}`, 'A week earlier')}</button>
-      <button data-act="down" ${busy(later) ? 'disabled' : ''}>${icon('<path d="m6 9 6 6 6-6"/>')}${mi(`Move to ${moveTo(later)}`, 'A week later')}</button>
+      <button data-act="add">${icon('<path d="M12 5v14M5 12h14"/>')}Add an activity… <small>pick the day</small></button>
+      <button data-act="off">${icon('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M9 14l6 5M15 14l-6 5"/>')}Make it a week off</button>
+      <button data-act="up" ${busy(earlier) ? 'disabled' : ''}>${icon('<path d="m6 15 6-6 6 6"/>')}Move to ${moveTo(earlier)}</button>
+      <button data-act="down" ${busy(later) ? 'disabled' : ''}>${icon('<path d="m6 9 6 6 6-6"/>')}Move to ${moveTo(later)}</button>
       <div class="menu-sep"></div>
-      <button data-act="del" class="danger">${icon('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>')}${mi('Remove this week', 'Undo brings it back')}</button>
+      <button data-act="del" class="danger">${icon('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>')}Remove this week</button>
     </div>`, { type: 'row', id: r.id });
   pop.onclick = (e) => {
     const btn = e.target.closest('[data-act]');
@@ -1920,7 +1915,7 @@ function onOpenersButton(target) {
 }
 
 document.addEventListener('mousedown', (e) => {
-  if (!pop.hidden && !pop.contains(e.target) && !onOpenersButton(e.target) && !e.target.closest('.fs-bar')) {
+  if (!pop.hidden && !pop.contains(e.target) && !onOpenersButton(e.target) && !e.target.closest('.fs-bar, .tour-layer')) {
     if (popCtx?.type === 'date' || popCtx?.type === 'time') { sortRows(); save(); renderDoc(); }
     pop.onclick = null;
     closePopover();
@@ -1943,7 +1938,10 @@ function showHandle(tr) {
   handle.style.top = `${r.top + r.height / 2 - handle.offsetHeight / 2}px`;
   handle.style.left = `${Math.min(r.right - handle.offsetWidth / 2, view.right - handle.offsetWidth - 6)}px`;
 }
-function hideHandle() { handle.hidden = true; handleRow = null; }
+function hideHandle() {
+  if (document.body.classList.contains('tour-handle')) return;   // the tour is pointing at it (js/welcome.js)
+  handle.hidden = true; handleRow = null;
+}
 
 /* ---------------------------------------------------------------- actions */
 
@@ -2809,7 +2807,10 @@ function bindEvents() {
     if (tr) showHandle(tr);
   });
   $('#canvas').addEventListener('mouseleave', (e) => { if (!handle.contains(e.relatedTarget) && pop.hidden) hideHandle(); });
-  $('#canvas').addEventListener('scroll', () => { hideHandle(); closePopover(); });
+  $('#canvas').addEventListener('scroll', () => {
+    if (document.body.classList.contains('tour-handle')) return;   // the tour has the ⋮ and its menu open
+    hideHandle(); closePopover();
+  });
   // The ⋮ opens the row's menu, or closes it if it's already open
   handle.addEventListener('click', () => {
     if (!pop.hidden && popCtx?.type === 'row' && popCtx.id === handleRow) { closePopover(); return; }
