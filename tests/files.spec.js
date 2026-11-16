@@ -107,7 +107,8 @@ test.describe('files', () => {
 
   test('programs: new next term, switch, duplicate, delete, survive reload', async ({ page }) => {
     await page.evaluate(() => { state.rows[0].activity = 'Kept'; renderAll(); });
-    await page.click('#btnNew');
+    await page.click('#btnPrograms');
+    await page.click('#pNewProg');
     await page.click('.modal [data-i="2"]');
     expect(await page.evaluate(() => `T${state.term.term} ${state.term.year}`)).toBe('T1 2027');
     await page.click('#btnPrograms');

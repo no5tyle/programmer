@@ -258,8 +258,8 @@ function termSummary(t) {
 const TOUR_DESKTOP = [
   { target: ['#sidebar'], title: 'Settings', text: 'Your term dates, meeting night, branding and leaders are here. Open any section to change it.' },
   { target: ['#paper'], title: 'Your program', text: 'This is the page families get. Click any cell to edit it: a toolbar above it sets bold, italic, colour and alignment. Click a Week cell to style the whole week. Use the ⋮ on a row\'s right-hand edge to add, move or delete it.' },
-  { target: ['#btnGenerate', '#btnAddRow', '#btnAddBreak', '#btnAddWeek'], title: 'Weeks and activities', text: 'Generate dates adds a row for every meeting night of the term. Add one-off activities, a week off for a holiday, or a week before or after the term.' },
-  { target: ['#btnPrograms', '#btnNew'], title: 'Your programs', text: 'Programs save automatically, in this browser only. Find them under Programs, or start a New one for next term with the same branding. To keep a copy or move to another device, use Save file.' },
+  { target: ['#btnGenerate', '#btnAddRow', '#btnAddWeek'], title: 'Weeks and activities', text: 'Generate dates adds a row for every meeting night of the term. Add one-off activities, or a week before or after the term. For a week off, use Mark as no meeting in the row\'s ⋮ menu.' },
+  { target: ['#btnPrograms'], title: 'Your programs', text: 'Programs save automatically, in this browser only. Find them under Programs, which also starts a New one for next term with the same branding. To keep a copy or move to another device, use Save file.' },
   { target: ['#btnImport', '#btnSave'], title: 'Program files', text: 'Save file keeps the whole program as a file, to keep a copy, move to another device or share with other leaders. Open brings one back.' },
   { target: ['#btnExport'], title: 'Export', text: 'When it\'s ready, print it, or save a PDF to send to families, a spreadsheet of the activities, or a calendar families can add to their phones.' },
 ];

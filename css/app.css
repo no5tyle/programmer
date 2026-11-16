@@ -734,3 +734,11 @@ body.mobile .prog .col-grip { display: none; }
   .fmt-bar .fs-swatch { width: 27px; }
   .fmt-bar .fs-sep { margin: 0 2px; }
 }
+
+/* Menu items with a line saying what they do (mi() in js/app.js) */
+.menu .mi { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.menu .mi-s, .menu-label .mi-s { color: var(--muted); font-size: 12px; font-weight: 400; text-transform: none; letter-spacing: 0; }
+.menu-label .mi-s { display: block; margin-top: 1px; }
+.menu button:not(.swatch):has(.mi) { padding-top: 6px; padding-bottom: 6px; }
+/* A tall menu scrolls rather than running off the screen */
+.popover { max-height: calc(100vh - 24px); overflow-y: auto; }

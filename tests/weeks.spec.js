@@ -168,7 +168,7 @@ test.describe('moving outside the term', () => {
     };
     await menuFor('Gingerbread Camps');
     await expect(page.locator('#popover [data-act="down"]')).toBeEnabled();
-    await expect(page.locator('#popover [data-act="down"]')).toHaveText('Move to Hols (14–20 Dec)');
+    await expect(page.locator('#popover [data-act="down"] .mi-t')).toHaveText('Move to Hols (14–20 Dec)');
     await page.click('#popover [data-act="down"]');
     let last = page.locator('#sheet tbody tr').last();
     await expect(last.locator('.c-week .wk')).toHaveText('Hols');
@@ -176,13 +176,13 @@ test.describe('moving outside the term', () => {
 
     // And a week further, and back again
     await menuFor('Gingerbread Camps');
-    await expect(page.locator('#popover [data-act="down"]')).toHaveText('Move to Hols (21–27 Dec)');
-    await expect(page.locator('#popover [data-act="up"]')).toHaveText('Move to Week 9');
+    await expect(page.locator('#popover [data-act="down"] .mi-t')).toHaveText('Move to Hols (21–27 Dec)');
+    await expect(page.locator('#popover [data-act="up"] .mi-t')).toHaveText('Move to Week 9');
     await page.click('#popover [data-act="up"]');
     await expect(page.locator('#sheet tbody tr').last().locator('.c-week .wk')).toHaveText('Week 9');
 
     await menuFor('Night Walk');
-    await expect(page.locator('#popover [data-act="up"]')).toHaveText('Move to Hols (5–11 Oct)');
+    await expect(page.locator('#popover [data-act="up"] .mi-t')).toHaveText('Move to Hols (5–11 Oct)');
     await page.click('#popover [data-act="up"]');
     const first = page.locator('#sheet tbody tr').first();
     await expect(first.locator('.c-week .wk')).toHaveText('Hols');
@@ -363,4 +363,57 @@ test.describe('final touches (phone)', () => {
     await expect(page.locator('.m-panel:not([hidden]) [data-tm="start"]')).toHaveValue('18:15');
     expect(errors).toEqual([]);
   });
+});
+
+test.describe('toolbar and menus', () => {
+  test('no New or Add week off buttons; Programs and picked cells close their menus when clicked again', async ({ page }) => {
+    const errors = await openApp(page);
+    await fillCubs(page);
+    await expect(page.locator('#btnNew, #btnAddBreak')).toHaveCount(0);
+    await page.click('#btnPrograms');
+    await expect(page.locator('#popover #pNewProg')).toBeVisible();
+    await page.click('#btnPrograms');
+    await expect(page.locator('#popover')).toBeHidden();
+    for (const key of ['uniform', 'patrol', 'leader', 'challenge', 'date', 'time']) {
+      const td = page.locator(`#sheet tbody tr:nth-child(2) td.c-${key}`);
+      await td.click();
+      await expect(page.locator('#popover')).toBeVisible();
+      await td.click();
+      await expect(page.locator('#popover')).toBeHidden();
+    }
+    // Another row's cell moves the picker there
+    await page.click('#sheet tbody tr:nth-child(2) td.c-leader');
+    await page.click('#sheet tbody tr:nth-child(3) td.c-leader');
+    await expect(page.locator('#popover')).toBeVisible();
+    expect(await page.evaluate(() => popCtx.id)).toBe(await page.evaluate(() => state.rows[2].id));
+    expect(errors).toEqual([]);
+  });
+
+  test("the row menu says what each item does, and Mark as no meeting makes a week off", async ({ page }) => {
+    const errors = await openApp(page);
+    await fillCubs(page);
+    await page.hover('#sheet tbody tr:nth-child(2) td.c-description');
+    await page.click('#rowHandle');
+    const items = page.locator('#popover .menu button[data-act] .mi-s');
+    await expect(items).toHaveCount(8);
+    await expect(page.locator('#popover [data-act="break"]')).toContainText('A week off, e.g. a public holiday');
+    await page.click('#popover [data-act="break"]');
+    await expect(page.locator('#sheet tbody tr:nth-child(2)')).toHaveClass(/no-meeting/);
+    expect(errors).toEqual([]);
+  });
+});
+
+test('a tall menu on a short screen opens beside its button, not over it', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 560 });
+  const errors = await openApp(page);
+  await fillCubs(page);
+  await page.hover('#sheet tbody tr:nth-child(4) td.c-description');
+  await page.click('#rowHandle');
+  const m = await page.locator('#popover').boundingBox(), h = await page.locator('#rowHandle').boundingBox();
+  const overlaps = m.x < h.x + h.width && h.x < m.x + m.width && m.y < h.y + h.height && h.y < m.y + m.height;
+  expect(overlaps).toBe(false);
+  expect(m.y + m.height).toBeLessThanOrEqual(560);
+  await page.click('#rowHandle');
+  await expect(page.locator('#popover')).toBeHidden();
+  expect(errors).toEqual([]);
 });
