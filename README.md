@@ -140,3 +140,9 @@ Term dates are in `js/data.js` under `TERM_DATES`, as `[start, end]` pairs for e
 | `js/mobile.js`, `css/mobile.css` | Phone and tablet view |
 | `tests/`, `playwright.config.js` | Automated tests (`npm test`) |
 | `.github/workflows/` | Tests on every push; publishing to GitHub Pages |
+
+## Licence
+
+Copyright (c) 2026 no5tyle. Source available under the [PolyForm Strict License 1.0.0](LICENSE.md): you may use it for noncommercial purposes, but not change it, share copies or use it commercially. All other rights reserved.
+
+The Scouts Australia section logos (`assets/section-logos/`) and challenge area icons (`assets/challenge-areas/`) belong to Scouts Australia. They aren't covered by this licence and aren't licensed by it to anyone.
