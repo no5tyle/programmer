@@ -1,6 +1,8 @@
 # Premium: scope for accounts, the API and paid tiers
 
-This scopes a **Premium** offering for the Program Builder: accounts, an API that saves programs to them, and two paid tiers, **Individual** and **Group**. Nothing here is built yet. The decisions taken so far are listed in section 6. The builder isn't public yet, so its current behaviour can change without carrying existing users over.
+This scopes **qstored Premium**, starting with the Program Builder: accounts, an API that saves programs to them, and two paid tiers, **Individual** and **Group**.
+
+Premium belongs to the qstored account, not to one app. The builder (`program.qstored.org`) is the first product it covers. Later products, starting with gear and inventory (`gear.qstored.org`), join the same plans, accounts and groups rather than having their own. This document scopes only the builder's features, but the account, group and billing parts are built to be shared from the start (section 3.5). Nothing here is built yet. The decisions taken so far are listed in section 6. The builder isn't public yet, so its current behaviour can change without carrying existing users over.
 
 ## 1. The tiers
 
@@ -95,6 +97,27 @@ Ground rules:
 - **The builder stays a static site** on GitHub Pages. Without an account it still works, for one program kept in the browser, and it works without a connection. The API adds saving to an account.
 - **The API is the only thing that reads or writes Firestore.** The builder never talks to it directly, and Firestore's security rules deny all access from browsers. The cap, places, who can edit each unit, trials and who has paid are all checked in the API, where they can be tested.
 - **All data access sits in one module of the API.** That keeps a later move to another database (Postgres, say) a contained job.
+
+### 3.5 Shared across qstored products
+
+So that later products need no second account system, second billing or second groups:
+
+- **Shared from day one:**
+  - one Firebase project and one Google Cloud project for all qstored products;
+  - one `users` collection, one `subscriptions` collection and one `groups` collection, with their members, roles, units and places;
+  - one set of Stripe products and prices.
+- **Separate for each product:** its own data. Programs live in `programs/`; gear will have its own collections.
+- **Who has Premium** is worked out once, for the account (`GET /me` returns `premium`), and every product checks that same answer. A plan is never tied to a product.
+- **Limits belong to each product.** The free cap of 3 is a program limit. The gear app will set its own free limits, and `GET /me` returns each product's limits alongside the shared Premium answer.
+- **The API is organised by product:**
+  - shared parts under `/v1/me`, `/v1/groups` and `/v1/billing`;
+  - the builder's under `/v1/programs` (and the group program's routes);
+  - a later product's under its own path, such as `/v1/gear`.
+
+  It's one Cloud Run service to start with, which can be split by path later if one product grows.
+- **Group places count people, not apps.** A leader in a Group plan has Premium in every qstored product, using one place.
+- **Signing in** uses the same account in every product. Each address keeps its own sign-in, so at first a leader signs in once in each app, with the same email. A shared sign-in page at `account.qstored.org`, signing them in everywhere at once, can follow when there's a second product.
+- **Wording:** the builder says *qstored Premium*, not *Program Builder Premium*. Receipts, checkout and the Account page all use the qstored name.
 
 ### 3.2 Signing in
 
@@ -290,7 +313,8 @@ Taken:
 17. **GST:** not registered yet, so no GST is charged (section 5).
 18. **The seller** is a sole trader with an ABN.
 19. **Support:** by email, best effort.
-20. **The first paid release** has unlimited programs, the group library and shared styling, version history, live family links and calendar subscriptions. The group program follows in the second release.
+20. **qstored Premium covers every qstored product,** with one account, one set of plans and the same groups. The builder is the first product it covers (section 3.5).
+21. **The first paid release** has unlimited programs, the group library and shared styling, version history, live family links and calendar subscriptions. The group program follows in the second release.
 
 Still open:
 
@@ -299,7 +323,7 @@ Still open:
   - Check IP Australia's trade mark search first. Then consider taking `.com` and `.com.au` too, redirecting to `.org`, so families typing `.com` land in the right place.
   - Buy it before phase 1, and move the builder to it before anyone signs in (section 3.2).
   - The family page should lead with the group's name and logo, because "qstored" on its own means nothing to parents.
-- **One account across the qstored apps, or one per app.** Each address keeps its own sign-in, so signing in at `program.` doesn't sign a leader in at `gear.`. Either leaders sign in once in each app, or a shared sign-in at `account.qstored.org` hands them on. Settle this before phase 1, along with whether one Premium plan covers every app. Until the gear app exists, Premium covers the builder only.
+- **Pricing when a second product arrives.** Whether existing subscribers get it at the same price, or prices rise for new subscribers only.
   - The name includes "Scout". Check with Scouts Australia whether a paid product under that name is acceptable, at the same time as asking about the section logos. Do this before buying, so the domain isn't wasted if they object.
 - **A business name and contact address** for invoices and the terms (section 5.1).
 
