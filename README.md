@@ -84,7 +84,7 @@ The site is served at **`program.qstored.org`**. GitHub sends the old address, `
 
 1. **Verify the domain** for the `no5tyle` account: your profile's **Settings → Pages → Add a domain**, `qstored.org`. GitHub shows a TXT record (`_github-pages-challenge-no5tyle.qstored.org`) to add at the domain's DNS provider. Verifying stops anyone else's Pages site from using the domain.
 2. **Add a DNS record:** `program` as a `CNAME` to `no5tyle.github.io` (no path).
-3. In this repository's **Settings → Pages**, enter `program.qstored.org` under **Custom domain**, wait for the DNS check, then tick **Enforce HTTPS**. No `CNAME` file is needed, because the site is published by the workflow.
+3. In this repository's **Settings → Pages**, enter `program.qstored.org` under **Custom domain**, wait for the DNS check, then tick **Enforce HTTPS**. The `CNAME` file in the repository records the address; with the site published by the workflow, the setting in **Settings → Pages** is the one that counts.
 
 Each address keeps its own saved programs in the browser, so programs saved at the old address don't appear at the new one. Use **Save file** at the old address first, and **Open** at the new one. This is why the move comes before anyone signs in (`docs/premium-plan.md`, section 3.2).
 
