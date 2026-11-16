@@ -1114,7 +1114,7 @@ function renderSheet() {
     <table class="prog">
       <colgroup>${cols.map((c) => `<col data-key="${c.key}" data-pct="${((+c.width || 1) / totalW) * 100}" style="width:${((+c.width || 1) / totalW) * 100}%">`).join('')}</colgroup>
       <thead><tr>${cols.map((c, i) => `<th class="c-${c.key}"><span class="th-l">${esc(c.label)}</span>${i < cols.length - 1 ? `<span class="col-grip" data-col="${i}" title="Drag to resize"></span>` : ''}</th>`).join('')}</tr></thead>
-      <tbody>${body || `<tr class="empty-row"><td colspan="${cols.length}">No activities yet — use <b>Generate dates</b> or <b>Add activity</b>.</td></tr>`}</tbody>
+      <tbody>${body || `<tr class="empty-row"><td colspan="${cols.length}">No activities yet — use <b>Generate meeting dates</b> (under <i>Term &amp; meeting night</i>) or <b>Add activity</b>.</td></tr>`}</tbody>
     </table>
     ${extrasHTML()}
     ${b.footerText ? `<div class="doc-footer"${fs('branding.footerText')}>${esc(b.footerText)}</div>` : ''}`;
@@ -2553,7 +2553,7 @@ async function newProgram() {
   state.rows = generateRows();
   state = prev;
   addProgram(c);
-  if (!c.rows.length) toast('Enter the term dates, then use Generate dates.');
+  if (!c.rows.length) toast('Enter the term dates, then use Generate meeting dates.');
 }
 
 async function resetAll() {
@@ -2627,7 +2627,7 @@ function onBoundInput(e) {
 
   if (datesChanged && e.type === 'change') {
     if (!rowsHaveContent()) state.rows = generateRows();
-    else toast('Term changed — use "Generate dates" to add the new meeting dates.');
+    else toast('Term changed — use "Generate meeting dates" to add the new meeting dates.');
   }
   saveSoon();
   syncInputs();
@@ -2815,7 +2815,6 @@ function bindEvents() {
     if (handleRow) openRowMenu(handle, handleRow);
   });
 
-  $('#btnGenerate').onclick = generateDates;
   $('#btnGenerate2').onclick = generateDates;
   $('#btnAddRow').onclick = addActivity;
   $('#btnAddWeek').onclick = (e) => openAddWeekPopover(e.currentTarget);

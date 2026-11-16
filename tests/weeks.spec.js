@@ -117,7 +117,7 @@ test.describe('desktop', () => {
     const last = (await rows(page)).at(-1);
     expect(last.emptyWeek).toBe(true);
     await page.evaluate(() => { state.term.end = '2026-12-18'; });
-    await page.click('#btnGenerate');
+    await page.click('#btnGenerate2');
     await page.click('.modal [data-i="2"]');
     const r = await rows(page);
     expect(r.some((x) => x.date === last.date && !x.emptyWeek)).toBe(true);
@@ -241,7 +241,7 @@ test.describe('a term starting partway through a week', () => {
   test('Add missing dates fills it in for a program made before', async ({ page }) => {
     await setTerm(page, 1);
     await page.evaluate(() => { state.rows = state.rows.filter((r) => r.date !== '2027-01-25'); state.rows[0].activity = 'Kept'; renderAll(); });
-    await page.click('#btnGenerate');
+    await page.click('#btnGenerate2');
     await page.click('.modal [data-i="2"]');
     const r = await page.evaluate(() => state.rows.slice(0, 2).map((x) => [x.date, x.activity]));
     expect(r).toEqual([['2027-01-25', 'No Cubs – Term starts Thu 28 Jan'], ['2027-02-01', 'Kept']]);
@@ -414,5 +414,16 @@ test('a tall menu on a short screen opens beside its button, not over it', async
   expect(m.y + m.height).toBeLessThanOrEqual(560);
   await page.click('#rowHandle');
   await expect(page.locator('#popover')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test("the program toolbar has no Generate dates; the sidebar's Generate meeting dates does it", async ({ page }) => {
+  const errors = await openApp(page);
+  await expect(page.locator('#btnGenerate')).toHaveCount(0);
+  await expect(page.locator('.ws-toolbar')).not.toContainText('Generate');
+  await page.evaluate(() => { state.rows = []; renderAll(); });
+  await expect(page.locator('#sheet .empty-row')).toContainText('Generate meeting dates');
+  await page.click('#btnGenerate2');
+  await expect.poll(() => page.evaluate(() => state.rows.length)).toBe(9);
   expect(errors).toEqual([]);
 });
