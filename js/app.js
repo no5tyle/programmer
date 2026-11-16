@@ -518,11 +518,26 @@ async function duplicateProgram() {
 /** Points at the directory, to delete a program from it (a phone opens its programs list instead). */
 function showDirectoryToDelete() {
   if (document.body.classList.contains('mobile')) { openProgramsMenu($('#mTitle')); return; }
+  setDirectoryOpen(true);
   const dir = $('#directory');
   dir.classList.remove('attention'); void dir.offsetWidth; dir.classList.add('attention');
   $('#dirList [data-delprog]')?.focus();
   toast('Delete one with the bin beside it, in the list on the left.');
 }
+
+const DIR_KEY = 'scoutProgramBuilder.directory';   // 'open' or 'collapsed'
+
+/** Collapses the programs list to a thin strip, or opens it again. The program grows into the room. */
+function setDirectoryOpen(open, remember = true) {
+  $('#directory').classList.toggle('collapsed', !open);
+  const btn = $('#btnDirToggle');
+  btn.setAttribute('aria-expanded', String(open));
+  btn.title = open ? 'Hide the programs list' : 'Show the programs list';
+  btn.setAttribute('aria-label', btn.title);
+  if (remember) { try { localStorage.setItem(DIR_KEY, open ? 'open' : 'collapsed'); } catch { /* this visit only */ } }
+  if (state) applyZoom();
+}
+const directoryOpen = () => !$('#directory').classList.contains('collapsed');
 
 /* ---------------------------------------------------------------- settings pane */
 
@@ -3072,6 +3087,7 @@ function bindEvents() {
   $('#btnSettings').onclick = () => setSettingsOpen(!settingsOpen());
   $('#btnSettingsClose').onclick = () => { setSettingsOpen(false); $('#btnSettings').focus(); };
   $('#btnDirNew').onclick = () => newProgram();
+  $('#btnDirToggle').onclick = () => setDirectoryOpen(!directoryOpen());
   $('#btnDirDup').onclick = () => duplicateProgram();
   $('#dirList').onclick = (e) => {
     if (e.target.closest('[data-dir-signin]')) { openSignIn(); return; }
@@ -3151,6 +3167,10 @@ function init() {
   let paneClosed = false;
   try { paneClosed = localStorage.getItem(PANE_KEY) === 'closed'; } catch { /* open */ }
   setSettingsOpen(!paneClosed, false);
+  // The programs list too: open unless it was collapsed
+  let dirCollapsed = false;
+  try { dirCollapsed = localStorage.getItem(DIR_KEY) === 'collapsed'; } catch { /* open */ }
+  setDirectoryOpen(!dirCollapsed, false);
   accountInit();   // Sign in, and saving to the account (js/account.js)
   // Fonts change text metrics — refit once they're ready.
   if (document.fonts?.ready) document.fonts.ready.then(() => fit());

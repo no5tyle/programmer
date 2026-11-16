@@ -68,6 +68,34 @@ test.describe('the programs directory', () => {
   let errors;
   test.afterEach(() => { expect(errors, 'browser errors').toEqual([]); });
 
+  test('folds away to a strip, the program grows into the room, and it stays as it was left', async ({ page }) => {
+    errors = await openApp(page);
+    const open = await scale(page);
+    await page.click('#btnDirToggle');
+    await expect(page.locator('#directory')).toHaveClass(/collapsed/);
+    await expect(page.locator('#btnDirToggle')).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator('#dirList')).toBeHidden();
+    expect((await page.locator('#directory').boundingBox()).width).toBeLessThan(60);
+    expect(await scale(page)).toBeGreaterThan(open);
+
+    await page.reload();
+    await page.waitForFunction(() => typeof state === 'object');
+    await expect(page.locator('#directory')).toHaveClass(/collapsed/);
+
+    // The tour opens it again at its Programs stop
+    await page.evaluate(() => startTour());
+    for (let i = 0; i < 9 && (await page.locator('.tour-tip h3').textContent()) !== 'Your programs'; i++) await page.click('[data-tour="next"]');
+    await expect(page.locator('.tour-tip h3')).toHaveText('Your programs');
+    await expect(page.locator('#dirList')).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    await page.click('#btnDirToggle');
+    await expect(page.locator('#directory')).toHaveClass(/collapsed/);
+    await page.click('#btnDirToggle');
+    await expect(page.locator('#dirList')).toBeVisible();
+    await expect(page.locator('#btnDirToggle')).toHaveAttribute('title', 'Hide the programs list');
+  });
+
   test('groups programs by section, in Scouts order, each newest term first', async ({ page }) => {
     errors = await openApp(page);
     await addPrograms(page, [

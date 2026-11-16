@@ -279,8 +279,9 @@ const TOUR_DESKTOP = [
   { target: ['#popover'], title: 'The row menu', text: 'Add an activity on the same date, mark a week as no meeting (a public holiday or school holidays), duplicate a row, move it a week, highlight it, or delete it.', always: true, enter: tourOpenRowMenu, leave: tourCloseRowMenu },
   { target: ['#btnAddRow', '#btnAddWeek'], title: 'Weeks and activities', text: 'Add one-off activities, or a week before or after the term. For a week off, use Mark as no meeting in the row\'s ⋮ menu.' },
   { target: ['#directory'], title: 'Your programs', text: accountsOn()
-    ? 'Your program saves automatically, on this device. Sign in to save your programs to your account and use them on any device. They\'re listed here by section, newest term first: click one to open it, or start a New one for next term with the same branding.'
-    : 'Programs save automatically, in this browser only. They\'re listed here by section, newest term first: click one to open it, or start a New one for next term with the same branding. To keep a copy or move to another device, use Save file.' },
+    ? 'Your program saves automatically, on this device. Sign in to save your programs to your account and use them on any device. They\'re listed here by section, newest term first: click one to open it, or start a New one for next term with the same branding. The « button folds the list away.'
+    : 'Programs save automatically, in this browser only. They\'re listed here by section, newest term first: click one to open it, or start a New one for next term with the same branding. To keep a copy or move to another device, use Save file.',
+    enter: () => setDirectoryOpen(true) },
   { target: ['#btnImport', '#btnSave'], padX: 1, title: 'Program files', text: 'Save file keeps the whole program as a file, to keep a copy, move to another device or share with other leaders. Open brings one back.' },
   { target: ['#btnExport'], title: 'Export', text: 'When it\'s ready, print it, or save a PDF to send to families, a spreadsheet of the activities, or a calendar families can add to their phones. The ? beside it has help, and this tour again.' },
 ];

@@ -64,7 +64,10 @@
     <!-- The programs directory (js/app.js: renderDirectory) -->
     <nav class="directory" id="directory" aria-labelledby="dirTitle">
       <div class="dir-top">
-        <div><div class="dir-title" id="dirTitle">Programs</div><div class="dir-where" id="dirWhere"></div></div>
+        <button class="icon-btn dir-toggle" id="btnDirToggle" type="button" aria-expanded="true" aria-controls="dirList" title="Hide the programs list" aria-label="Hide the programs list">
+          <svg viewBox="0 0 24 24"><path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/></svg>
+        </button>
+        <div class="dir-heading"><div class="dir-title" id="dirTitle">Programs</div><div class="dir-where" id="dirWhere"></div></div>
         <button class="btn btn-outline btn-sm" id="btnDirNew" title="Start another program for this term or the next, keeping your branding, leaders, columns and lists">
           <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New
         </button>
