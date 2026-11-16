@@ -1899,6 +1899,7 @@ function openEmptyWeekMenu(anchor, r) {
 function onOpenersButton(target) {
   if (pop.hidden || !popCtx) return false;
   if (target.closest('#rowHandle')) return popCtx.type === 'row' && popCtx.id === handleRow;
+  if (target.closest('#btnExport')) return popCtx.type === 'export';
   const add = target.closest('[data-add-week]');
   return !!add && popCtx.type === 'addweek' && popCtx.week === add.dataset.addWeek && popCtx.anchor === add;
 }
@@ -2482,20 +2483,26 @@ async function downloadPdf() {
   }
 }
 
-function openSavePopover(anchor) {
+/** Export: print, or save the PDF, the activities spreadsheet or the calendar for families. */
+function openExportPopover(anchor) {
+  // Pressed again while its menu is open: close it
+  if (!pop.hidden && popCtx?.type === 'export') { closePopover(); return; }
   openPopover(anchor, `
     <div class="menu">
-      <button data-save="pdf"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>PDF <small>.pdf</small></button>
-      <button data-save="csv"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>Activities spreadsheet <small>.csv</small></button>
-      <button data-save="json"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>Full program <small>.json</small></button>
+      <button data-export="print"><svg viewBox="0 0 24 24"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg>Print</button>
+      <button data-export="pdf"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Save as PDF <small>.pdf</small></button>
+      <button data-export="csv"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>Activities spreadsheet <small>.csv</small></button>
+      <button data-export="ics"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/></svg>Calendar for families <small>.ics</small></button>
     </div>
-    <p class="hint">A spreadsheet holds the activities, for editing in Excel or Google Sheets. A full program also keeps branding, leaders and settings.</p>`, { type: 'save' });
-  pop.querySelectorAll('[data-save]').forEach((b) => {
+    <p class="hint">The spreadsheet holds the activities, for editing in Excel or Google Sheets. The calendar adds every meeting to Google, Apple or Outlook calendars.</p>`, { type: 'export' });
+  pop.querySelectorAll('[data-export]').forEach((b) => {
     b.onclick = () => {
       closePopover();
-      if (b.dataset.save === 'pdf') downloadPdf();
-      else if (b.dataset.save === 'csv') exportCsv();
-      else exportJson();
+      const k = b.dataset.export;
+      if (k === 'print') printProgram();
+      else if (k === 'pdf') downloadPdf();
+      else if (k === 'csv') exportCsv();
+      else exportCalendar();
     };
   });
 }
@@ -2804,9 +2811,8 @@ function bindEvents() {
   $('#btnNew').onclick = newProgram;
   $('#btnPrograms').onclick = (e) => openProgramsMenu(e.currentTarget);
   $('#btnImport').onclick = importJson;
-  $('#btnExport').onclick = (e) => openSavePopover(e.currentTarget);
-  $('#btnCalendar').onclick = exportCalendar;
-  $('#btnPrint').onclick = printProgram;
+  $('#btnSave').onclick = exportJson;
+  $('#btnExport').onclick = (e) => openExportPopover(e.currentTarget);
   $('#btnReset').onclick = resetAll;
   $('#zoomSelect').onchange = (e) => { zoom = e.target.value; applyZoom(); };
 

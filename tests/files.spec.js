@@ -3,9 +3,14 @@ const fs = require('fs');
 const { test, expect } = require('@playwright/test');
 const { openApp, fillCubs, pdfPages, pdfPageSize } = require('./helpers');
 
+/** Save file (the program, .json), or one of Export's files (pdf, csv, ics) */
 async function save(page, kind) {
+  if (kind === 'json') {
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 60_000 }), page.click('#btnSave')]);
+    return dl;
+  }
   await page.click('#btnExport');
-  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 60_000 }), page.click(`#popover [data-save="${kind}"]`)]);
+  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 60_000 }), page.click(`#popover [data-export="${kind}"]`)]);
   return dl;
 }
 
@@ -66,7 +71,7 @@ test.describe('files', () => {
       state.extras.dates = [{ id: 'x1', what: 'Bunnings BBQ', when: '', date: '2026-11-06', endDate: '' }];
       renderAll();
     });
-    const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#btnCalendar')]);
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#btnExport').then(() => page.click('#popover [data-export="ics"]'))]);
     const file = info.outputPath('cal.ics');
     await dl.saveAs(file);
     const ics = fs.readFileSync(file, 'utf8');
@@ -116,4 +121,22 @@ test.describe('files', () => {
     await page.waitForFunction(() => typeof library === 'object');
     expect(await page.evaluate(() => library.items.length)).toBe(2);
   });
+});
+
+test('Export holds print, PDF, spreadsheet and calendar; Save file saves the program', async ({ page }) => {
+  const errors = await openApp(page);
+  await expect(page.locator('#btnCalendar, #btnPrint')).toHaveCount(0);
+  await page.click('#btnExport');
+  await expect(page.locator('#popover [data-export]')).toHaveText(['Print', 'Save as PDF .pdf', 'Activities spreadsheet .csv', 'Calendar for families .ics']);
+  // Pressed again: closes
+  await page.click('#btnExport');
+  await expect(page.locator('#popover')).toBeHidden();
+  // Print uses the browser's print (or the app's PDF on iPhone and iPad)
+  await page.evaluate(() => { window.printed = 0; window.print = () => { window.printed++; }; });
+  await page.click('#btnExport');
+  await page.click('#popover [data-export="print"]');
+  await expect.poll(() => page.evaluate(() => window.printed)).toBe(1);
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#btnSave')]);
+  expect(dl.suggestedFilename()).toMatch(/\.json$/);
+  expect(errors).toEqual([]);
 });
