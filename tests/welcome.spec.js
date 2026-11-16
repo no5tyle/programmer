@@ -158,6 +158,13 @@ test('the tour has you open a row menu: clicking the ⋮ opens it and moves on, 
   await page.click('#btnTour');
   await page.click('[data-tour="next"]');
   await page.click('[data-tour="next"]');
+  // First a week's + (which otherwise shows on hover)
+  await expect(page.locator('.tour-tip h3')).toHaveText('Add to a week');
+  const plus = page.locator('#sheet .wk-add.tour-show');
+  await expect(plus).toHaveCount(1);
+  await expect(plus).toHaveCSS('opacity', '1');
+  await page.click('[data-tour="next"]');
+  await expect(page.locator('#sheet .wk-add.tour-show')).toHaveCount(0);
   await expect(page.locator('.tour-tip h3')).toHaveText('Row options');
   await expect(page.locator('#rowHandle')).toBeVisible();
   // The ⋮ itself can be clicked through the tour
@@ -179,15 +186,10 @@ test('the tour has you open a row menu: clicking the ⋮ opens it and moves on, 
   await expect(page.locator('#rowHandle')).toBeVisible();
   await page.click('[data-tour="next"]');
   await expect(page.locator('#popover .menu')).toBeVisible();
-  // Moving on closes it, and shows a week's + (which otherwise shows on hover)
+  // Moving on closes it
   await page.click('[data-tour="next"]');
   await expect(page.locator('#popover')).toBeHidden();
-  await expect(page.locator('.tour-tip h3')).toHaveText('Add to a week');
-  const plus = page.locator('#sheet .wk-add.tour-show');
-  await expect(plus).toHaveCount(1);
-  await expect(plus).toHaveCSS('opacity', '1');
-  await page.click('[data-tour="next"]');
-  await expect(page.locator('#sheet .wk-add.tour-show')).toHaveCount(0);
+  await expect(page.locator('.tour-tip h3')).toHaveText('Weeks and activities');
   // Ending the tour puts the ⋮ away
   await page.keyboard.press('Escape');
   await expect(page.locator('.tour-layer')).toHaveCount(0);
@@ -211,4 +213,18 @@ test('the ? beside Export shows the tour again', async ({ page }) => {
   await expect(page.locator('.tour-count')).toHaveText('1 of 9');
   await page.keyboard.press('Escape');
   await expect(page.locator('.tour-layer')).toHaveCount(0);
+});
+
+test("the Program files highlight stops short of the Export button", async ({ page }) => {
+  await page.addInitScript(() => { if (!localStorage.getItem('scoutProgramBuilder.welcome')) localStorage.setItem('scoutProgramBuilder.welcome', 'done'); });
+  await page.goto('/');
+  await page.waitForFunction(() => typeof state === 'object');
+  await page.click('#btnHelp');
+  for (let i = 0; i < 7; i++) await page.click('[data-tour="next"]');
+  await expect(page.locator('.tour-tip h3')).toHaveText('Program files');
+  await expect.poll(async () => {
+    const spot = await page.locator('.tour-spot').boundingBox();
+    const exp = await page.locator('#btnExport').boundingBox();
+    return spot.x + spot.width + 2 <= exp.x;     // its ring is 2px wide
+  }).toBe(true);
 });
