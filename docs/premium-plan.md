@@ -2,7 +2,7 @@
 
 This scopes **qstored Premium**, starting with the Program Builder: accounts, an API that saves programs to them, and two paid tiers, **Individual** and **Group**.
 
-Premium belongs to the qstored account, not to one app. The builder (`program.qstored.org`) is the first product it covers. Later products, starting with gear and inventory (`gear.qstored.org`), join the same plans, accounts and groups rather than having their own. This document scopes only the builder's features, but the account, group and billing parts are built to be shared from the start (section 3.5). Phase 1 is under way: the API in the `programmer-api` repository, and the builder's side on the `Premium` branch. The decisions taken so far are listed in section 6. The builder isn't public yet, so its current behaviour can change without carrying existing users over.
+Premium belongs to the qstored account, not to one app. The builder (`program.qstored.org`) is the first product it covers. Later products, starting with gear and inventory (`gear.qstored.org`), join the same plans, accounts and groups rather than having their own. This document scopes only the builder's features, but the account, group and billing parts are built to be shared from the start (section 3.5). Phase 1 (accounts and saving) is built: the API is in the `programmer-api` repository, and the builder's side is on `main`. The decisions taken so far are listed in section 6. The builder isn't public yet, so its current behaviour can change without carrying existing users over.
 
 ## 1. The tiers
 
@@ -85,10 +85,10 @@ On **Google Cloud**, in Sydney (`australia-southeast1`), using services that **c
 | API | **Cloud Run**, Node and TypeScript in a small container, minimum instances 0, maximum about 5 | Starts when a request comes in, and stops when idle. The cap on instances caps the bill if something goes wrong. A cold start takes about 1–2 s; to keep it short, use a small image with no ORM, and turn on startup CPU boost. Leaders don't notice the wait, because the builder saves to the browser first and syncs in the background (section 4.2). |
 | Data | **Firestore** (Native mode) | Billed per read and write, with no idle cost. A program is one document, as it is in the browser. Transactions cover places and version checks, and its automatic expiry (TTL) removes old versions and the bin. |
 | Sign-in | **Firebase Authentication**, by email link (section 3.2) | Free at this scale. It sends the sign-in emails and handles abuse protection. Google and Microsoft sign-in can be added later with a setting. |
-| Logos | **Cloud Storage** | Uploaded logos are kept here rather than inside the program, keeping each program well under Firestore's 1 MB document limit. |
+| Logos | **Cloud Storage** | Uploaded logos (and challenge icons) are kept here rather than inside the program, keeping each program well under Firestore's 1 MB document limit. The API takes them out when a program is saved and puts them back when it's read, so the builder still sends and receives the whole program. |
 | Family pages and calendar feeds | Served by Cloud Run, behind **Firebase Hosting**'s cache (a few minutes) | Families' calendar apps check their feeds often. The cache answers those checks without starting the API. |
 | Secrets | **Secret Manager** | Stripe and email keys. |
-| Scheduled jobs | **Cloud Scheduler** calling the API | Purging the bin and deleted accounts, trial and lapse reminders, and the nightly Firestore export to Cloud Storage as a backup. |
+| Backups and clean-up | Firestore's own **scheduled backups**, and its automatic expiry (TTL) | A backup every day, each kept for 4 weeks. The bin empties itself after 30 days; a deleted account goes at once. **Cloud Scheduler** calling the API joins in phase 2, for trial and lapse reminders. |
 | Email | A transactional email service, such as Postmark or Resend | For invites, *From the group* notices and receipts. Firebase sends sign-in emails itself, and Stripe sends invoices. |
 | Deploys | GitHub Actions, using Google's keyless sign-in (Workload Identity Federation) | Each push deploys a staging service, and `main` deploys production, as the site does now. No stored keys. |
 
@@ -182,13 +182,14 @@ groups/{gid}/members/{uid}     role (owner|admin|leader), sections [units they l
 groups/{gid}/units/{section}   mainLeaderId, editors [{ uid | email, outside, invitedBy, at }]
 groups/{gid}/invites/{id}      email, tokenHash, invitedBy, expiresAt (TTL, 14 days)
 programs/{id}                  ownerUid | ownerGroupId, section, name, groupName, year, term,
-                               data, logoPath, version, updatedAt, updatedBy, deletedAt, publicSlug
+                               data (images replaced by references), version, updatedAt, updatedBy, deletedAt, publicSlug
 programs/{id}/versions/{v}     data, createdAt, createdBy, expireAt (TTL, 90 days)
 publicLinks/{slug}             programId | groupId, sections                          -- for /p and /g lookups
 ```
 
 - A program's `data` is exactly what the builder saves in the browser today (`state`), so nothing is converted and *Save file* and *Open* keep working.
-- A program is capped at 900 KB, inside Firestore's 1 MB document limit. Without the logo (in Cloud Storage), a full term is about 15 KB.
+- Its images are the exception: each is kept in Cloud Storage at `images/{owner}/{sha256}`, one copy per owner, and the stored `data` holds a reference in its place. The API swaps them back on every read, so the builder never sees the difference.
+- A program is capped at 900 KB, inside Firestore's 1 MB document limit, and each image at 2 MB. Without its images, a full term is about 15 KB.
 - The seat check uses `placesUsed` on the group document, read and updated in the same transaction that adds an invite, counting members plus pending invites, so two invites sent at once can't go over. The owner and outside editors aren't counted.
 - Whether an outside editor can edit is checked on every write against their own Premium, not stored.
 - Every program write checks the rules in section 2.1 on the server: a group program's `section` decides who may change it.
@@ -267,7 +268,7 @@ Programs hold leaders' names and phone numbers, and sometimes young people's nam
 
 - **Policies.** A short privacy policy and terms of use, linked from *Sign in* and the Account page.
 - **Where data is kept.** In Sydney (`australia-southeast1`), for the database, files, backups and API. Firebase Authentication keeps the email address itself, which Google may process outside Australia; the privacy policy should say so. Everything is encrypted in transit and at rest.
-- **Downloading and deleting.** Leaders can download everything (`GET /me/export`) and delete their account (`DELETE /me`) themselves. Deleted programs are purged from backups within 35 days.
+- **Downloading and deleting.** Leaders can download everything (`GET /me/export`) and delete their account (`DELETE /me`) themselves. Deleted programs are purged from backups within 35 days (backups are kept for 4 weeks).
 - **A note in the editor.** Ask leaders not to put young people's personal details in programs, in line with Scouts Australia's child safety and privacy guidance.
 - **Live family links (feature 5).** They're off by default, and each program's link is turned on separately. Anyone with the link can view, with no PIN: the address is long and random, not listed by search engines, and can be turned off or replaced at any time. The page shows only what the printout shows. Leader phone numbers are hidden unless the owner chooses to show them.
 - **What gets logged.** Ids and error codes, never program contents. Stripe holds the card details; the API never sees them.

@@ -1,0 +1,17 @@
+/* The privacy policy and terms: a plain reading page, in the apps' shared look (no5tyle.css). */
+body { margin: 0; background: var(--bg, #f2f2f7); color: var(--text, #1d1d1f); font: 16px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+main { max-width: 720px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 30px; line-height: 1.2; margin: 0 0 4px; letter-spacing: -.01em; }
+h2 { font-size: 19px; margin: 32px 0 6px; }
+p, li { color: var(--text-2, #3a3a3c); }
+ul { padding-left: 22px; }
+li { margin: 4px 0; }
+a { color: var(--primary, #0a63d6); }
+.updated { color: var(--muted, #6e6e73); margin: 0 0 24px; }
+.back { display: inline-block; margin-bottom: 20px; }
+.draft { background: #fff4d6; color: #5c4400; border-radius: 12px; padding: 12px 14px; margin: 0 0 24px; font-size: 14.5px; }
+mark.todo { background: #ffe58a; color: #3d2e00; border-radius: 4px; padding: 0 3px; }
+@media (prefers-color-scheme: dark) {
+  .draft { background: #3d3000; color: #ffe9a8; }
+  mark.todo { background: #7a5d00; color: #fff3c4; }
+}

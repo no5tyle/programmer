@@ -88,6 +88,14 @@ The site is served at **`program.qstored.org`**. GitHub sends the old address, `
 
 Each address keeps its own saved programs in the browser, so programs saved at the old address don't appear at the new one. Use **Save file** at the old address first, and **Open** at the new one. This is why the move comes before anyone signs in (`docs/premium-plan.md`, section 3.2).
 
+## Privacy policy and terms
+
+Drafts are in `policies/` (`privacy.html` and `terms.html`). They aren't published yet: the publish
+workflow copies only the app's own folders. To publish them, fill in the highlighted placeholders, take out
+the draft notice, add `policies` to the `cp` line in `.github/workflows/pages.yml`, and set the
+`PRIVACY_URL` and `TERMS_URL` variables to their addresses (`https://program.qstored.org/policies/...`).
+*Sign in* and the Account page then link to them. The support address on them comes from `SUPPORT_EMAIL`.
+
 ## Running locally
 
 Open `index.html` directly, or serve the folder:
