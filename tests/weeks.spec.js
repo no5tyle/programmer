@@ -155,3 +155,47 @@ test.describe('phone', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test.describe('moving outside the term', () => {
+  let errors;
+  test.beforeEach(async ({ page }) => { errors = await openApp(page); await fillCubs(page); });
+  test.afterEach(() => { expect(errors, 'browser errors').toEqual([]); });
+
+  test('an activity moves into the holidays before or after the term, which then show as Hols weeks', async ({ page }) => {
+    const menuFor = async (name) => {
+      await page.hover(`#sheet tbody tr:has(.ed[data-key="activity"]:text-is("${name}")) td.c-description`);
+      await page.click('#rowHandle');
+    };
+    await menuFor('Gingerbread Camps');
+    await expect(page.locator('#popover [data-act="down"]')).toBeEnabled();
+    await expect(page.locator('#popover [data-act="down"]')).toHaveText('Move to Hols (14–20 Dec)');
+    await page.click('#popover [data-act="down"]');
+    let last = page.locator('#sheet tbody tr').last();
+    await expect(last.locator('.c-week .wk')).toHaveText('Hols');
+    await expect(last.locator('.c-date')).toHaveText('Tue 15 Dec');
+
+    // And a week further, and back again
+    await menuFor('Gingerbread Camps');
+    await expect(page.locator('#popover [data-act="down"]')).toHaveText('Move to Hols (21–27 Dec)');
+    await expect(page.locator('#popover [data-act="up"]')).toHaveText('Move to Week 9');
+    await page.click('#popover [data-act="up"]');
+    await expect(page.locator('#sheet tbody tr').last().locator('.c-week .wk')).toHaveText('Week 9');
+
+    await menuFor('Night Walk');
+    await expect(page.locator('#popover [data-act="up"]')).toHaveText('Move to Hols (5–11 Oct)');
+    await page.click('#popover [data-act="up"]');
+    const first = page.locator('#sheet tbody tr').first();
+    await expect(first.locator('.c-week .wk')).toHaveText('Hols');
+    await expect(first.locator('.c-date')).toHaveText('Tue 6 Oct');
+  });
+
+  test('an empty week moves too, but not onto a week with something in it', async ({ page }) => {
+    await page.click('#btnAddWeek');
+    await page.click('#popover [data-where="after"]');
+    await page.hover('#sheet tr.empty-week td.c-date');
+    await page.click('#rowHandle');
+    await expect(page.locator('#popover [data-act="up"]')).toBeDisabled();
+    await page.click('#popover [data-act="down"]');
+    await expect(page.locator('#sheet tr.empty-week .c-date')).toHaveText('21–27 Dec');
+  });
+});

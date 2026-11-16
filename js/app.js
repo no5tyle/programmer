@@ -549,20 +549,18 @@ function groupLabel(g) {
 }
 
 /**
- * Where moving a row a week up (-1) or down (+1) would take it, or null if that week is
- * outside the term and the program. Returns the target week's first day, its term week number and its name.
+ * Where moving a row a week up (-1) or down (+1) would take it: the target week's first day, its
+ * term week number (null outside the term) and its name. Weeks outside the term are allowed: the
+ * row then shows as a holidays ("Hols") week, which appears in the program as it lands there.
  */
 function movePlan(rowId, dir) {
   const row = rowById(rowId);
   const ws = row && rowWeekStart(row);
-  const s = parseDate(state.term.start), e = parseDate(state.term.end);
-  if (!ws || !s) return null;
+  if (!ws) return null;
   const target = addDays(ws, dir * 7);
-  const inTerm = !(addDays(target, 6) < s || (e && target > e));
-  // A week outside the term is fine if the program has it (e.g. an added empty week)
-  const inProgram = state.rows.some((r) => r !== row && parseDate(r.date) && toISO(startOfWeek(parseDate(r.date))) === toISO(target));
-  if (!inTerm && !inProgram) return null;
-  return { target, wk: inTerm ? Math.floor(dayDiff(startOfWeek(s), target) / 7) + 1 : null, name: weekName(target) };
+  const wk = weekNumberFrom(target);
+  // Outside the term, the dates tell one holidays week from another
+  return { target, wk, name: wk ? weekName(target) : `${weekName(target)} (${weekRangeText(target)})` };
 }
 
 /** Move a row a whole week, keeping its weekday (an undated row lands on the meeting night). */
@@ -1453,19 +1451,27 @@ function openEmptyWeekMenu(anchor, r) {
   const ws = parseDate(r.date);
   const icon = (d) => `<svg viewBox="0 0 24 24">${d}</svg>`;
   const section = state.branding.sectionName || 'meeting';
+  // Move the empty week itself, but not onto a week that already has something in it
+  const busy = (d) => state.rows.some((x) => x !== r && parseDate(x.date) && toISO(startOfWeek(parseDate(x.date))) === toISO(d));
+  const earlier = addDays(ws, -7), later = addDays(ws, 7);
+  const moveTo = (d) => `${esc(weekName(d))} (${esc(weekRangeText(d))})`;
   openPopover(anchor, `
     <div class="menu">
       <div class="menu-label">${esc(weekName(ws))} · ${esc(weekRangeText(ws))}</div>
       <button data-act="add">${icon('<path d="M12 5v14M5 12h14"/>')}Add an activity… <small>pick the day</small></button>
       <button data-act="off">${icon('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M9 14l6 5M15 14l-6 5"/>')}Make it a week off</button>
+      <button data-act="up" ${busy(earlier) ? 'disabled' : ''}>${icon('<path d="m6 15 6-6 6 6"/>')}Move to ${moveTo(earlier)}</button>
+      <button data-act="down" ${busy(later) ? 'disabled' : ''}>${icon('<path d="m6 9 6 6 6-6"/>')}Move to ${moveTo(later)}</button>
       <div class="menu-sep"></div>
       <button data-act="del" class="danger">${icon('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>')}Remove this week</button>
     </div>`, { type: 'row', id: r.id });
   pop.onclick = (e) => {
-    const act = e.target.closest('[data-act]')?.dataset.act;
-    if (!act) return;
+    const btn = e.target.closest('[data-act]');
+    if (!btn || btn.disabled) return;
+    const act = btn.dataset.act;
     if (act === 'add') { openAddToWeekPopover(anchor, ws); return; }
     pushHistory();
+    if (act === 'up' || act === 'down') r.date = toISO(act === 'up' ? earlier : later);
     if (act === 'off') {
       // On the meeting night of that week
       const night = addDays(ws, (state.term.meetingDay - ws.getDay() + 7) % 7);
