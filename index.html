@@ -64,7 +64,57 @@
   </header>
 
   <div class="layout">
-    <aside class="sidebar" id="sidebar">
+    <!-- The programs directory (js/app.js: renderDirectory) -->
+    <nav class="directory" id="directory" aria-labelledby="dirTitle">
+      <div class="dir-top">
+        <div><div class="dir-title" id="dirTitle">Programs</div><div class="dir-where" id="dirWhere"></div></div>
+        <button class="btn btn-outline btn-sm" id="btnDirNew" title="Start another program for this term or the next, keeping your branding, leaders, columns and lists">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New
+        </button>
+      </div>
+      <div class="dir-list" id="dirList"></div>
+    </nav>
+
+    <main class="workspace">
+      <div class="ws-toolbar">
+        <div class="ws-group">
+          <button class="btn btn-outline" id="btnAddRow" title="Add an activity on the next meeting night after the last one in the program">
+            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add activity
+          </button>
+          <button class="btn btn-outline" id="btnAddWeek" title="Add an empty week before the first week or after the last">
+            <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/></svg>Add week
+          </button>
+        </div>
+        <div class="ws-group">
+          <button class="btn btn-tonal" id="btnSettings" type="button" aria-pressed="true" aria-controls="sidebar" title="Show or hide the settings: term, styling, leaders, columns and lists">
+            <svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Settings
+          </button>
+          <span class="chip" id="fitStatus" title="Whether the program fits on one printed page, and the text size it uses to fit">—</span>
+          <label class="zoom">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <select id="zoomSelect" title="Zoom the preview (the printout isn't changed)">
+              <option value="fit">Fit width</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="ws-body" id="wsBody">
+      <div class="canvas" id="canvas">
+        <div class="paper-wrap" id="paperWrap">
+          <div class="paper" id="paper">
+            <div class="sheet" id="sheet"></div>
+            <div class="page-guides" id="pageGuides"></div>
+          </div>
+        </div>
+        <p class="canvas-tip">Click any cell to edit it. Hover a row and use the <strong>⋮</strong> handle on its right-hand edge to add, move or delete it.</p>
+        <p class="canvas-note" id="privacyNote"></p>
+      </div>
+      <!-- Settings: a floating pane, shown and hidden with Settings in the toolbar (js/app.js: setSettingsOpen) -->
+      <aside class="sidebar" id="sidebar" aria-labelledby="settingsTitle">
+        <div class="pane-head">
+          <span class="pane-title" id="settingsTitle">Settings</span>
+          <button class="icon-btn" id="btnSettingsClose" type="button" title="Hide settings" aria-label="Hide settings"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </div>
 
       <details class="card" open>
         <summary><span class="card-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span>Term &amp; meeting night</summary>
@@ -270,37 +320,7 @@
       </details>
 
       <p class="sidebar-foot"><span id="saveWhere">Your programs save automatically, in this browser only (see <strong>Programs</strong>). Use <strong>Save file</strong> to keep a copy, move to another device or share one with other leaders.</span> <button class="link-btn" id="btnTour">Take the tour</button> · <button class="link-btn" id="btnMobileView" title="Use the phone layout on this screen: a week-by-week list, with a preview of the page">Switch to the mobile view</button></p>
-    </aside>
-
-    <main class="workspace">
-      <div class="ws-toolbar">
-        <div class="ws-group">
-          <button class="btn btn-outline" id="btnAddRow" title="Add an activity on the next meeting night after the last one in the program">
-            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add activity
-          </button>
-          <button class="btn btn-outline" id="btnAddWeek" title="Add an empty week before the first week or after the last">
-            <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/></svg>Add week
-          </button>
-        </div>
-        <div class="ws-group">
-          <span class="chip" id="fitStatus" title="Whether the program fits on one printed page, and the text size it uses to fit">—</span>
-          <label class="zoom">
-            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-            <select id="zoomSelect" title="Zoom the preview (the printout isn't changed)">
-              <option value="fit">Fit width</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option>
-            </select>
-          </label>
-        </div>
-      </div>
-      <div class="canvas" id="canvas">
-        <div class="paper-wrap" id="paperWrap">
-          <div class="paper" id="paper">
-            <div class="sheet" id="sheet"></div>
-            <div class="page-guides" id="pageGuides"></div>
-          </div>
-        </div>
-        <p class="canvas-tip">Click any cell to edit it. Hover a row and use the <strong>⋮</strong> handle on its right-hand edge to add, move or delete it.</p>
-        <p class="canvas-note" id="privacyNote"></p>
+      </aside>
       </div>
     </main>
   </div>

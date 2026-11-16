@@ -269,13 +269,13 @@ test.describe('menu buttons', () => {
     await wk.hover();
     await wk.locator('.wk-add').click();
     await expect(page.locator('#popover')).toBeHidden();
-    // Another week's + moves the picker to that week
+    // Another week's + moves the picker to that week (one clear of the picker, which opens over the weeks below)
     await wk.hover();
     await wk.locator('.wk-add').click();
-    const wk4 = page.locator('#sheet td.c-week', { hasText: 'Week 4' });
-    await wk4.hover();
-    await wk4.locator('.wk-add').click();
-    await expect(page.locator('#popover .pop-sub')).toContainText('Week 4');
+    const wk7 = page.locator('#sheet td.c-week', { hasText: 'Week 7' });
+    await wk7.hover();
+    await wk7.locator('.wk-add').click();
+    await expect(page.locator('#popover .pop-sub')).toContainText('Week 7');
     // An empty week's Add button too
     await page.mouse.click(5, 5);
     await page.click('#btnAddWeek');

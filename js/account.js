@@ -52,6 +52,7 @@ const onPhone = () => document.body.classList.contains('mobile');
 
 function saveLibrary() {
   try { localStorage.setItem(LIB_KEY, JSON.stringify(library)); } catch { /* the next save reports it */ }
+  renderDirectory();
 }
 
 const offlineError = () => Object.assign(new Error('offline'), { offline: true });
@@ -325,7 +326,10 @@ function storeRemote(p) {
   // Kept in the builder's current shape, so that opening an older program doesn't count as changing it
   const data = normalise(p.data);
   localStorage.setItem(programKey(p.id), JSON.stringify(data));
-  Object.assign(item, { name: p.name, group: p.groupName || '', updated: Date.parse(p.updatedAt) || Date.now(), version: p.version });
+  Object.assign(item, {
+    name: p.name, group: p.groupName || '', updated: Date.parse(p.updatedAt) || Date.now(), version: p.version,
+    section: data.branding.section, sectionName: data.branding.sectionName, year: data.term.year, term: data.term.term,
+  });
   delete item.dirty; delete item.cached; delete item.stale; delete item.hold;
   saveLibrary();
   if (p.id === library.current) {
@@ -404,7 +408,10 @@ async function refreshPrograms() {
   });
   for (const p of remote.values()) {
     const item = libItem(p.id);
-    const summary = { name: p.name, group: p.groupName || '', updated: Date.parse(p.updatedAt) || Date.now() };
+    const summary = {
+      name: p.name, group: p.groupName || '', updated: Date.parse(p.updatedAt) || Date.now(),
+      section: p.section ?? null, year: p.year, term: p.term,
+    };
     if (!item) library.items.push({ id: p.id, ...summary, version: p.version, cached: false });
     else if (item.version == null) item.version = 0;   // it's there after all: the next save compares the two
     else if (!item.dirty && p.version > item.version) Object.assign(item, summary, { stale: true });
@@ -703,6 +710,7 @@ function renderAccountButton() {
       ? 'Your programs save to your account as you work, and on this device when you\'re offline.'
       : 'Your program saves on this device. <strong>Sign in</strong> to save your programs to your account and use them on any device.';
   }
+  renderDirectory();
   const btn = $('#btnAccount');
   if (!btn) return;
   btn.hidden = !accountsOn();

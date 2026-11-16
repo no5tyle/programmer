@@ -15,6 +15,7 @@ const SESSION = { uid: 'u1', email: 'akela@example.com', idToken: 'token-1', ref
 function program(id, data, patch = {}) {
   return {
     id, name: 'Cubs Program', groupName: data?.branding?.groupName || '', owner: 'me', version: 1,
+    section: data?.branding?.section ?? null, year: data?.term?.year ?? null, term: data?.term?.term ?? null,
     updatedAt: new Date().toISOString(), updatedBy: { id: 'u1', name: 'Akela' }, deletedAt: null, data, ...patch,
   };
 }

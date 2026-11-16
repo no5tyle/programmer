@@ -270,11 +270,16 @@ function save() {
     localStorage.setItem(key, json);
     let item = library.items.find((x) => x.id === library.current);
     if (!item) { item = { id: library.current }; library.items.push(item); }
-    Object.assign(item, { name: titleText() || 'Untitled program', group: state.branding.groupName.trim() });
+    Object.assign(item, {
+      name: titleText() || 'Untitled program', group: state.branding.groupName.trim(),
+      // For the programs directory: grouped by section, then by term
+      section: state.branding.section, sectionName: state.branding.sectionName, year: state.term.year, term: state.term.term,
+    });
     if (changed || !item.updated) item.updated = Date.now();
     if (changed) accountChanged(item);   // signed in: it's sent on to the account
     localStorage.setItem(LIB_KEY, JSON.stringify(library));
     setSaveState('saved');
+    renderDirectory();
     syncSoon();
   } catch {
     setSaveState('failed');
@@ -445,6 +450,75 @@ function openProgramsMenu(anchor) {
     }).catch(() => {});
   }
 }
+
+/* ---------------------------------------------------------------- programs directory */
+
+/** A program's section and term, from its library entry, or from the copy on this device for an older entry. */
+function dirInfo(x) {
+  if (x.section !== undefined || x.cached === false) return x;
+  const data = readJSON(programKey(x.id));
+  return { ...x, section: data?.branding?.section ?? null, sectionName: data?.branding?.sectionName, year: data?.term?.year, term: data?.term?.term };
+}
+
+const termLabel = (x) => (x.term ? `Term ${x.term}${x.year ? ` ${x.year}` : ''}` : (x.year ? String(x.year) : 'No term set'));
+
+/** Newest term first; within a term, the most recently changed first. */
+const byTerm = (a, b) => (+b.year || 0) - (+a.year || 0) || (+b.term || 0) - (+a.term || 0) || (b.updated || 0) - (a.updated || 0);
+
+/**
+ * The directory on the left: the account's programs (or this browser's), grouped by section in the
+ * Scouts order (Joeys to Rovers, then any others), each section sorted by term.
+ */
+function renderDirectory() {
+  const box = $('#dirList');
+  if (!box) return;
+  const account = typeof signedIn === 'function' && accountsOn() && signedIn();
+  const items = library.items.map(dirInfo);
+  const shown = account ? items.filter((x) => !x.hold) : items;
+  const held = account ? items.filter((x) => x.hold) : [];
+  $('#dirWhere').textContent = !accountsOn() ? 'In this browser' : account ? 'In your account' : 'On this device';
+
+  const groups = new Map();
+  for (const x of shown) {
+    const key = SECTIONS[x.section] ? x.section : `other:${(x.sectionName || '').trim().toLowerCase()}`;
+    if (!groups.has(key)) groups.set(key, { name: SECTIONS[x.section]?.name || (x.sectionName || '').trim() || 'Other', color: SECTIONS[x.section]?.color, items: [] });
+    groups.get(key).items.push(x);
+  }
+  const order = (k) => { const i = Object.keys(SECTIONS).indexOf(k); return i < 0 ? 99 : i; };
+  const keys = [...groups.keys()].sort((a, b) => order(a) - order(b) || groups.get(a).name.localeCompare(groups.get(b).name));
+  if (held.length) groups.set('held', { name: 'On this device only', items: held }), keys.push('held');
+
+  const item = (x) => `
+    <button class="dir-item" type="button" data-open="${esc(x.id)}" ${x.id === library.current ? 'aria-current="true"' : ''}>
+      <b>${esc(x.name)}</b>
+      <span>${esc([termLabel(x), x.group].filter(Boolean).join(' · '))}</span>
+    </button>`;
+  box.innerHTML = keys.map((k) => {
+    const g = groups.get(k);
+    return `<div class="dir-group">
+      <div class="dir-head"><span class="dir-dot"${g.color ? ` style="background:${esc(g.color)}"` : ''}></span>${esc(g.name)}<span class="dir-count">${g.items.length}</span></div>
+      ${g.items.sort(byTerm).map(item).join('')}
+    </div>`;
+  }).join('') || '<p class="dir-empty">No programs yet.</p>';
+  if (accountsOn() && !account) {
+    box.insertAdjacentHTML('beforeend', `<div class="dir-signin"><span>Sign in to keep more than one program, and use them on any device.</span>
+      <button class="btn btn-outline btn-sm" type="button" data-dir-signin>Sign in</button></div>`);
+  }
+}
+
+/* ---------------------------------------------------------------- settings pane */
+
+const PANE_KEY = 'scoutProgramBuilder.settingsPane';   // 'open' or 'closed'
+
+/** Shows or hides the settings pane. While it's open, the program makes room for it. */
+function setSettingsOpen(open, remember = true) {
+  $('#sidebar').hidden = !open;
+  $('#wsBody').classList.toggle('settings-open', open);
+  $('#btnSettings').setAttribute('aria-pressed', String(open));
+  if (remember) { try { localStorage.setItem(PANE_KEY, open ? 'open' : 'closed'); } catch { /* this visit only */ } }
+  if (state) applyZoom();
+}
+const settingsOpen = () => !$('#sidebar').hidden;
 
 function pushHistory() {
   undoStack.push(JSON.stringify(state));
@@ -1659,6 +1733,7 @@ function challengeIconOnly(c) {
 }
 
 function renderAll() {
+  renderDirectory();
   sortRows();
   applyPageSize();
   syncInputs();
@@ -1843,7 +1918,7 @@ function uniformChoices() {
 
 const PICKERS = {
   leader: { title: 'Leader', choices: leaderChoices, othersLabel: 'Other leaders in this program', otherLabel: 'Other leader',
-    placeholder: 'e.g. Roo (Joeys)', empty: 'Add your section\'s leaders under <strong>Leaders</strong> in the sidebar.', dot: 'person' },
+    placeholder: 'e.g. Roo (Joeys)', empty: 'Add your section\'s leaders under <strong>Leaders</strong> in Settings.', dot: 'person' },
   uniform: { title: 'Uniform', choices: uniformChoices, othersLabel: 'Also used in this program', otherLabel: 'Other',
     placeholder: 'e.g. Camp, Full uniform', empty: '', dot: 'person' },
 };
@@ -2614,7 +2689,7 @@ async function downloadPdf() {
 /** Help: short answers to everyday questions, and the tour. */
 async function openHelp() {
   const qa = [
-    ['How do I change the term or meeting night?', 'Open <b>Term &amp; meeting night</b> (in the sidebar, or the menu on a phone), choose the term and night, then press <b>Generate meeting dates</b>.'],
+    ['How do I change the term or meeting night?', 'Open <b>Term &amp; meeting night</b> (in <b>Settings</b>, above the program, or the menu on a phone), choose the term and night, then press <b>Generate meeting dates</b>.'],
     ['How do I add an activity?', 'Click any cell on the program and type. <b>Add activity</b> adds one on the next meeting night; the <b>+</b> by a week\'s name adds one on any day of that week.'],
     ['How do I mark a week off, like a public holiday?', 'Click the <b>⋮</b> at the right-hand end of the row and choose <b>Mark as no meeting</b>. On a phone, tap the week and turn on <b>No meeting this week</b>.'],
     ['How do I print it or send it to families?', '<b>Export</b>, then <b>Print</b> or <b>Save as PDF</b>. <b>Calendar for families</b> gives a file that adds every meeting to their phone\'s calendar. On a phone, use <b>Share</b>.'],
@@ -2982,6 +3057,14 @@ function bindEvents() {
     openProgramsMenu(e.currentTarget);
   };
   $('#btnImport').onclick = importJson;
+  $('#btnSettings').onclick = () => setSettingsOpen(!settingsOpen());
+  $('#btnSettingsClose').onclick = () => { setSettingsOpen(false); $('#btnSettings').focus(); };
+  $('#btnDirNew').onclick = () => newProgram();
+  $('#dirList').onclick = (e) => {
+    if (e.target.closest('[data-dir-signin]')) { openSignIn(); return; }
+    const b = e.target.closest('[data-open]');
+    if (b) openProgram(b.dataset.open);
+  };
   $('#btnSave').onclick = saveProgramAs;
   $('#btnExport').onclick = (e) => openExportPopover(e.currentTarget);
   $('#btnReset').onclick = resetAll;
@@ -3047,6 +3130,10 @@ function init() {
   state = load();
   bindEvents();
   renderAll();
+  // The settings pane as it was left: open the first time
+  let paneClosed = false;
+  try { paneClosed = localStorage.getItem(PANE_KEY) === 'closed'; } catch { /* open */ }
+  setSettingsOpen(!paneClosed, false);
   accountInit();   // Sign in, and saving to the account (js/account.js)
   // Fonts change text metrics — refit once they're ready.
   if (document.fonts?.ready) document.fonts.ready.then(() => fit());

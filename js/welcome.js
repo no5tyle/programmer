@@ -270,7 +270,7 @@ function termSummary(t) {
 /* ---------------------------------------------------------------- tour */
 
 const TOUR_DESKTOP = [
-  { target: ['#sidebar'], title: 'Settings', text: 'Your term dates, meeting night, styling, leaders and patrols are here. Open any section to change it.' },
+  { target: ['#sidebar'], title: 'Settings', text: 'Your term dates, meeting night, styling, leaders and patrols are here. Open any section to change it. Settings, above the program, hides and shows them.', always: true, enter: () => setSettingsOpen(true) },
   { target: ['#paper'], title: 'Your program', text: 'This is the page families get. Click any cell to edit it: a toolbar above it sets bold, italic, colour and alignment. Click a Week cell to style the whole week. Use the ⋮ on a row\'s right-hand edge to add, move or delete it.' },
   // The + on a Week cell's left edge (it shows when the cell is hovered): shown, not clicked
   { target: ['#sheet .wk-add.tour-show'], title: 'Add to a week', text: 'The + on a Week cell\'s left edge (hover the cell to see it) adds an activity on any day of that week: pick the day, and it\'s added to the week.', always: true, enter: tourShowWeekAdd, leave: tourHideWeekAdd },
@@ -278,9 +278,9 @@ const TOUR_DESKTOP = [
   { target: ['#rowHandle'], title: 'Row options', text: 'Each row has a ⋮ on its right-hand edge (hover a row to see it). Click this one to open its menu.', always: true, interactive: true, enter: tourShowHandle },
   { target: ['#popover'], title: 'The row menu', text: 'Add an activity on the same date, mark a week as no meeting (a public holiday or school holidays), duplicate a row, move it a week, highlight it, or delete it.', always: true, enter: tourOpenRowMenu, leave: tourCloseRowMenu },
   { target: ['#btnAddRow', '#btnAddWeek'], title: 'Weeks and activities', text: 'Add one-off activities, or a week before or after the term. For a week off, use Mark as no meeting in the row\'s ⋮ menu.' },
-  { target: ['#btnPrograms'], title: 'Your programs', text: accountsOn()
-    ? 'Your program saves automatically, on this device. Sign in to save your programs to your account and use them on any device. Programs lists them, and starts a New one for next term with the same branding.'
-    : 'Programs save automatically, in this browser only. Find them under Programs, which also starts a New one for next term with the same branding. To keep a copy or move to another device, use Save file.' },
+  { target: ['#directory'], title: 'Your programs', text: accountsOn()
+    ? 'Your program saves automatically, on this device. Sign in to save your programs to your account and use them on any device. They\'re listed here by section, newest term first: click one to open it, or start a New one for next term with the same branding.'
+    : 'Programs save automatically, in this browser only. They\'re listed here by section, newest term first: click one to open it, or start a New one for next term with the same branding. To keep a copy or move to another device, use Save file.' },
   { target: ['#btnImport', '#btnSave'], padX: 1, title: 'Program files', text: 'Save file keeps the whole program as a file, to keep a copy, move to another device or share with other leaders. Open brings one back.' },
   { target: ['#btnExport'], title: 'Export', text: 'When it\'s ready, print it, or save a PDF to send to families, a spreadsheet of the activities, or a calendar families can add to their phones. The ? beside it has help, and this tour again.' },
 ];
