@@ -243,8 +243,20 @@ function editorHTML(r) {
       const opts = state.challenges.map((c) => ({ value: c.id, html: `${challengeIconOnly(c)}${esc(c.label)}` }));
       return `<div class="m-field"><span>${esc(label(k))}</span>${chips('challenge', [...opts, { value: '', html: 'None' }], v)}</div>`;
     }
-    if (k === 'description' || k === 'notes' || k === 'time') {
-      return `<label class="m-field"><span>${esc(label(k))}</span><textarea data-f="${k}" rows="${k === 'time' ? 2 : 3}" ${k === 'time' ? `placeholder="${esc(defaultTimeText())}"` : ''}>${esc(v)}</textarea></label>`;
+    if (k === 'time') {
+      // Quick choices, the phone's own time pickers, and the text shown (which can be typed over)
+      const meet = defaultTimeText();
+      const [st, en] = timesIn(v);
+      const opts = [...(meet ? [{ value: meet, html: 'Meeting night' }] : []), { value: 'TBA', html: 'TBA' }, { value: '', html: 'No time' }];
+      return `<div class="m-field m-time"><span>${esc(label(k))}</span>${chips('time', opts, v)}
+        <div class="m-two">
+          <label class="m-field"><span>Starts</span><input type="time" step="300" data-tm="start" value="${hhmm(st)}" data-prev="${hhmm(st)}"></label>
+          <label class="m-field"><span>Finishes</span><input type="time" step="300" data-tm="end" value="${hhmm(en)}"></label>
+        </div>
+        <label class="m-field"><span>Shown as, or type anything</span><textarea data-f="time" rows="2" placeholder="e.g. Pick up 9 AM">${esc(v)}</textarea></label></div>`;
+    }
+    if (k === 'description' || k === 'notes') {
+      return `<label class="m-field"><span>${esc(label(k))}</span><textarea data-f="${k}" rows="3">${esc(v)}</textarea></label>`;
     }
     const list = datalists[k] ? `<datalist id="dl-${k}">${datalists[k].map((x) => `<option value="${esc(x)}">`).join('')}</datalist>` : '';
     return `<label class="m-field"><span>${esc(label(k))}</span><input type="text" data-f="${k}" value="${esc(v)}" ${list ? `list="dl-${k}"` : ''}>${list}</label>`;
@@ -288,6 +300,28 @@ function editorHTML(r) {
 /** Attached once per editor; looks the row up each time so redraws never double up. */
 function wireEditor(body, id, draw) {
   body.addEventListener('input', (e) => {
+    // The time pickers write the time text; the text, typed over, moves the pickers to its times
+    const tm = e.target.closest('[data-tm]');
+    const row = rowById(id);
+    if (tm && row) {
+      const start = body.querySelector('[data-tm="start"]'), end = body.querySelector('[data-tm="end"]');
+      const toMin = (t) => +t.slice(0, 2) * 60 + +t.slice(3, 5);
+      // A later or earlier start keeps the length the same (data-prev is the start before this change)
+      const prev = start.dataset.prev;
+      if (tm === start && prev && start.value && end.value) end.value = hhmm(toMin(end.value) + toMin(start.value) - toMin(prev));
+      if (!start.value) end.value = '';
+      start.dataset.prev = start.value;
+      row.time = timeTextFor(start.value, end.value);
+      body.querySelector('[data-f="time"]').value = row.time;
+      body.querySelectorAll('[data-chips="time"] .m-chip').forEach((c) => c.classList.toggle('on', c.dataset.v === row.time));
+      saveSoon(); return;
+    }
+    if (e.target.dataset.f === 'time' && row) {
+      const [st, en] = timesIn(e.target.value);
+      const start = body.querySelector('[data-tm="start"]');
+      start.value = hhmm(st); start.dataset.prev = start.value;
+      body.querySelector('[data-tm="end"]').value = hhmm(en);
+    }
     const el = e.target.closest('[data-f]');
     const r = rowById(id);
     if (!el || !r) return;
@@ -299,6 +333,7 @@ function wireEditor(body, id, draw) {
     }
     r[f] = el.value;
     r.autoHoliday = false;
+    if (f === 'time') body.querySelectorAll('[data-chips="time"] .m-chip').forEach((c) => c.classList.toggle('on', c.dataset.v === el.value));
     if (el.classList.contains('m-other')) body.querySelectorAll(`[data-chips="${f}"] .m-chip`).forEach((c) => c.classList.toggle('on', c.dataset.v === el.value));
     if (f === 'date' || f === 'endDate') { if (f === 'date' && r.dateLabel && el.value) r.dateLabel = ''; saveSoon(); draw(); return; }
     saveSoon();

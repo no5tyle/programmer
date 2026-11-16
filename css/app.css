@@ -679,3 +679,9 @@ body.mobile .prog .col-grip { display: none; }
 .wz-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
 .wz-dates[hidden] { display: none; }
 .wz-summary { margin: 12px 0 0 !important; color: var(--text-2); }
+
+/* Time picker (openTimePopover) */
+.popover:has(#tStart) { max-width: 340px; }
+.prog td.c-time .ed { cursor: pointer; }
+#tLen { margin: -2px 0 8px; }
+#tLen[hidden] { display: none; }

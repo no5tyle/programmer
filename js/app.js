@@ -51,11 +51,32 @@ function formatTime(hhmm) {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-function defaultTimeText() {
-  const s = formatTime(state.term.startTime), e = formatTime(state.term.endTime);
+/** A start and finish ("HH:MM", the finish optional) as cell text, in the chosen time format and layout. */
+function timeTextFor(start, end) {
+  const s = formatTime(start), e = formatTime(end);
   if (!s) return '';
   if (!e) return s;
   return state.term.timeLayout === 'stacked' ? `${s}\n${e}` : `${s}–${e}`;
+}
+
+function defaultTimeText() { return timeTextFor(state.term.startTime, state.term.endTime); }
+
+/** Minutes after midnight as "HH:MM" (for a time input), or '' */
+function hhmm(min) {
+  if (min == null) return '';
+  const m = ((min % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+
+/** "1 h 30 min" between two "HH:MM" times (past midnight counts as the next day), or '' */
+function durationText(start, end) {
+  if (!start || !end) return '';
+  const toMin = (t) => +t.slice(0, 2) * 60 + +t.slice(3, 5);
+  let d = toMin(end) - toMin(start);
+  const nextDay = d <= 0;
+  if (nextDay) d += 1440;
+  const h = Math.floor(d / 60), m = d % 60;
+  return `${[h && `${h} h`, m && `${m} min`].filter(Boolean).join(' ')}${nextDay ? ', finishing the next day' : ''}`;
 }
 
 function luminance(hex) {
@@ -660,6 +681,10 @@ function cellInner(col, r) {
   if (k === 'date') {
     const txt = dateText(r, timeHidden && !r.noMeeting);
     return `<td class="c-date clickable" data-pop="date"${align}${tint}><div class="dt">${txt ? esc(txt) : '<span class="ph">Set date</span>'}</div></td>`;
+  }
+  if (k === 'time') {
+    // Not typed into in place: clicking opens the time picker, which also takes free text
+    return `<td class="c-time clickable" data-pop="time"${align}${tint}><div class="ed" data-key="time" data-ph="Time">${esc(r.time)}</div></td>`;
   }
   if (k === 'challenge') return `<td class="c-challenge clickable" data-pop="challenge"${align}${tint}>${challengeHTML(r.challenge)}</td>`;
   if (k === 'patrol') return `<td class="c-patrol clickable" data-pop="patrol"${align}${tint}>${patrolHTML(r.patrol)}</td>`;
@@ -1321,6 +1346,76 @@ function openDatePopover(td, row) {
   });
 }
 
+/**
+ * The time picker: start and finish boxes, quick choices, and the text shown in the cell, which can
+ * be typed over with anything ("Pick up 9 AM", "Sat 9 AM – Sun 2 PM"). Picking times writes the text;
+ * typing text fills the boxes from any times in it. The text is what's stored, printed and read for
+ * the calendar file.
+ */
+function openTimePopover(td, row) {
+  const meet = defaultTimeText();
+  const day = row.date ? formatDate(row.date) : '';
+  openPopover(td, `
+    <div class="pop-title">Time${day ? ` <span class="pop-sub">${esc(day)}</span>` : ''}</div>
+    <div class="reason-chips">
+      ${meet ? `<button class="swatch none" data-time="meet"><span>Meeting night · ${esc(meet.replace('\n', '–'))}</span></button>` : ''}
+      <button class="swatch none" data-time="TBA"><span>TBA</span></button>
+      <button class="swatch none" data-time=""><span>No time</span></button>
+    </div>
+    <div class="grid-2">
+      <label class="field"><span>Starts</span><input type="time" id="tStart" step="300"></label>
+      <label class="field"><span>Finishes</span><input type="time" id="tEnd" step="300"></label>
+    </div>
+    <p class="hint" id="tLen"></p>
+    <label class="field"><span>Shown as <em class="muted">— or type anything</em></span>
+      <textarea id="tText" rows="2" class="bound-textarea" placeholder="e.g. Pick up 9 AM">${esc(row.time)}</textarea></label>
+    <div class="pop-actions"><button class="btn btn-text btn-sm" id="tClear">Clear</button><button class="btn btn-primary btn-sm" id="tDone">Done</button></div>`,
+  { type: 'time', id: row.id });
+  pushHistory();
+  const start = $('#tStart'), end = $('#tEnd'), text = $('#tText'), len = $('#tLen');
+  let lastStart = '';
+  const showLength = () => { len.textContent = durationText(start.value, end.value); len.hidden = !len.textContent; };
+  // The boxes follow whatever times the text has
+  const fillBoxes = () => {
+    const [s, e] = timesIn(text.value);
+    start.value = hhmm(s); end.value = hhmm(e);
+    lastStart = start.value;
+    showLength();
+  };
+  const apply = (value) => {
+    const r = rowById(row.id); if (!r) return;
+    r.time = value;
+    saveSoon(); renderDoc();
+  };
+  const fromBoxes = () => { text.value = timeTextFor(start.value, end.value); apply(text.value); showLength(); };
+  fillBoxes();
+
+  start.addEventListener('input', () => {
+    // A later or earlier start keeps the length the same
+    if (lastStart && start.value && end.value) {
+      const toMin = (t) => +t.slice(0, 2) * 60 + +t.slice(3, 5);
+      end.value = hhmm(toMin(end.value) + toMin(start.value) - toMin(lastStart));
+    }
+    if (!start.value) end.value = '';
+    lastStart = start.value;
+    fromBoxes();
+  });
+  end.addEventListener('input', fromBoxes);
+  text.addEventListener('input', () => { apply(text.value); fillBoxes(); });
+  const done = () => { closePopover(); sortRows(); save(); renderDoc(); };
+  text.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); done(); } });
+  [start, end].forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); done(); } }));
+  pop.querySelectorAll('[data-time]').forEach((b) => {
+    b.onclick = () => {
+      text.value = b.dataset.time === 'meet' ? meet : b.dataset.time;
+      apply(text.value); fillBoxes();
+    };
+  });
+  $('#tClear').onclick = () => { text.value = ''; apply(''); fillBoxes(); };
+  $('#tDone').onclick = done;
+  start.focus();
+}
+
 /** The section's leaders (from the Leaders list), then other leaders already used in this program. */
 function leaderChoices() {
   const section = [...new Set(state.branding.leaders.map((l) => l.name.trim()).filter(Boolean))];
@@ -1485,7 +1580,7 @@ function openEmptyWeekMenu(anchor, r) {
 
 document.addEventListener('mousedown', (e) => {
   if (!pop.hidden && !pop.contains(e.target) && !e.target.closest('#rowHandle')) {
-    if (popCtx?.type === 'date') { sortRows(); save(); renderDoc(); }
+    if (popCtx?.type === 'date' || popCtx?.type === 'time') { sortRows(); save(); renderDoc(); }
     pop.onclick = null;
     closePopover();
   }
@@ -2319,6 +2414,7 @@ function bindEvents() {
     const td = e.target.closest('td.clickable'); if (!td) return;
     const r = rowById(td.closest('tr').dataset.id); if (!r) return;
     if (td.dataset.pop === 'date') openDatePopover(td, r);
+    else if (td.dataset.pop === 'time') openTimePopover(td, r);
     else if (PICKERS[td.dataset.pop]) openPickPopover(td, r, td.dataset.pop);
     else openChoicePopover(td, r, td.dataset.pop);
   });
