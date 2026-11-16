@@ -2,7 +2,7 @@
 
 This scopes **qstored Premium**, starting with the Program Builder: accounts, an API that saves programs to them, and two paid tiers, **Individual** and **Group**.
 
-Premium belongs to the qstored account, not to one app. The builder (`program.qstored.org`) is the first product it covers. Later products, starting with gear and inventory (`gear.qstored.org`), join the same plans, accounts and groups rather than having their own. This document scopes only the builder's features, but the account, group and billing parts are built to be shared from the start (section 3.5). Nothing here is built yet. The decisions taken so far are listed in section 6. The builder isn't public yet, so its current behaviour can change without carrying existing users over.
+Premium belongs to the qstored account, not to one app. The builder (`program.qstored.org`) is the first product it covers. Later products, starting with gear and inventory (`gear.qstored.org`), join the same plans, accounts and groups rather than having their own. This document scopes only the builder's features, but the account, group and billing parts are built to be shared from the start (section 3.5). Phase 1 is under way: the API in the `programmer-api` repository, and the builder's side on the `Premium` branch. The decisions taken so far are listed in section 6. The builder isn't public yet, so its current behaviour can change without carrying existing users over.
 
 ## 1. The tiers
 
@@ -315,16 +315,13 @@ Taken:
 19. **Support:** by email, best effort.
 20. **qstored Premium covers every qstored product,** with one account, one set of plans and the same groups. The builder is the first product it covers (section 3.5).
 21. **The first paid release** has unlimited programs, the group library and shared styling, version history, live family links and calendar subscriptions. The group program follows in the second release.
+22. **The domain:** `qstored.org`, bought in November 2026. The builder is at `program.qstored.org` and the API at `api.qstored.org`. The family page leads with the group's name and logo, because "qstored" on its own means nothing to parents.
 
 Still open:
 
-- **The domain:** `qstored.org`, with the builder at `program.qstored.org`.
-  - On 16 Nov 2026, `qstored.org`, `qstored.com` and `qstored.com.au` were all unregistered. That isn't a guarantee they still are.
-  - Check IP Australia's trade mark search first. Then consider taking `.com` and `.com.au` too, redirecting to `.org`, so families typing `.com` land in the right place.
-  - Buy it before phase 1, and move the builder to it before anyone signs in (section 3.2).
-  - The family page should lead with the group's name and logo, because "qstored" on its own means nothing to parents.
+- **The other qstored domains.** Whether to take `qstored.com` and `qstored.com.au` too, redirecting to `.org`, so families typing `.com` land in the right place. Check IP Australia's trade mark search for "qstored" as well.
 - **Pricing when a second product arrives.** Whether existing subscribers get it at the same price, or prices rise for new subscribers only.
-  - The name includes "Scout". Check with Scouts Australia whether a paid product under that name is acceptable, at the same time as asking about the section logos. Do this before buying, so the domain isn't wasted if they object.
+- **Scouts Australia.** The builder is called *Scout Program Builder*. Check whether a paid product under that name is acceptable, at the same time as asking about the section logos.
 - **A business name and contact address** for invoices and the terms (section 5.1).
 
 ## 7. Building it, in phases
@@ -339,7 +336,7 @@ Still open:
 | 5. Group program | Group events, linked unit programs, joint activities, the overview, group printout and group calendar, *From the group* notices (section 8) | Large: the most involved part |
 | 6. Later | Activity library, templates, Google and Microsoft sign-in, other countries | As needed |
 
-Buying `qstored.org` and moving the builder onto `program.qstored.org` (GitHub Pages custom domain, with `no5tyle.github.io/programmer` redirecting) is part of phase 0.
+Moving the builder onto `program.qstored.org` (GitHub Pages custom domain, with `no5tyle.github.io/programmer` redirecting) is part of phase 0. `qstored.org` is bought; the steps for the move are in the README.
 
 Phases 1 to 4 are the first paid release. The group program (phase 5) is the second.
 

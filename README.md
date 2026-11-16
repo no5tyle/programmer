@@ -2,7 +2,7 @@
 
 A small web app for building a term program to share with Scout families. It runs entirely in the browser and is hosted on GitHub Pages. There's no server and no build step.
 
-**Use it:** [no5tyle.github.io/programmer](https://no5tyle.github.io/programmer/)
+**Use it:** [program.qstored.org](https://program.qstored.org/)
 
 ![The Program Builder on a computer: the term and branding settings on the left, the program on the right, and the formatting toolbar over a description being edited](docs/app-desktop.png)
 
@@ -78,10 +78,15 @@ Desktop editing works in current Chrome, Edge, Firefox and Safari.
 
 ## Hosting on GitHub Pages
 
-1. Merge into `main`.
-2. In the repository, go to **Settings → Pages**.
-3. Under **Build and deployment**, choose **Deploy from a branch**, then **`main`** and **`/ (root)`**.
-4. After a minute the site is live at [https://no5tyle.github.io/programmer/](https://no5tyle.github.io/programmer/).
+Every push to `main` is tested and then published by `.github/workflows/pages.yml` (in **Settings → Pages**, **Build and deployment** is set to **GitHub Actions**). If a test fails, the live site isn't touched.
+
+The site is served at **`program.qstored.org`**. GitHub sends the old address, `no5tyle.github.io/programmer`, there automatically. To set the address up:
+
+1. **Verify the domain** for the `no5tyle` account: your profile's **Settings → Pages → Add a domain**, `qstored.org`. GitHub shows a TXT record (`_github-pages-challenge-no5tyle.qstored.org`) to add at the domain's DNS provider. Verifying stops anyone else's Pages site from using the domain.
+2. **Add a DNS record:** `program` as a `CNAME` to `no5tyle.github.io` (no path).
+3. In this repository's **Settings → Pages**, enter `program.qstored.org` under **Custom domain**, wait for the DNS check, then tick **Enforce HTTPS**. No `CNAME` file is needed, because the site is published by the workflow.
+
+Each address keeps its own saved programs in the browser, so programs saved at the old address don't appear at the new one. Use **Save file** at the old address first, and **Open** at the new one. This is why the move comes before anyone signs in (`docs/premium-plan.md`, section 3.2).
 
 ## Running locally
 
