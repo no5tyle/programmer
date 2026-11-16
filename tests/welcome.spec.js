@@ -298,7 +298,9 @@ test.describe("leaders are optional, and needn't be shown", () => {
     await page.fill('[data-wl="0"][data-f="name"]', 'Akela');
     await page.uncheck('#wzShowLeaders');
     await page.click('[data-wz="next"]');
+    await expect(page.locator('.tour-count')).toBeVisible();
     await page.keyboard.press('Escape');
+    await expect(page.locator('.tour-layer')).toHaveCount(0);
     expect(await page.evaluate(() => [state.branding.leaders, state.branding.showLeaders])).toEqual([[{ name: 'Akela', phone: '' }], false]);
     await expect(page.locator('#sheet .doc-leaders')).toHaveCount(0);
     // Still offered as each activity's leader
@@ -311,4 +313,20 @@ test.describe("leaders are optional, and needn't be shown", () => {
     await page.check('[data-bind="branding.showLeaders"]');
     await expect(page.locator('#sheet .doc-leaders')).toContainText('Akela');
   });
+});
+
+test('buttons whose purpose may be unclear have tooltips', async ({ page }) => {
+  await page.addInitScript(() => { if (!localStorage.getItem('scoutProgramBuilder.welcome')) localStorage.setItem('scoutProgramBuilder.welcome', 'done'); });
+  await page.goto('/');
+  await page.waitForFunction(() => typeof state === 'object');
+  for (const sel of ['#btnGenerate2', '#btnLogo', '#btnLogoClear', '#btnReset', '#btnMobileView', '#btnAddRow', '#btnAddWeek',
+    '#fitStatus', '#zoomSelect', '#btnUndo', '#btnPrograms', '#btnImport', '#btnSave', '#btnExport', '#btnHelp',
+    '[data-add="dates"]', '[data-add="notes"]', '[data-add="patrols"]', '[data-add="categories"]', '[data-add="challenges"]']) {
+    expect((await page.locator(sel).first().getAttribute('title')) || '', sel).not.toBe('');
+  }
+  await page.click('#btnPrograms');
+  await expect(page.locator('#pNewProg')).toHaveAttribute('title', /keeping your branding/);
+  await expect(page.locator('#pDupProg')).toHaveAttribute('title', /copy/);
+  // The tour's Weeks and activities stop no longer mentions generating dates
+  expect(await page.evaluate(() => TOUR_DESKTOP.find((s) => s.title === 'Weeks and activities').text)).not.toContain('Generate');
 });

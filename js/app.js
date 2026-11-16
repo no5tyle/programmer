@@ -355,8 +355,8 @@ function openProgramsMenu(anchor) {
         </div>`).join('')}
     </div>
     <div class="pop-actions">
-      <button class="btn btn-text btn-sm" id="pDupProg">Duplicate this one</button>
-      <button class="btn btn-primary btn-sm" id="pNewProg">New program</button>
+      <button class="btn btn-text btn-sm" id="pDupProg" title="Make a copy of this program, to change without touching this one">Duplicate this one</button>
+      <button class="btn btn-primary btn-sm" id="pNewProg" title="Start another program for this term or the next, keeping your branding, leaders, columns and lists">New program</button>
     </div>`, { type: 'programs' });
   pop.querySelectorAll('[data-open]').forEach((b) => { b.onclick = () => { closePopover(); openProgram(b.dataset.open); }; });
   pop.querySelectorAll('[data-delprog]').forEach((b) => { b.onclick = () => { closePopover(); deleteProgram(b.dataset.delprog); }; });
@@ -1384,7 +1384,7 @@ function fit() {
   } else {
     status.className = 'chip ok';
     status.textContent = `Fits 1 page · ${fs}pt`;
-    status.title = '';
+    status.title = `Fits on one printed page, with text at ${fs}pt${o.autoFit ? ' (shrunk to fit as needed)' : ''}`;
   }
   applyZoom();
 }
@@ -1543,8 +1543,8 @@ function renderLists() {
       <button class="icon-btn" data-align="${i}" title="Text alignment: ${c.align}" aria-label="Toggle alignment">
         <svg viewBox="0 0 24 24">${c.align === 'left' ? '<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>' : '<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>'}</svg></button>
       <span class="move">
-        <button class="icon-btn" data-move-col="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''} aria-label="Move up"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg></button>
-        <button class="icon-btn" data-move-col="${i}" data-dir="1" ${i === state.columns.length - 1 ? 'disabled' : ''} aria-label="Move down"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+        <button class="icon-btn" data-move-col="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''} aria-label="Move up" title="Move this column left on the page"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg></button>
+        <button class="icon-btn" data-move-col="${i}" data-dir="1" ${i === state.columns.length - 1 ? 'disabled' : ''} aria-label="Move down" title="Move this column right on the page"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
       </span>
     </div>`).join('');
 
@@ -1647,7 +1647,7 @@ function openDatePopover(td, row) {
     <label class="field"><span>Custom text (replaces date)</span><input type="text" id="pLabel" value="${esc(row.dateLabel)}" placeholder="e.g. Sat or Sun 7 or 8 Nov"></label>
     ${timeShownInDate(row) ? `<div class="field"><span>Time <em class="muted">— shown with the date, as the Time column is hidden</em></span>
       <button type="button" class="btn btn-outline btn-sm" id="pTime">${esc((row.time || '').replace('\n', ' – ')) || 'Set a time'}</button></div>` : ''}
-    <div class="pop-actions"><button class="btn btn-text btn-sm" id="pClear">Clear</button><button class="btn btn-primary btn-sm" id="pDone">Done</button></div>`,
+    <div class="pop-actions"><button class="btn btn-text btn-sm" id="pClear" title="Take the date off (and any end date or date text)">Clear</button><button class="btn btn-primary btn-sm" id="pDone">Done</button></div>`,
   { type: 'date', id: row.id });
   pushHistory();
   const apply = () => {
@@ -1702,7 +1702,7 @@ function openTimePopover(td, row) {
     <p class="hint" id="tLen"></p>
     <label class="field"><span>Shown as <em class="muted">— or type anything</em></span>
       <textarea id="tText" rows="2" class="bound-textarea" placeholder="e.g. Pick up 9 AM">${esc(row.time)}</textarea></label>
-    <div class="pop-actions"><button class="btn btn-text btn-sm" id="tClear">Clear</button><button class="btn btn-primary btn-sm" id="tDone">Done</button></div>`,
+    <div class="pop-actions"><button class="btn btn-text btn-sm" id="tClear" title="Take the time off">Clear</button><button class="btn btn-primary btn-sm" id="tDone">Done</button></div>`,
   { type: 'time', id: row.id });
   pushHistory();
   const start = $('#tStart'), end = $('#tEnd'), text = $('#tText'), len = $('#tLen');

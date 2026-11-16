@@ -77,7 +77,7 @@ function renderMobile() {
     ? groups.map((g) => `
       <section class="m-week">
         <div class="m-wk">${esc(typeof g.key === 'number' ? `${state.options.weekPrefix || ''}${g.key}`.trim() : (state.options.holidayLabel || '–'))}
-          ${g.rows[0].emptyWeek ? '' : `<button class="m-wk-add" data-week="${toISO(rowWeekStart(g.rows[0]))}" aria-label="Add an activity to this week"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>`}</div>
+          ${g.rows[0].emptyWeek ? '' : `<button class="m-wk-add" data-week="${toISO(rowWeekStart(g.rows[0]))}" aria-label="Add an activity to this week" title="Add an activity on any day of this week"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>`}</div>
         <div class="m-rows">${g.rows.map(rowItem).join('')}</div>
       </section>`).join('')
     : `<div class="m-empty"><p>No activities yet.</p><button class="btn btn-primary" id="mGenerate">Generate meeting dates</button>
@@ -231,7 +231,7 @@ function editorHTML(r) {
   const datalists = { forms: ['-', 'C2G', 'MyScout', 'Event form'] };
 
   // "Aa" beside a picked field's name brings up its style toolbar (bold, italic, colour)
-  const aa = (k, text) => `<span class="m-label">${text}<button type="button" class="m-style" data-style-cell="${k}" aria-label="Style ${esc(label(k) || k)}">Aa</button></span>`;
+  const aa = (k, text) => `<span class="m-label">${text}<button type="button" class="m-style" data-style-cell="${k}" aria-label="Style ${esc(label(k) || k)}" title="Bold, italic, colour and alignment for this">Aa</button></span>`;
   const field = (k) => {
     const v = r[k] || '';
     if (k === 'patrol') {
