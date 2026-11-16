@@ -748,3 +748,6 @@ body.mobile .prog .col-grip { display: none; }
 /* The ? beside Export: an icon on its own */
 .btn-help { width: 36px; padding: 0; justify-content: center; }
 .btn-help svg { margin: 0; }
+
+.wz-example { margin: 12px 0 0; font-size: 14px; color: var(--text-2); align-items: flex-start; }
+.wz-example input { margin-top: 2px; }

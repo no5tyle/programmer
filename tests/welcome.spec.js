@@ -228,3 +228,55 @@ test("the Program files highlight stops short of the Export button", async ({ pa
     return spot.x + spot.width + 2 <= exp.x;     // its ring is 2px wide
   }).toBe(true);
 });
+
+test.describe('example activities from the wizard', () => {
+  const finishWizard = async (page, example) => {
+    await page.goto('/');
+    await page.fill('#wzGroup', '1st Example Scout Group');
+    await page.click('[data-wz="next"]');
+    await page.click('[data-section="scouts"]');
+    await page.click('[data-wz="next"]');
+    await page.selectOption('[data-wt="region"]', 'VIC');
+    await page.selectOption('[data-wt="year"]', '2027');
+    await page.selectOption('[data-wt="term"]', '1');
+    await page.selectOption('[data-wt="meetingDay"]', '3');
+    await page.click('[data-wz="next"]');
+    await page.fill('[data-wl="0"][data-f="name"]', 'Akela');
+    await page.click('#wzAddLeader');
+    await page.fill('[data-wl="1"][data-f="name"]', 'Baloo');
+    await expect(page.locator('#wzExample')).not.toBeChecked();     // off unless ticked
+    if (example) await page.check('#wzExample');
+    // Back and forth keeps the leaders and the choice
+    await page.click('[data-wz="back"]');
+    await page.click('[data-wz="next"]');
+    await expect(page.locator('[data-wl="1"][data-f="name"]')).toHaveValue('Baloo');
+    await expect(page.locator('#wzExample')).toBeChecked({ checked: example });
+    await page.click('[data-wz="next"]');
+    await expect(page.locator('.tour-count')).toBeVisible();
+    await page.keyboard.press('Escape');
+  };
+
+  test("ticked: the example's activities on your term's nights, with your leaders and section", async ({ page }) => {
+    await finishWizard(page, true);
+    const rows = await page.evaluate(() => state.rows.map((r) => [r.date, r.noMeeting, r.activity, r.leader]));
+    // Your term (VIC Term 1 2027, Wednesdays) and its week off
+    expect(rows[0]).toEqual(['2027-01-27', true, 'No Scouts – Term starts Thu 28 Jan', '']);
+    expect(rows[1]).toEqual(['2027-02-03', false, 'Welcome Back Games', 'Akela']);
+    expect(rows[2]).toEqual(['2027-02-10', false, 'Knots for Camp', 'Baloo']);
+    // The example's other leaders go to yours in turn
+    expect(rows[3][3]).toBe('Akela');
+    expect(await page.evaluate(() => state.rows.find((r) => r.activity === 'Backyard Olympics').description)).toContain('Bring a friend to try Scouts!');
+    expect(await page.evaluate(() => [state.branding.groupName, state.branding.section, state.term.region])).toEqual(['1st Example Scout Group', 'scouts', 'VIC']);
+    // Undo takes the example out again
+    await page.click('#btnUndo');
+    expect(await page.evaluate(() => state.rows.filter((r) => r.activity && !r.noMeeting).length)).toBe(0);
+  });
+
+  test('not ticked: an empty program, which offers the example later', async ({ page }) => {
+    await finishWizard(page, false);
+    expect(await page.evaluate(() => state.rows.filter((r) => !r.noMeeting && r.activity).length)).toBe(0);
+    await page.evaluate(() => { state.rows = []; renderAll(); });
+    await page.click('#sheet .empty-row [data-example]');
+    await expect.poll(() => page.evaluate(() => state.rows.find((r) => !r.noMeeting)?.activity)).toBe('Welcome Back Games');
+  });
+});

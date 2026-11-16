@@ -23,6 +23,7 @@ function openWelcome() {
   };
   if (!draft.leaders.length) draft.leaders.push({ name: '', phone: '' });
   draft.term = suggestedTerm();
+  draft.example = false;  // ticked: fill the meeting nights with the example's activities
   let step = 0;
 
   const back = document.createElement('div');
@@ -100,7 +101,9 @@ function openWelcome() {
               ${draft.leaders.length > 1 ? `<button type="button" class="icon-btn" data-wl-del="${i}" title="Remove" aria-label="Remove leader ${i + 1}"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>` : ''}
             </div>`).join('')}
         </div>
-        <button type="button" class="btn btn-text btn-sm" id="wzAddLeader">+ Add another leader</button>`,
+        <button type="button" class="btn btn-text btn-sm" id="wzAddLeader">+ Add another leader</button>
+        <label class="check wz-example"><input type="checkbox" id="wzExample" ${draft.example ? 'checked' : ''}>
+          Start with example activities, using your group, term and leaders (change them to your own)</label>`,
       check() {
         readLeaders();
         return draft.leaders.some((l) => l.name.trim()) ? '' : 'Enter at least one leader\'s name.';
@@ -127,6 +130,8 @@ function openWelcome() {
   }
 
   function readLeaders() {
+    const ex = $('#wzExample', box);
+    if (ex) draft.example = ex.checked;
     $$('[data-wl]', box).forEach((el) => { draft.leaders[+el.dataset.wl][el.dataset.f] = el.value; });
   }
 
@@ -175,8 +180,11 @@ function openWelcome() {
     renderAll();
     close();
     setWelcomeState('done');
-    // Wait for the sheet to lay out with the new branding before pointing at things
-    setTimeout(startTour, 250);
+    // The example's activities on the new program's nights, if wanted; then the tour (once the sheet has
+    // laid out with the new branding)
+    const tour = () => setTimeout(startTour, 250);
+    if (draft.example && !rowsHaveContent()) fillExampleActivities().finally(tour);
+    else tour();
   }
 
   function close() {
@@ -207,7 +215,7 @@ function openWelcome() {
     if (del) { readLeaders(); draft.leaders.splice(+del.dataset.wlDel, 1); render(false); return; }
     const act = e.target.closest('[data-wz]')?.dataset.wz;
     if (act === 'next') next();
-    if (act === 'back') { if (step === 2) readLeaders(); step--; render(); }
+    if (act === 'back') { if ($('[data-wl]', box)) readLeaders(); step--; render(); }
     if (act === 'skip') { close(); setWelcomeState('done'); }
   });
   // Arrow keys move between sections, as in a radio group

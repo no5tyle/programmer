@@ -1114,7 +1114,7 @@ function renderSheet() {
     <table class="prog">
       <colgroup>${cols.map((c) => `<col data-key="${c.key}" data-pct="${((+c.width || 1) / totalW) * 100}" style="width:${((+c.width || 1) / totalW) * 100}%">`).join('')}</colgroup>
       <thead><tr>${cols.map((c, i) => `<th class="c-${c.key}"><span class="th-l">${esc(c.label)}</span>${i < cols.length - 1 ? `<span class="col-grip" data-col="${i}" title="Drag to resize"></span>` : ''}</th>`).join('')}</tr></thead>
-      <tbody>${body || `<tr class="empty-row"><td colspan="${cols.length}">No activities yet — use <b>Generate meeting dates</b> (under <i>Term &amp; meeting night</i>) or <b>Add activity</b>.</td></tr>`}</tbody>
+      <tbody>${body || `<tr class="empty-row"><td colspan="${cols.length}">No activities yet — use <b>Generate meeting dates</b> (under <i>Term &amp; meeting night</i>) or <b>Add activity</b>, or <button type="button" class="link-btn ph" data-example>fill in example activities</button> to start from.</td></tr>`}</tbody>
     </table>
     ${extrasHTML()}
     ${b.footerText ? `<div class="doc-footer"${fs('branding.footerText')}>${esc(b.footerText)}</div>` : ''}`;
@@ -1973,6 +1973,49 @@ function addActivity() {
   tr?.focus();
 }
 
+/**
+ * Fill this program's meeting nights with the example program's activities (examples/example-program.json),
+ * in order, keeping everything else: the group, section, term and dates, leaders and weeks off. The
+ * example's leaders become this program's (in turn), and "Cubs" becomes the section's name. Returns true
+ * if it filled them in.
+ */
+async function fillExampleActivities() {
+  let ex;
+  try {
+    const res = await fetch('examples/example-program.json');
+    ex = await res.json();
+  } catch {
+    toast('The example couldn\'t be loaded. Check you\'re online and try again.', 'error');
+    return false;
+  }
+  const acts = (ex.rows || []).filter((r) => !r.noMeeting && (r.activity || '').trim());
+  pushHistory();
+  if (!state.rows.some((r) => !r.noMeeting && !r.emptyWeek)) state.rows = generateRows();
+  const nights = state.rows.filter((r) => !r.noMeeting && !r.emptyWeek);
+  const mine = state.branding.leaders.map((l) => l.name.trim()).filter(Boolean);
+  const leaderFor = new Map();
+  const section = state.branding.sectionName || 'Cubs';
+  const one = section.replace(/s$/, '');
+  const swap = (t) => String(t || '').replace(/\bCubs\b/g, section).replace(/\bCub\b/g, one);
+  nights.forEach((r, i) => {
+    const a = acts[i];
+    if (!a) return;
+    if (a.leader && !leaderFor.has(a.leader)) leaderFor.set(a.leader, mine.length ? mine[leaderFor.size % mine.length] : '');
+    Object.assign(r, {
+      activity: swap(a.activity), description: swap(a.description), notes: swap(a.notes),
+      uniform: a.uniform || r.uniform, forms: a.forms || '', cost: a.cost || '', where: a.where || '',
+      leader: a.leader ? leaderFor.get(a.leader) : '',
+      challenge: state.challenges.some((c) => c.id === a.challenge) ? a.challenge : '',
+      category: state.categories.some((c) => c.id === a.category) ? a.category : '',
+      autoHoliday: false,
+    });
+    delete r.rich; delete r.cellStyle;
+  });
+  save(); renderAll();
+  toast('Example activities filled in. Change them to your own (Undo takes them out again).');
+  return true;
+}
+
 /** Add an activity on a date (the default time only on the meeting night), then start editing it. */
 function addActivityOn(iso) {
   const d = parseDate(iso);
@@ -2774,6 +2817,7 @@ function bindEvents() {
     sel.removeAllRanges(); sel.addRange(range);
   });
   sheet.addEventListener('click', (e) => {
+    if (e.target.closest('[data-example]')) { fillExampleActivities(); return; }
     const addIn = e.target.closest('[data-add-week]');
     if (addIn) {
       // A week's + (or an empty week's Add) opens the day picker, or closes it if it's already open from there

@@ -80,8 +80,10 @@ function renderMobile() {
           ${g.rows[0].emptyWeek ? '' : `<button class="m-wk-add" data-week="${toISO(rowWeekStart(g.rows[0]))}" aria-label="Add an activity to this week"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>`}</div>
         <div class="m-rows">${g.rows.map(rowItem).join('')}</div>
       </section>`).join('')
-    : `<div class="m-empty"><p>No activities yet.</p><button class="btn btn-primary" id="mGenerate">Generate meeting dates</button></div>`;
+    : `<div class="m-empty"><p>No activities yet.</p><button class="btn btn-primary" id="mGenerate">Generate meeting dates</button>
+        <p><button class="link-btn" id="mExample">Or fill in example activities to start from</button></p></div>`;
   $('#mGenerate')?.addEventListener('click', generateDates);
+  $('#mExample')?.addEventListener('click', () => fillExampleActivities());
   const status = $('#fitStatus');
   $('#mFit').textContent = status.textContent;
   $('#mFit').className = status.className;
