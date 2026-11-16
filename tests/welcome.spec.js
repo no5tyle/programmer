@@ -343,26 +343,6 @@ test.describe('for leaders new to it', () => {
     await page.waitForFunction(() => typeof state === 'object' && document.querySelector('#fitStatus')?.textContent !== '—');
   });
 
-  test('each row has a faint ⋮ that opens and closes its menu, and the week + shows faintly', async ({ page }) => {
-    await page.mouse.move(2, 400);
-    const dots = page.locator('#sheet tbody tr:nth-child(2) .row-dots');
-    await expect(dots).toBeVisible();
-    expect(Number(await dots.evaluate((e) => getComputedStyle(e).opacity))).toBeGreaterThan(0.3);
-    expect(Number(await page.locator('#sheet .ph.wk-add').first().evaluate((e) => getComputedStyle(e).opacity))).toBeGreaterThan(0.2);
-    // Pressing where it is opens the row's menu (on hover the solid ⋮ takes its place), and again closes it
-    const box = await dots.boundingBox();
-    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-    await expect(page.locator('#popover')).toContainText('no meeting');
-    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-    await expect(page.locator('#popover')).toBeHidden();
-    // The faint one works by itself too (as on a touch screen, with no hover)
-    await dots.dispatchEvent('click');
-    await expect(page.locator('#popover')).toContainText('no meeting');
-    await page.keyboard.press('Escape');
-    await page.emulateMedia({ media: 'print' });
-    await expect(dots).toBeHidden();
-  });
-
   test('less-used settings sit under More settings, closed', async ({ page }) => {
     const more = page.locator('#moreSettings');
     await expect(more).not.toHaveAttribute('open', '');

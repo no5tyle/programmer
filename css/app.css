@@ -682,17 +682,9 @@ body.mobile .prog .col-grip { display: none; }
   font: 700 1em/1 system-ui, sans-serif; font-style: normal; cursor: pointer;
   opacity: 0; transition: opacity .15s;
 }
-/* Always there, small and quiet (white with a blue +, on the table's edge) so it can be found without
-   hovering; full size and solid when the Week cell is hovered */
-.prog .ph.wk-add {
-  opacity: 1; width: 1.15em; height: 1.15em; font-size: .9em;
-  background: #fff; color: #007aff; border: 1px solid #9dbcf0; transform: translate(-75%, -50%);
-  transition: background .15s, color .15s;
-}
-.prog td.c-week:hover .ph.wk-add, .prog .ph.wk-add:focus-visible, .prog .ph.wk-add.tour-show {
-  width: 1.7em; height: 1.7em; font-size: 1em; background: #007aff; color: #fff; border-color: #007aff; transform: translate(-50%, -50%);
-}
-
+/* Shows when the Week cell is hovered */
+.prog td.c-week:hover .ph.wk-add, .prog .ph.wk-add:focus-visible, .prog .ph.wk-add.tour-show { opacity: 1; }
+@media (hover: none) { .prog .ph.wk-add { opacity: .85; } }
 .day.meet b { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .wz-term { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
 .wz-term .field { margin: 0; }
@@ -761,16 +753,6 @@ body.mobile .prog .col-grip { display: none; }
 .wz-example { margin: 12px 0 0; font-size: 14px; color: var(--text-2); align-items: flex-start; }
 .wz-example input { margin-top: 2px; }
 
-/* 1. A faint ⋮ on every row's right-hand edge (screen only); the hover ⋮ (#rowHandle) covers it */
-.prog .ph.row-dots {
-  position: absolute; right: 0; top: 50%; transform: translate(50%, -50%); z-index: 2;
-  display: grid; place-items: center; width: 18px; height: 26px; padding: 0;
-  border: 1px solid #aeaeb2; border-radius: 999px; background: #fff; color: #636366;
-  cursor: pointer; font-style: normal;
-}
-.prog .ph.row-dots svg { width: 14px; height: 14px; fill: currentColor; stroke: none; }
-.prog .ph.row-dots:hover { color: #007aff; border-color: #007aff; }
-
 /* 2. More settings: the less-used sections, closed until opened */
 .more-settings { display: flex; flex-direction: column; gap: 12px; }
 .more-settings > summary {
@@ -797,4 +779,4 @@ body.mobile .prog .col-grip { display: none; }
 .help-list details { border-bottom: .5px solid var(--border-soft); }
 .help-list summary { padding: 9px 2px; cursor: pointer; font-weight: 600; color: var(--text); }
 .help-list details p { margin: 0 2px 10px; }
-@media print { .prog .ph.row-dots, .prog .ph.wk-add, .prog .ph.wk-empty-add { display: none !important; } }
+@media print { .prog .ph.wk-add, .prog .ph.wk-empty-add { display: none !important; } }

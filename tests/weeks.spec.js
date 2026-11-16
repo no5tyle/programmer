@@ -343,7 +343,7 @@ test.describe('final touches', () => {
 
   test('the tip under the program and the tour say what they should', async ({ page }) => {
     await expect(page.locator('.canvas-tip')).not.toContainText('highlight');
-    await expect(page.locator('.canvas-tip')).toContainText('moves it, deletes it or marks a week off');
+    await expect(page.locator('.canvas-tip')).toContainText('add, move or delete');
     const t = await page.evaluate(() => TOUR_DESKTOP.map((s) => s.text).join(' '));
     expect(t).toContain('bold, italic, colour and alignment');
     expect(t).toContain('in this browser only');

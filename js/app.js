@@ -1106,10 +1106,7 @@ function renderSheet() {
       return `<td class="c-week${wcls}" rowspan="${g.rows.length}" data-align="${wst?.a || c.align || 'center'}"${ws ? ` data-week="${toISO(ws)}"` : ''}${wstyle}><span class="wk">${esc(label)}</span>${add}</td>`;
     }).join('');
     const cls = [r.noMeeting && 'no-meeting', r.emptyWeek && 'empty-week', i > 0 && cols[0]?.key === 'week' && 'cont'].filter(Boolean).join(' ');
-    // Screen only (.ph): a faint ⋮ on the row's right-hand edge, so its menu is easy to find; the ⋮ that
-    // shows on hover (#rowHandle) sits on top of it
-    const dots = `<button type="button" class="ph row-dots" data-row-menu="${r.id}" tabindex="-1" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>`;
-    return `<tr data-id="${r.id}"${cls ? ` class="${cls}"` : ''}>${cells.replace(/<\/td>$/, `${dots}</td>`)}</tr>`;
+    return `<tr data-id="${r.id}"${cls ? ` class="${cls}"` : ''}>${cells}</tr>`;
   }).join('')).join('');
 
   sheet.innerHTML = `
@@ -1923,8 +1920,6 @@ function onOpenersButton(target) {
   if (target.closest('#rowHandle')) return popCtx.type === 'row' && popCtx.id === handleRow;
   if (target.closest('#btnExport')) return popCtx.type === 'export';
   if (target.closest('#btnPrograms')) return popCtx.type === 'programs';
-  const dots = target.closest('[data-row-menu]');
-  if (dots) return popCtx.type === 'row' && popCtx.id === dots.dataset.rowMenu;
   const cell = target.closest('#sheet td.clickable');
   if (cell) return popCtx.type === cell.dataset.pop && popCtx.id === cell.closest('tr')?.dataset.id;
   const add = target.closest('[data-add-week]');
@@ -2856,14 +2851,6 @@ function bindEvents() {
   });
   sheet.addEventListener('click', (e) => {
     if (e.target.closest('[data-example]')) { fillExampleActivities(); return; }
-    const dots = e.target.closest('[data-row-menu]');
-    if (dots) {
-      const id = dots.dataset.rowMenu;
-      if (!pop.hidden && popCtx?.type === 'row' && popCtx.id === id) { closePopover(); return; }
-      handleRow = id;
-      openRowMenu(dots, id);
-      return;
-    }
     const addIn = e.target.closest('[data-add-week]');
     if (addIn) {
       // A week's + (or an empty week's Add) opens the day picker, or closes it if it's already open from there
