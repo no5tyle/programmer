@@ -682,7 +682,7 @@ body.mobile .prog .col-grip { display: none; }
   font: 700 1em/1 system-ui, sans-serif; font-style: normal; cursor: pointer;
   opacity: 0; transition: opacity .15s;
 }
-.prog td.c-week:hover .ph.wk-add, .prog .ph.wk-add:focus-visible { opacity: 1; }
+.prog td.c-week:hover .ph.wk-add, .prog .ph.wk-add:focus-visible, .prog .ph.wk-add.tour-show { opacity: 1; }
 @media (hover: none) { .prog .ph.wk-add { opacity: .85; } }
 .day.meet b { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .wz-term { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }

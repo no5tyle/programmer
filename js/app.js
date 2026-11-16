@@ -1820,7 +1820,6 @@ function openRowMenu(anchor, rowId) {
     <div class="menu">
       <button data-act="below">${icon('<path d="M12 5v14M5 12h14"/>')}Add activity below <small>same date</small></button>
       <button data-act="above">${icon('<path d="M12 5v14M5 12h14"/>')}Add activity above</button>
-      <button data-act="week">${icon('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/>')}Add activity this week… <small>pick the day</small></button>
       <button data-act="break">${icon(r.noMeeting ? '<path d="M3 12h4l3-8 4 16 3-8h4"/>' : '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M9 14l6 5M15 14l-6 5"/>')}${r.noMeeting ? 'Turn back into an activity' : 'Mark as no meeting'}</button>
       <button data-act="dup">${icon('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>')}Duplicate</button>
       <button data-act="up" ${up ? '' : 'disabled'}>${icon('<path d="m6 15 6-6 6 6"/>')}${moveLabel(up, 'up')}</button>
@@ -1838,7 +1837,6 @@ function openRowMenu(anchor, rowId) {
   pop.onclick = (e) => {
     const btn = e.target.closest('[data-act],[data-cat]');
     if (!btn || btn.disabled) return;
-    if (btn.dataset.act === 'week') { openAddToWeekPopover(anchor, rowWeekStart(rowById(rowId))); return; }
     pushHistory();
     const i = state.rows.findIndex((x) => x.id === rowId);
     const row = state.rows[i];

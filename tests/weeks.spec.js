@@ -65,11 +65,12 @@ test.describe('desktop', () => {
     expect(tue.map((x) => x.time)).toEqual(['18:15–19:45', '18:15–19:45']);
   });
 
-  test('the row menu adds to the week too, and an empty week can become a week off or go', async ({ page }) => {
+  test("the row menu leaves adding to a week to the week's +, and an empty week can become a week off or go", async ({ page }) => {
     await page.hover('#sheet tbody tr:nth-child(2) td.c-date');
     await page.click('#rowHandle');
-    await page.click('#popover [data-act="week"]');
-    await expect(page.locator('#popover .pop-sub')).toHaveText('Week 2 · 19–25 Oct');
+    await expect(page.locator('#popover .menu')).toBeVisible();
+    await expect(page.locator('#popover [data-act="week"]')).toHaveCount(0);
+    await expect(page.locator('#popover')).not.toContainText('Add activity this week');
     await page.keyboard.press('Escape');
     await page.mouse.click(5, 5);
 

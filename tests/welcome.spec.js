@@ -91,7 +91,7 @@ test('first visit: setup wizard, then the tour', async ({ page }) => {
   expect(t[1]).toEqual(['2027-01-27', '2027-02-03', '2027-02-10', '2027-02-17', '2027-02-24', '2027-03-03', '2027-03-10', '2027-03-17', '2027-03-24']);
   await expect(page.locator('[data-bind="term.region"]')).toHaveValue('VIC');
   await expect(page.locator('#sheet')).toContainText('Akela');
-  await stepThroughTour(page, 8);
+  await stepThroughTour(page, 9);
 
   // Not shown again, and the tour can be taken from the sidebar
   await page.reload();
@@ -99,7 +99,7 @@ test('first visit: setup wizard, then the tour', async ({ page }) => {
   await expect(page.locator('.wz-backdrop')).toHaveCount(0);
   expect(await page.evaluate(() => state.branding.groupName)).toBe('1st Example Scout Group');
   await page.click('#btnTour');
-  await expect(page.locator('.tour-count')).toHaveText('1 of 8');
+  await expect(page.locator('.tour-count')).toHaveText('1 of 9');
   await page.keyboard.press('Escape');
   await expect(page.locator('.tour-layer')).toHaveCount(0);
   expect(errors).toEqual([]);
@@ -179,10 +179,19 @@ test('the tour has you open a row menu: clicking the ⋮ opens it and moves on, 
   await expect(page.locator('#rowHandle')).toBeVisible();
   await page.click('[data-tour="next"]');
   await expect(page.locator('#popover .menu')).toBeVisible();
-  // Moving on closes it; ending the tour puts the ⋮ away
+  // Moving on closes it, and shows a week's + (which otherwise shows on hover)
   await page.click('[data-tour="next"]');
   await expect(page.locator('#popover')).toBeHidden();
+  await expect(page.locator('.tour-tip h3')).toHaveText('Add to a week');
+  const plus = page.locator('#sheet .wk-add.tour-show');
+  await expect(plus).toHaveCount(1);
+  await expect(plus).toHaveCSS('opacity', '1');
+  await page.click('[data-tour="next"]');
+  await expect(page.locator('#sheet .wk-add.tour-show')).toHaveCount(0);
+  // Ending the tour puts the ⋮ away
   await page.keyboard.press('Escape');
   await expect(page.locator('.tour-layer')).toHaveCount(0);
+  // The ⋮ is a normal hover control again: it goes when the pointer leaves the program
+  await page.mouse.move(5, 300);
   await expect(page.locator('#rowHandle')).toBeHidden();
 });

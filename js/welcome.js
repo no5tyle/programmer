@@ -260,7 +260,9 @@ const TOUR_DESKTOP = [
   { target: ['#paper'], title: 'Your program', text: 'This is the page families get. Click any cell to edit it: a toolbar above it sets bold, italic, colour and alignment. Click a Week cell to style the whole week. Use the ⋮ on a row\'s right-hand edge to add, move or delete it.' },
   // Shown on a row and opened by the person taking the tour (or by Next)
   { target: ['#rowHandle'], title: 'Row options', text: 'Each row has a ⋮ on its right-hand edge (hover a row to see it). Click this one to open its menu.', always: true, interactive: true, enter: tourShowHandle },
-  { target: ['#popover'], title: 'The row menu', text: 'Add an activity on the same date or another day of the week, mark a week as no meeting (a public holiday or school holidays), duplicate a row, move it a week, highlight it, or delete it.', always: true, enter: tourOpenRowMenu, leave: tourCloseRowMenu },
+  { target: ['#popover'], title: 'The row menu', text: 'Add an activity on the same date, mark a week as no meeting (a public holiday or school holidays), duplicate a row, move it a week, highlight it, or delete it.', always: true, enter: tourOpenRowMenu, leave: tourCloseRowMenu },
+  // The + on a Week cell's left edge (it shows when the cell is hovered): shown, not clicked
+  { target: ['#sheet .wk-add.tour-show'], title: 'Add to a week', text: 'The + on a Week cell\'s left edge (hover the cell to see it) adds an activity on any day of that week: pick the day, and it\'s added to the week.', always: true, enter: tourShowWeekAdd, leave: tourHideWeekAdd },
   { target: ['#btnGenerate', '#btnAddRow', '#btnAddWeek'], title: 'Weeks and activities', text: 'Generate dates adds a row for every meeting night of the term. Add one-off activities, or a week before or after the term. For a week off, use Mark as no meeting in the row\'s ⋮ menu.' },
   { target: ['#btnPrograms'], title: 'Your programs', text: 'Programs save automatically, in this browser only. Find them under Programs, which also starts a New one for next term with the same branding. To keep a copy or move to another device, use Save file.' },
   { target: ['#btnImport', '#btnSave'], title: 'Program files', text: 'Save file keeps the whole program as a file, to keep a copy, move to another device or share with other leaders. Open brings one back.' },
@@ -421,6 +423,18 @@ function tourOpenRowMenu() {
 }
 
 function tourCloseRowMenu() { if (!pop.hidden) closePopover(); }
+
+/** The Add to a week step: a Week cell's + showing (the second week's, if there is one). */
+function tourShowWeekAdd() {
+  tourHideWeekAdd();
+  const adds = $$('#sheet td.c-week .wk-add');
+  const add = adds[1] || adds[0];
+  if (!add) return;
+  add.closest('td').scrollIntoView({ block: 'nearest' });
+  add.classList.add('tour-show');
+}
+
+function tourHideWeekAdd() { $$('#sheet .wk-add.tour-show').forEach((el) => el.classList.remove('tour-show')); }
 
 function endTour() {
   if (!tour) return;
