@@ -112,7 +112,7 @@
       </details>
 
       <details class="card" open>
-        <summary><span class="card-icon"><svg viewBox="0 0 24 24"><path d="M12 3 4 7v6c0 4.5 3.4 7.6 8 8 4.6-.4 8-3.5 8-8V7z"/></svg></span>Branding</summary>
+        <summary><span class="card-icon"><svg viewBox="0 0 24 24"><path d="M12 3 4 7v6c0 4.5 3.4 7.6 8 8 4.6-.4 8-3.5 8-8V7z"/></svg></span>Styling</summary>
         <div class="card-body">
           <label class="field"><span>Group name</span><input type="text" data-bind="branding.groupName" placeholder="e.g. 1st Example Scout Group"></label>
           <div class="grid-2">
@@ -189,9 +189,17 @@
         </div>
       </details>
 
+      <details class="card">
+        <summary><span class="card-icon"><svg viewBox="0 0 24 24"><path d="M4 21V4M4 4h12l-2 4 2 4H4"/></svg></span>Patrols</summary>
+        <div class="card-body">
+          <div class="list" id="patrolsList"></div>
+          <button class="btn btn-text btn-sm" data-add="patrols" title="Another duty patrol, taken in turn when meeting dates are generated">+ Add patrol</button>
+        </div>
+      </details>
+
       <!-- Settings most people won't need at first: closed until opened -->
       <details class="more-settings" id="moreSettings">
-        <summary>More settings <span class="more-sub">Columns, challenge areas, duty patrols, highlights, page &amp; layout</span></summary>
+        <summary>More settings <span class="more-sub">Columns, challenge areas, highlights, page &amp; layout</span></summary>
       <details class="card">
         <summary><span class="card-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg></span>Columns</summary>
         <div class="card-body">
@@ -212,13 +220,6 @@
         </div>
       </details>
 
-      <details class="card">
-        <summary><span class="card-icon"><svg viewBox="0 0 24 24"><path d="M4 21V4M4 4h12l-2 4 2 4H4"/></svg></span>Duty patrols</summary>
-        <div class="card-body">
-          <div class="list" id="patrolsList"></div>
-          <button class="btn btn-text btn-sm" data-add="patrols" title="Another duty patrol, taken in turn when meeting dates are generated">+ Add patrol</button>
-        </div>
-      </details>
 
       <details class="card">
         <summary><span class="card-icon"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.7-.9 1.4-1.8-.3-1 .3-2.2 1.6-2.2H17a4 4 0 0 0 4-4c0-5.5-4-10-9-10z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7" r="1"/></svg></span>Highlights &amp; legend</summary>

@@ -31,7 +31,7 @@ test.describe('phone', () => {
 
   test('settings screens use the same controls', async ({ page }) => {
     await page.click('#mMenu');
-    await page.click('.m-item:has-text("Branding")');
+    await page.click('.m-item:has-text("Styling")');
     await page.fill('.m-panel:not([hidden]) [data-bind="branding.groupName"]', '1st Example Scout Group');
     await page.click('.m-panel:not([hidden]) [data-panel-done]');
     expect(await page.evaluate(() => state.branding.groupName)).toBe('1st Example Scout Group');

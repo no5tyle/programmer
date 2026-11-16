@@ -915,7 +915,7 @@ function groupNameHTML() {
 function logoHTML() {
   const b = state.branding;
   if (b.logo) return `<img src="${b.logo}" alt="">`;
-  // The section's logo with its name under it, or the emblem alone (Branding → Section logo)
+  // The section's logo with its name under it, or the emblem alone (Styling → Section logo)
   const official = SECTIONS[b.section]?.[b.logoStyle === 'emblem' ? 'emblem' : 'logo'];
   if (official) return `<img src="${official}" alt="${esc(SECTIONS[b.section].name)} logo">`;
   return `<span class="logo-glyph" style="color:${esc(b.color)}">⚜</span>`;

@@ -49,7 +49,7 @@ function openWelcome() {
     {
       title: 'Which section?',
       body: () => `
-        <p>The section sets the program's title, colour and logo. You can change it later under <strong>Branding</strong>.</p>
+        <p>The section sets the program's title, colour and logo. You can change it later under <strong>Styling</strong>.</p>
         <div class="wz-sections" role="radiogroup" aria-label="Section">
           ${Object.entries(SECTIONS).map(([id, s]) => `
             <button type="button" class="wz-section ${draft.section === id ? 'on' : ''}" role="radio" aria-checked="${draft.section === id}" data-section="${id}" style="--sc:${esc(s.color)}">
@@ -270,7 +270,7 @@ function termSummary(t) {
 /* ---------------------------------------------------------------- tour */
 
 const TOUR_DESKTOP = [
-  { target: ['#sidebar'], title: 'Settings', text: 'Your term dates, meeting night, branding and leaders are here. Open any section to change it.' },
+  { target: ['#sidebar'], title: 'Settings', text: 'Your term dates, meeting night, styling, leaders and patrols are here. Open any section to change it.' },
   { target: ['#paper'], title: 'Your program', text: 'This is the page families get. Click any cell to edit it: a toolbar above it sets bold, italic, colour and alignment. Click a Week cell to style the whole week. Use the ⋮ on a row\'s right-hand edge to add, move or delete it.' },
   // The + on a Week cell's left edge (it shows when the cell is hovered): shown, not clicked
   { target: ['#sheet .wk-add.tour-show'], title: 'Add to a week', text: 'The + on a Week cell\'s left edge (hover the cell to see it) adds an activity on any day of that week: pick the day, and it\'s added to the week.', always: true, enter: tourShowWeekAdd, leave: tourHideWeekAdd },
@@ -289,7 +289,7 @@ const TOUR_MOBILE = [
   { target: ['#mPreview'], title: 'Preview', text: 'See the page as families will.' },
   { target: ['#mShare'], title: 'Share', text: 'Send it as a PDF, add it to a calendar, or save a file for other leaders.' },
   { target: ['#mTitle'], title: 'Your programs', text: 'Programs save automatically, on this phone only. Tap the title to switch between them. To keep a copy or move to another device, use Share, then Full program file.' },
-  { target: ['#mMenu'], title: 'Menu and settings', text: 'Term dates, branding, leaders and more. You can take this tour again from here.' },
+  { target: ['#mMenu'], title: 'Menu and settings', text: 'Term dates, styling, leaders, patrols and more. You can take this tour again from here.' },
 ];
 
 let tour = null;

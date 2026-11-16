@@ -346,8 +346,8 @@ test.describe('for leaders new to it', () => {
   test('less-used settings sit under More settings, closed', async ({ page }) => {
     const more = page.locator('#moreSettings');
     await expect(more).not.toHaveAttribute('open', '');
-    for (const t of ['Columns', 'Challenge areas', 'Duty patrols', 'Page']) await expect(more.locator('details.card summary', { hasText: t })).toHaveCount(1);
-    for (const t of ['Term', 'Branding', 'Leaders', 'Dates']) await expect(more.locator('details.card summary', { hasText: t })).toHaveCount(0);
+    for (const t of ['Columns', 'Challenge areas', 'Page']) await expect(more.locator('details.card summary', { hasText: t })).toHaveCount(1);
+    for (const t of ['Term', 'Styling', 'Leaders', 'Dates', 'Patrols']) await expect(more.locator('details.card summary', { hasText: t })).toHaveCount(0);
     await more.locator('> summary').click();
     await expect(more.locator('details.card summary', { hasText: 'Columns' })).toBeVisible();
   });
