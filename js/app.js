@@ -252,18 +252,27 @@ function readJSON(key) { try { return JSON.parse(localStorage.getItem(key)); } c
 function setSaveState(kind) {
   const el = $('#saveState');
   if (!el) return;
-  el.dataset.state = kind;
-  $('span', el).textContent = kind === 'saving' ? 'Saving…' : kind === 'failed' ? 'Not saved' : 'All changes saved';
+  // With accounts on, a saved change says where it's saved: on this device, or in the account (js/account.js)
+  const info = kind === 'saved' ? saveStateInfo() : null;
+  el.dataset.state = info ? info.state : kind;
+  $('span', el).textContent = info ? info.text : kind === 'saving' ? 'Saving…' : kind === 'failed' ? 'Not saved' : 'All changes saved';
+  if (info) el.title = info.title;
 }
 
 function save() {
   try {
-    localStorage.setItem(programKey(library.current), JSON.stringify(state));
-    const info = { id: library.current, name: titleText() || 'Untitled program', group: state.branding.groupName.trim(), updated: Date.now() };
-    const i = library.items.findIndex((x) => x.id === library.current);
-    if (i < 0) library.items.push(info); else library.items[i] = info;
+    const key = programKey(library.current);
+    const json = JSON.stringify(state);
+    const changed = localStorage.getItem(key) !== json;
+    localStorage.setItem(key, json);
+    let item = library.items.find((x) => x.id === library.current);
+    if (!item) { item = { id: library.current }; library.items.push(item); }
+    Object.assign(item, { name: titleText() || 'Untitled program', group: state.branding.groupName.trim() });
+    if (changed || !item.updated) item.updated = Date.now();
+    if (changed) accountChanged(item);   // signed in: it's sent on to the account
     localStorage.setItem(LIB_KEY, JSON.stringify(library));
     setSaveState('saved');
+    syncSoon();
   } catch {
     setSaveState('failed');
     toast('Could not save in this browser (storage full?). Use "Save file" to keep a copy.', 'error');
@@ -282,7 +291,7 @@ function freshState() {
 function load() {
   const lib = readJSON(LIB_KEY);
   if (lib && Array.isArray(lib.items)) {
-    library = { current: lib.current, items: lib.items.filter((x) => x && x.id) };
+    library = { ...lib, items: lib.items.filter((x) => x && x.id) };
     const raw = library.current && readJSON(programKey(library.current));
     if (raw) return normalise(raw);
     const other = library.items.find((x) => readJSON(programKey(x.id)));
@@ -306,8 +315,33 @@ function addProgram(next) {
   save(); renderAll();
 }
 
-function openProgram(id) {
+/** Signed out with accounts on, the browser keeps one program: `next` takes the place of the open one. */
+function replaceProgram(next) {
+  try { localStorage.removeItem(programKey(library.current)); } catch { /* ignore */ }
+  library.items = library.items.filter((x) => x.id !== library.current);
+  library.current = uid();
+  state = next;
+  undoStack = []; $('#btnUndo').disabled = true;
+  save(); renderAll();
+}
+
+/**
+ * Add a program, after checking there's room for it (js/account.js): signed out it replaces the one
+ * on this device, after asking, and a full free account is told so. Answers 'add', 'replace' or null.
+ */
+async function addProgramChecked(makeNext) {
+  const how = await newProgramGate();
+  if (!how) return null;
+  const next = await makeNext(how);
+  if (!next) return null;
+  if (how === 'replace') replaceProgram(next); else addProgram(next);
+  return how;
+}
+
+async function openProgram(id) {
   if (id === library.current) return;
+  // Signed in: take the account's copy if it's newer than the one here
+  if (signedIn() && !(await fetchForOpen(id))) return;
   const raw = readJSON(programKey(id));
   if (!raw) { toast('That program could not be found.', 'error'); return; }
   save();
@@ -322,13 +356,17 @@ async function deleteProgram(id) {
   if (!item) return;
   const ok = await modal({
     title: 'Delete this program?',
-    body: `<p><strong>${esc(item.name)}</strong>${item.group ? ` (${esc(item.group)})` : ''} will be removed from this browser. This can't be undone, so use <strong>Save file</strong> first if you might want it again.</p>`,
+    body: signedIn() && item.version != null
+      ? `<p><strong>${esc(item.name)}</strong>${item.group ? ` (${esc(item.group)})` : ''} will be deleted from your account, on every device. It can be brought back for 30 days, from <strong>Account</strong>.</p>`
+      : `<p><strong>${esc(item.name)}</strong>${item.group ? ` (${esc(item.group)})` : ''} will be removed from this browser. This can't be undone, so use <strong>Save file</strong> first if you might want it again.</p>`,
     buttons: [{ label: 'Cancel', value: false, cls: 'btn-text' }, { label: 'Delete', value: true, cls: 'btn-danger' }],
   });
   if (!ok) return;
   try { localStorage.removeItem(programKey(id)); } catch { /* ignore */ }
   library.items = library.items.filter((x) => x.id !== id);
+  accountDeleted(item);   // signed in: it goes to the account's bin too
   if (id === library.current) {
+    if (signedIn()) { await ensureCurrent(); toast('Program deleted.'); return; }
     const next = [...library.items].sort((a, b) => b.updated - a.updated)[0];
     if (next) { library.current = next.id; state = normalise(readJSON(programKey(next.id))); }
     else { library.current = uid(); freshState(); }
@@ -354,33 +392,55 @@ function relTime(ms) {
 
 function openProgramsMenu(anchor) {
   save();
+  const account = signedIn();
   const items = [...library.items].sort((a, b) => b.updated - a.updated);
+  const where = !accountsOn() ? 'saved in this browser' : account ? 'in your account' : 'on this device';
+  const sub = (x) => {
+    const held = x.hold === 'conflict' ? 'changed somewhere else' : x.hold ? 'on this device only' : '';
+    return `${esc([x.group, `edited ${relTime(x.updated)}`, held].filter(Boolean).join(' · '))}${x.id === library.current ? ' · <em>open</em>' : ''}`;
+  };
   openPopover(anchor, `
-    <div class="pop-title">Programs <span class="pop-sub">saved in this browser</span></div>
+    <div class="pop-title">${account ? 'My programs' : 'Programs'} <span class="pop-sub">${where}</span></div>
     <div class="prog-list">
       ${items.map((x) => `
         <div class="prog-item ${x.id === library.current ? 'on' : ''}">
           <button class="prog-open" data-open="${x.id}" ${x.id === library.current ? 'aria-current="true"' : ''}>
             <b>${esc(x.name)}</b>
-            <span>${esc([x.group, `edited ${relTime(x.updated)}`].filter(Boolean).join(' · '))}${x.id === library.current ? ' · <em>open</em>' : ''}</span>
+            <span>${sub(x)}</span>
           </button>
+          ${account && x.hold && x.hold !== 'conflict' ? `<button class="icon-btn" data-addprog="${x.id}" title="Add to my account" aria-label="Add ${esc(x.name)} to my account"><svg viewBox="0 0 24 24"><path d="M12 16V5M7 10l5-5 5 5M5 19h14"/></svg></button>` : ''}
           <button class="icon-btn" data-delprog="${x.id}" title="Delete" aria-label="Delete ${esc(x.name)}"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
         </div>`).join('')}
     </div>
+    ${accountsOn() && !account ? `<div class="prog-signin"><span>Sign in to keep more than one, and use them on any device.</span><button class="btn btn-outline btn-sm" id="pSignIn">Sign in</button></div>` : ''}
     <div class="pop-actions">
       <button class="btn btn-text btn-sm" id="pDupProg" title="Make a copy of this program, to change without touching this one">Duplicate this one</button>
       <button class="btn btn-primary btn-sm" id="pNewProg" title="Start another program for this term or the next, keeping your branding, leaders, columns and lists">New program</button>
     </div>`, { type: 'programs' });
   pop.querySelectorAll('[data-open]').forEach((b) => { b.onclick = () => { closePopover(); openProgram(b.dataset.open); }; });
   pop.querySelectorAll('[data-delprog]').forEach((b) => { b.onclick = () => { closePopover(); deleteProgram(b.dataset.delprog); }; });
-  $('#pDupProg').onclick = () => {
+  pop.querySelectorAll('[data-addprog]').forEach((b) => { b.onclick = () => { closePopover(); addHeldToAccount(b.dataset.addprog); }; });
+  if ($('#pSignIn')) $('#pSignIn').onclick = openSignIn;
+  $('#pDupProg').onclick = async () => {
     closePopover();
-    const c = copyOf(state);
-    c.branding.versionText = '';
-    addProgram(c);
-    toast('Copy made — you are now editing the copy.');
+    const how = await addProgramChecked(() => {
+      const c = copyOf(state);
+      c.branding.versionText = '';
+      return c;
+    });
+    if (how) toast('Copy made — you are now editing the copy.');
   };
   $('#pNewProg').onclick = () => { closePopover(); newProgram(); };
+  // Signed in: the list comes from the account, so bring it up to date while it's open
+  if (account && !anchor.dataset.fresh) {
+    const before = JSON.stringify(library.items);
+    refreshPrograms().then(() => {
+      if (pop.hidden || popCtx?.type !== 'programs' || !anchor.isConnected || JSON.stringify(library.items) === before) return;
+      anchor.dataset.fresh = '1';
+      openProgramsMenu(anchor);
+      delete anchor.dataset.fresh;
+    }).catch(() => {});
+  }
 }
 
 function pushHistory() {
@@ -2438,10 +2498,13 @@ async function importCsv(text, fileName) {
   });
   if (!choice) return;
   if (choice === 'new') {
-    const c = copyOf(state);
-    c.rows = rows;
-    c.branding.versionText = '';
-    addProgram(c);
+    const how = await addProgramChecked(() => {
+      const c = copyOf(state);
+      c.rows = rows;
+      c.branding.versionText = '';
+      return c;
+    });
+    if (!how) return;
   } else {
     pushHistory();
     state.rows = rows;
@@ -2553,7 +2616,13 @@ async function openHelp() {
     ['How do I mark a week off, like a public holiday?', 'Click the <b>⋮</b> at the right-hand end of the row and choose <b>Mark as no meeting</b>. On a phone, tap the week and turn on <b>No meeting this week</b>.'],
     ['How do I print it or send it to families?', '<b>Export</b>, then <b>Print</b> or <b>Save as PDF</b>. <b>Calendar for families</b> gives a file that adds every meeting to their phone\'s calendar. On a phone, use <b>Share</b>.'],
     ['How do I give it to another leader?', 'Press <b>Save file</b> and send them the file (by email or message). They open it with <b>Open</b>. On a phone: <b>Share</b>, then <b>Full program file</b>.'],
-    ['How do I use it on another computer or phone?', 'Your programs are saved in this browser only. Save a file here (<b>Save file</b>), then use <b>Open</b> on the other one.'],
+    accountsOn()
+      ? ['How do I use it on another computer or phone?', '<b>Sign in</b> on both, with the same email address. Your programs save to your account, so they\'re there on any device you sign in on. There\'s no password: we email you a link.']
+      : ['How do I use it on another computer or phone?', 'Your programs are saved in this browser only. Save a file here (<b>Save file</b>), then use <b>Open</b> on the other one.'],
+    ...(accountsOn() ? [
+      ['Where are my programs saved?', 'Signed in, they\'re saved to your account as you work, and the message by <b>Undo</b> says so. A free account keeps 3. Without signing in, one program is kept on this device. With no connection, changes are kept on the device and sent when you\'re back online.'],
+      ['What if I change a program on two devices?', 'Nothing is lost. If both were changed, you\'re shown the two versions and choose which to keep, or keep both.'],
+    ] : []),
     ['I made a mistake', '<b>Undo</b> (at the top; in the menu on a phone) takes back the last change, and the one before that.'],
   ];
   const choice = await modal({
@@ -2594,14 +2663,14 @@ function importJson() {
   input.onchange = () => {
     const f = input.files[0]; if (!f) return;
     const fr = new FileReader();
-    fr.onload = () => {
+    fr.onload = async () => {
       const text = String(fr.result);
       if (/\.(csv|tsv|txt)$/i.test(f.name) || !/^\s*[\[{]/.test(text.replace(/^\ufeff/, ''))) { importCsv(text, f.name); return; }
       try {
         const data = JSON.parse(text);
         if (!data || typeof data !== 'object' || !data.branding) throw new Error('bad');
-        addProgram(copyOf(normalise(data)));
-        toast('Program opened. It is saved alongside your others under Programs.');
+        const how = await addProgramChecked(() => copyOf(normalise(data)));
+        if (how) toast(how === 'replace' ? 'Program opened.' : 'Program opened. It is saved alongside your others under Programs.');
       } catch { toast('That file is not a saved program or spreadsheet.', 'error'); }
     };
     fr.readAsText(f);
@@ -2610,28 +2679,34 @@ function importJson() {
 }
 
 async function newProgram() {
-  const t = state.term;
-  const next = t.term >= 4 ? { year: t.year + 1, term: 1 } : { year: t.year, term: t.term + 1 };
-  const choice = await modal({
-    title: 'Start a new program',
-    body: `<p>This program stays saved under <strong>Programs</strong>. The new one keeps your branding, leaders, columns and lists, with fresh meeting dates.</p>`,
-    buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' },
-      { label: `Same term (T${t.term} ${t.year})`, value: 'same', cls: 'btn-outline' },
-      { label: `Next term (T${next.term} ${next.year})`, value: 'next', cls: 'btn-primary' }],
+  let empty = false;
+  await addProgramChecked(async (how) => {
+    const t = state.term;
+    const next = t.term >= 4 ? { year: t.year + 1, term: 1 } : { year: t.year, term: t.term + 1 };
+    const choice = await modal({
+      title: 'Start a new program',
+      body: how === 'replace'
+        ? `<p>The new program takes this one's place on this device. It keeps your branding, leaders, columns and lists, with fresh meeting dates.</p>`
+        : `<p>This program stays saved under <strong>Programs</strong>. The new one keeps your branding, leaders, columns and lists, with fresh meeting dates.</p>`,
+      buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' },
+        { label: `Same term (T${t.term} ${t.year})`, value: 'same', cls: 'btn-outline' },
+        { label: `Next term (T${next.term} ${next.year})`, value: 'next', cls: 'btn-primary' }],
+    });
+    if (!choice) return null;
+    const c = copyOf(state);
+    c.branding.versionText = '';
+    c.rows = [];
+    c.extras = { ...c.extras, dates: [], notes: [] };
+    save();
+    const prev = state;
+    state = c;
+    if (choice === 'next') { Object.assign(state.term, next); if (!applyTermPreset()) { state.term.start = ''; state.term.end = ''; } }
+    state.rows = generateRows();
+    state = prev;
+    empty = !c.rows.length;
+    return c;
   });
-  if (!choice) return;
-  const c = copyOf(state);
-  c.branding.versionText = '';
-  c.rows = [];
-  c.extras = { ...c.extras, dates: [], notes: [] };
-  save();
-  const prev = state;
-  state = c;
-  if (choice === 'next') { Object.assign(state.term, next); if (!applyTermPreset()) { state.term.start = ''; state.term.end = ''; } }
-  state.rows = generateRows();
-  state = prev;
-  addProgram(c);
-  if (!c.rows.length) toast('Enter the term dates, then use Generate meeting dates.');
+  if (empty) toast('Enter the term dates, then use Generate meeting dates.');
 }
 
 async function resetAll() {
@@ -2968,6 +3043,7 @@ function init() {
   state = load();
   bindEvents();
   renderAll();
+  accountInit();   // Sign in, and saving to the account (js/account.js)
   // Fonts change text metrics — refit once they're ready.
   if (document.fonts?.ready) document.fonts.ready.then(() => fit());
   // Bold and italic styles can arrive later and change text widths, so refit whenever one loads.
