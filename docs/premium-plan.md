@@ -13,7 +13,7 @@ This scopes a **Premium** offering for the Program Builder: accounts, an API tha
 | Group library, shared styling, unit programs (section 2) | – | – | – | Yes |
 | Version history, live family link, calendar subscription | – | – | Yes | Yes, for every leader in the group |
 | Group program, linked both ways with unit programs (section 8) | – | – | – | Yes, in the second release |
-| Price (AUD, incl. GST) | Free | Free | $4/month or $36/year | $12/month or $99/year, and yearly can be paid by invoice. Each place beyond 10: $1/month or $9/year *(proposed)* |
+| Price (AUD, no GST while unregistered) | Free | Free | $4/month or $36/year | $12/month or $99/year, and yearly can be paid by invoice. Each place beyond 10: $1/month or $9/year |
 
 How the rules work:
 
@@ -21,7 +21,7 @@ How the rules work:
 - **Signed out, one program.** The browser keeps one program. Starting another, opening a file or duplicating asks the leader to sign in (free), or replaces the program on this device after offering *Save file* first. *Programs*, *New program* and *Duplicate* lead to the sign-in for anyone signed out.
 - **The free cap of 3.** The cap counts a person's own programs in their account, not deleted ones. Programs that belong to a group don't count against anyone's cap. The server enforces it, so it can't be got around.
 - **The owner of a group** can be anyone, including a treasurer or committee member who pays and manages the leaders but doesn't write programs. The owner doesn't use one of the 10 leader places.
-- **More places.** A group can add places beyond the 10, one at a time, at a cost per place (proposed A$1 a month or A$9 a year, so 11 to 20 leaders cost less each than the base plan). They're added to the same subscription: billed pro rata for the rest of the period, or added to the next invoice for groups paying by invoice. Places can be removed again, but not below the number of leaders and pending invites. Inviting a leader when every place is taken offers *Add a place* to the owner and admins.
+- **More places.** A group can add places beyond the 10, one at a time, at a cost per place (A$1 a month or A$9 a year, so 11 to 20 leaders cost less each than the base plan). They're added to the same subscription: billed pro rata for the rest of the period, or added to the next invoice for groups paying by invoice. Places can be removed again, but not below the number of leaders and pending invites. Inviting a leader when every place is taken offers *Add a place* to the owner and admins.
 - **Editors from outside the group.** A unit's main leader can let someone from outside the group edit that unit's programs if they have Premium of their own (Individual, or through another group), for example a leader from a neighbouring group running a joint camp. They don't use one of the group's places, and they see only that unit's programs, not the rest of the group. If their Premium lapses, the access becomes view-only until it returns or they're removed.
 - **Several groups.** A leader can belong to more than one group (for example helping at two), with one account. Each group has its own subscription.
 - **Roles in a group.** *Owner*, *admin* and *leader*.
@@ -246,7 +246,21 @@ Programs hold leaders' names and phone numbers, and sometimes young people's nam
 - **A note in the editor.** Ask leaders not to put young people's personal details in programs, in line with Scouts Australia's child safety and privacy guidance.
 - **Live family links (feature 5).** They're off by default, and each program's link is turned on separately. Anyone with the link can view, with no PIN: the address is long and random, not listed by search engines, and can be turned off or replaced at any time. The page shows only what the printout shows. Leader phone numbers are hidden unless the owner chooses to show them.
 - **What gets logged.** Ids and error codes, never program contents. Stripe holds the card details; the API never sees them.
-- **GST.** If the business registers for GST, Stripe Tax can add it to prices.
+- **GST.** Not registered for now, so no GST is charged. Receipts and invoices show the ABN and say *No GST has been charged*. Registration becomes required at A$75,000 a year in turnover. At that point, turn on Stripe Tax, and decide whether prices stay the same (GST then comes out of them) or rise by 10%.
+
+### 5.1 Running it
+
+- **The seller** is a sole trader, trading under an ABN. Stripe receipts and invoices, the terms of use and the privacy policy are in that name. Use a business name and a business contact address on them, such as a PO box, not a home address. These public pages and invoices are seen by every customer.
+- **Support** is by email, on a best-effort basis, answered within a few days. The terms don't promise a reply time.
+  - The address is shown in Help and on the Account page, and in the footer of the emails the builder sends.
+  - Like the Pinewood plan's support link, it's a build setting, not written into the code. That keeps a personal address out of the public repository.
+  - Help's answers cover the common questions first, including the new ones on signing in, Premium, trials and groups.
+- **Things support needs to be able to do** (from a small admin page, or scripts against the API, for the seller only):
+  - find an account by email;
+  - see its plan and groups;
+  - restore a deleted program from the bin;
+  - hand a group to a new owner when the owner has left and can't do it;
+  - extend a trial or an invoice's time to pay.
 
 ## 6. Decisions
 
@@ -270,21 +284,24 @@ Taken:
 13. **Australia first:** AUD prices, Australian terms and term dates.
 14. **Leaving a group,** a leader keeps their *My programs* under their own plan.
 15. **Roles:** owner, admin and leader. Only the owner handles billing.
-16. **The first paid release** has unlimited programs, the group library and shared styling, version history, live family links and calendar subscriptions. The group program follows in the second release.
+16. **Extra places:** A$1 a month or A$9 a year each.
+17. **GST:** not registered yet, so no GST is charged (section 5).
+18. **The seller** is a sole trader with an ABN.
+19. **Support:** by email, best effort.
+20. **The first paid release** has unlimited programs, the group library and shared styling, version history, live family links and calendar subscriptions. The group program follows in the second release.
 
 Still open:
 
 - **The domain** isn't bought yet. It's no longer needed before phase 1, because sign-in doesn't use cookies (section 3.2). It's wanted before launch for tidy addresses, such as the family links and `api.<domain>`. `<domain>` stands in for it here.
-- **GST registration,** which decides whether Stripe Tax is needed.
-- **The price of extra places.** Proposed A$1 a month or A$9 a year each.
+- **A business name and contact address** for invoices and the terms (section 5.1).
 
 ## 7. Building it, in phases
 
 | Phase | Includes | Size |
 | --- | --- | --- |
-| 0. Before | Google Cloud project and billing account with a budget alert, Firebase on the same project, staging and production, privacy policy and terms | Small |
+| 0. Before | Google Cloud project and billing account with a budget alert, Firebase on the same project, staging and production, ABN and business name, Stripe account, support address, privacy policy and terms | Small |
 | 1. Accounts and saving | The API on Cloud Run, Firestore, Firebase email-link sign-in, `/me`, the program endpoints with version checks, the offline queue, the conflict box, uploading on first sign-in, one program when signed out, the cap of 3, the Account page, Help updates | Large: most of the work, and everything later builds on it |
-| 2. Paying | Stripe products, Checkout and Portal, the 14-day trials, invoices for yearly Group, the webhook, the grace period, the lapse rules and view-only groups, the Premium prompts | Medium |
+| 2. Paying | The support tools in section 5.1, Stripe products, Checkout and Portal, the 14-day trials, invoices for yearly Group, the webhook, the grace period, the lapse rules and view-only groups, the Premium prompts | Medium |
 | 3. Groups | Groups and several per leader, invites and places, extra places, outside editors, the group library, moving programs, shared styling, roles, units and their main leaders and editors, handing over ownership | Medium |
 | 4. Reasons to stay | Version history, live family links, calendar subscriptions | Medium |
 | 5. Group program | Group events, linked unit programs, joint activities, the overview, group printout and group calendar, *From the group* notices (section 8) | Large: the most involved part |
