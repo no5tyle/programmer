@@ -38,7 +38,7 @@ body.mobile .m-app { display: flex; flex-direction: column; min-height: 100vh; m
 }
 .m-icon svg { width: 20px; height: 20px; }
 /* The app switcher, left of the program's name */
-.m-switcher { --n5-switch-size: var(--n5-bar-icon-compact); }
+.m-switcher { --qs-switch-size: var(--n5-bar-icon-compact); }
 .m-switcher .brand-mark { width: var(--n5-bar-icon-compact); height: var(--n5-bar-icon-compact); }
 
 /* Week list: one short row per activity, so a term fits on about a screen */

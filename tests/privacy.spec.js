@@ -11,11 +11,11 @@ async function watchPolicy(page) {
   });
 }
 
-test('the policy lets no script in from anywhere but the app, the app switcher and the PDF libraries', async ({ page }) => {
+test('the policy lets no script in from anywhere but the app itself and the PDF libraries', async ({ page }) => {
   await page.goto('/');
   const policy = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
   const scripts = /script-src ([^;]+)/.exec(policy)[1].trim().split(/\s+/);
-  expect(scripts).toEqual(["'self'", 'https://no5tyle.github.io', 'https://cdnjs.cloudflare.com']);
+  expect(scripts).toEqual(["'self'", 'https://cdnjs.cloudflare.com']);
   expect(policy).toContain("object-src 'none'");
 });
 

@@ -693,6 +693,9 @@ let accountLeaving = false;   // stops the page's last save from writing the pro
 /* ---------------------------------------------------------------- the Sign in button, its menu and the Account page */
 
 function renderAccountButton() {
+  // The app switcher lists the internal dashboard for sysadmins (the API is what refuses everyone else)
+  const sysadmin = accountsOn() && signedIn() && !!me?.roles?.includes('sysadmin');
+  $$('qs-app-switcher').forEach((el) => el.toggleAttribute('sysadmin', sysadmin));
   // The line under the sidebar says where programs are saved
   const where = $('#saveWhere');
   if (where && accountsOn()) {
@@ -748,6 +751,7 @@ async function openAccountPage() {
         <p>Signed in as <strong>${esc(session.email)}</strong><br><span id="acPlan">${esc(planText())}</span></p>
         <div class="account-name"><label class="field"><span>Your name</span><input type="text" id="acName" maxlength="80" value="${esc(me?.user?.name || '')}" placeholder="Shown to other leaders, e.g. Akela"></label>
           <button class="btn btn-outline" id="acSaveName" type="button">Save</button></div>
+        <p class="hint">Your account works across qstored's apps. <a href="https://account.qstored.org/" target="_blank" rel="noopener">Manage it at account.qstored.org</a>.</p>
         <div class="account-actions">
           <button class="btn btn-outline" id="acExport" type="button">Download all my programs</button>
           <button class="btn btn-text btn-danger-text" id="acDelete" type="button">Delete my account</button>

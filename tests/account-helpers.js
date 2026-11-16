@@ -26,7 +26,7 @@ function program(id, data, patch = {}) {
 async function mockAccount(page, { signedIn = false, limit = 3, programs = [] } = {}) {
   const server = {
     programs: new Map(programs.map((p) => [p.id, p])),
-    limit, name: '', deleted: false, offline: false, rejectTokens: false,
+    limit, name: '', deleted: false, offline: false, rejectTokens: false, sysadmin: false,
     calls: [],      // 'METHOD /path' for each API call
     sent: [],       // the bodies of Firebase calls
     live() { return [...this.programs.values()].filter((p) => !p.deletedAt); },
@@ -77,6 +77,7 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [] } 
         user: { id: SESSION.uid, email: SESSION.email, name: server.name, createdAt: '2026-01-01T00:00:00.000Z' },
         premium: { active: server.limit === null, via: server.limit === null ? 'individual' : null, trial: false, until: null },
         programs: { count: server.live().length, limit: server.limit }, groups: [],
+        roles: server.sysadmin ? ['sysadmin'] : [],
       });
     }
     if (path === '/me' && method === 'PATCH') {

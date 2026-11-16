@@ -6,7 +6,7 @@
   <!-- What the page may load and talk to. The sign-in token is held by the page's own script, so no
        script may come from anywhere else: the app itself, the shared app switcher, and the PDF
        libraries. connect-src is the API and Firebase's sign-in (and the emulators, for local work). -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://no5tyle.github.io https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://no5tyle.github.io; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://no5tyle.github.io; connect-src 'self' blob: https://api.qstored.org https://identitytoolkit.googleapis.com https://securetoken.googleapis.com http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://no5tyle.github.io; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' blob: https://api.qstored.org https://identitytoolkit.googleapis.com https://securetoken.googleapis.com http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'self'; form-action 'none'">
   <title>Scout Program Builder</title>
   <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lexend:wght@400;600;700&family=Nunito:wght@400;600;700;800&family=Open+Sans:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://no5tyle.github.io/shared/no5tyle.css">
-  <script src="https://no5tyle.github.io/shared/app-switcher.js" defer></script>
+  <link rel="stylesheet" href="css/qstored-switcher.css?v=20261117-1">
   <link rel="stylesheet" href="css/app.css?v=20261117-1">
   <link rel="stylesheet" href="css/mobile.css?v=20261117-1">
   <style id="pageStyle"></style>
@@ -24,12 +24,12 @@
 <body>
   <header class="appbar">
     <div class="appbar-brand">
-      <!-- The switcher between no5tyle's apps (no5tyle.github.io/shared/app-switcher.js); the mark shows until it loads -->
-      <n5-app-switcher current="programmer">
+      <!-- The switcher between qstored's apps (js/qstored-switcher.js); the mark shows until it loads -->
+      <qs-app-switcher current="programmer">
         <span class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9" /></svg>
         </span>
-      </n5-app-switcher>
+      </qs-app-switcher>
       <div>
         <div class="brand-title">Program Builder</div>
         <div class="brand-sub">Term programs for Scout families</div>
@@ -308,11 +308,11 @@
   <!-- Phone and tablet view (js/mobile.js) -->
   <div class="m-app" id="mApp">
     <header class="m-top">
-      <n5-app-switcher current="programmer" class="m-switcher">
+      <qs-app-switcher current="programmer" class="m-switcher">
         <span class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9" /></svg>
         </span>
-      </n5-app-switcher>
+      </qs-app-switcher>
       <button class="m-title" id="mTitle" aria-label="Switch program" title="Switch to another saved program, or start a new one">
         <span class="m-title-main" id="mTitleMain"></span>
         <span class="m-title-sub" id="mTitleSub"></span>
@@ -344,6 +344,7 @@
   <input type="file" id="fileJson" accept=".json,.csv,application/json,text/csv" hidden>
   <input type="file" id="fileImage" accept="image/*" hidden>
 
+  <script src="js/qstored-switcher.js?v=20261117-1"></script>
   <script src="js/config.js?v=20261117-1"></script>
   <script src="js/data.js?v=20261117-1"></script>
   <script src="js/rich.js?v=20261117-1"></script>
