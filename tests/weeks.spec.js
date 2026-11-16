@@ -246,3 +246,43 @@ test.describe('a term starting partway through a week', () => {
     expect(r).toEqual([['2027-01-25', 'No Cubs – Term starts Thu 28 Jan'], ['2027-02-01', 'Kept']]);
   });
 });
+
+test.describe('menu buttons', () => {
+  test("the ⋮ and a week's + close their menu when it's open", async ({ page }) => {
+    const errors = await openApp(page);
+    await fillCubs(page);
+    await page.hover('#sheet tbody tr:nth-child(2) td.c-description');
+    await page.click('#rowHandle');
+    await expect(page.locator('#popover .menu')).toBeVisible();
+    await page.click('#rowHandle');
+    await expect(page.locator('#popover')).toBeHidden();
+    await page.click('#rowHandle');
+    await expect(page.locator('#popover .menu')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await page.mouse.click(5, 5);
+
+    const wk = page.locator('#sheet td.c-week', { hasText: 'Week 3' });
+    await wk.hover();
+    await wk.locator('.wk-add').click();
+    await expect(page.locator('#popover .days')).toBeVisible();
+    await wk.hover();
+    await wk.locator('.wk-add').click();
+    await expect(page.locator('#popover')).toBeHidden();
+    // Another week's + moves the picker to that week
+    await wk.hover();
+    await wk.locator('.wk-add').click();
+    const wk4 = page.locator('#sheet td.c-week', { hasText: 'Week 4' });
+    await wk4.hover();
+    await wk4.locator('.wk-add').click();
+    await expect(page.locator('#popover .pop-sub')).toContainText('Week 4');
+    // An empty week's Add button too
+    await page.mouse.click(5, 5);
+    await page.click('#btnAddWeek');
+    await page.click('#popover [data-where="after"]');
+    await page.click('#sheet tr.empty-week .wk-empty-add');
+    await expect(page.locator('#popover .days')).toBeVisible();
+    await page.click('#sheet tr.empty-week .wk-empty-add');
+    await expect(page.locator('#popover')).toBeHidden();
+    expect(errors).toEqual([]);
+  });
+});

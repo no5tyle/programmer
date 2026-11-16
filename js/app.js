@@ -1826,8 +1826,16 @@ function openEmptyWeekMenu(anchor, r) {
   };
 }
 
+/** True when a press is on the button that opened the menu that's open (⋮ or a week's +): its click closes it. */
+function onOpenersButton(target) {
+  if (pop.hidden || !popCtx) return false;
+  if (target.closest('#rowHandle')) return popCtx.type === 'row' && popCtx.id === handleRow;
+  const add = target.closest('[data-add-week]');
+  return !!add && popCtx.type === 'addweek' && popCtx.week === add.dataset.addWeek && popCtx.anchor === add;
+}
+
 document.addEventListener('mousedown', (e) => {
-  if (!pop.hidden && !pop.contains(e.target) && !e.target.closest('#rowHandle') && !e.target.closest('.fs-bar')) {
+  if (!pop.hidden && !pop.contains(e.target) && !onOpenersButton(e.target) && !e.target.closest('.fs-bar')) {
     if (popCtx?.type === 'date' || popCtx?.type === 'time') { sortRows(); save(); renderDoc(); }
     pop.onclick = null;
     closePopover();
@@ -1916,7 +1924,7 @@ function openAddToWeekPopover(anchor, ws) {
   openPopover(anchor, `
     <div class="pop-title">Add an activity <span class="pop-sub">${esc(weekName(ws))} · ${esc(weekRangeText(ws))}</span></div>
     <p class="hint">Which day? Your meeting night is underlined.</p>
-    ${weekDaysHTML(ws)}`, { type: 'addweek' });
+    ${weekDaysHTML(ws)}`, { type: 'addweek', week: toISO(ws), anchor });
   ($('.day.meet', pop) || $('.day', pop))?.focus();
   pop.onclick = (e) => {
     const b = e.target.closest('[data-day]');
@@ -2686,7 +2694,12 @@ function bindEvents() {
   });
   sheet.addEventListener('click', (e) => {
     const addIn = e.target.closest('[data-add-week]');
-    if (addIn) { openAddToWeekPopover(addIn, parseDate(addIn.dataset.addWeek)); return; }
+    if (addIn) {
+      // A week's + (or an empty week's Add) opens the day picker, or closes it if it's already open from there
+      if (!pop.hidden && popCtx?.type === 'addweek' && popCtx.anchor === addIn) { closePopover(); return; }
+      openAddToWeekPopover(addIn, parseDate(addIn.dataset.addWeek));
+      return;
+    }
     const wk = e.target.closest('td.c-week[data-week]');
     if (wk) { styleWeek(wk.dataset.week); return; }
     const td = e.target.closest('td.clickable'); if (!td) return;
@@ -2705,7 +2718,11 @@ function bindEvents() {
   });
   $('#canvas').addEventListener('mouseleave', (e) => { if (!handle.contains(e.relatedTarget) && pop.hidden) hideHandle(); });
   $('#canvas').addEventListener('scroll', () => { hideHandle(); closePopover(); });
-  handle.addEventListener('click', () => { if (handleRow) openRowMenu(handle, handleRow); });
+  // The ⋮ opens the row's menu, or closes it if it's already open
+  handle.addEventListener('click', () => {
+    if (!pop.hidden && popCtx?.type === 'row' && popCtx.id === handleRow) { closePopover(); return; }
+    if (handleRow) openRowMenu(handle, handleRow);
+  });
 
   $('#btnGenerate').onclick = generateDates;
   $('#btnGenerate2').onclick = generateDates;
