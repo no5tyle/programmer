@@ -2633,7 +2633,19 @@ function bindEvents() {
 
   // Inline editing in the sheet.
   const sheet = $('#sheet');
-  sheet.addEventListener('focusin', (e) => { if (e.target.matches('.ed')) { pushHistory(); e.target.closest('tr')?.classList.add('editing'); } });
+  sheet.addEventListener('focusin', (e) => {
+    if (!e.target.matches('.ed')) return;
+    pushHistory();
+    e.target.closest('tr')?.classList.add('editing');
+    // An empty cell has no line for the cursor, so the browser shows it at the left edge: give it an
+    // empty line, which is centred (or aligned) like the text (not saved: it's cleared on leaving)
+    if (e.target.isContentEditable && !e.target.textContent && !e.target.querySelector('br')) {
+      e.target.innerHTML = '<br>';
+      const range = document.createRange();
+      range.setStart(e.target, 0); range.collapse(true);
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    }
+  });
   sheet.addEventListener('focusout', (e) => {
     if (!e.target.matches('.ed')) return;
     e.target.closest('tr')?.classList.remove('editing');

@@ -449,3 +449,39 @@ test.describe('clicking a typed cell', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test.describe('the cursor in an empty typed cell', () => {
+  // Safari (and Firefox) draw the cursor at the left edge of an editable cell with nothing in it, as it
+  // has no line yet. Focused, an empty cell gets an empty line, aligned like its text; it isn't saved.
+  test('gets a line to sit on, aligned like the text, and nothing is saved or left behind', async ({ page }) => {
+    const errors = await openApp(page);
+    await fillCubs(page);
+    const ed = (sel) => page.locator(`#sheet tbody tr:nth-child(4) ${sel} .ed`);
+    for (const [sel, how] of [['td.c-forms', 'corner'], ['td.c-cost', 'centre'], ['td.c-notes', 'corner']]) {
+      await page.mouse.click(5, 300);
+      const td = page.locator(`#sheet tbody tr:nth-child(4) ${sel}`);
+      const t = await td.boundingBox();
+      if (how === 'corner') await page.mouse.click(t.x + 4, t.y + 4); else await ed(sel).click();
+      await expect(ed(sel)).toBeFocused();
+      expect(await ed(sel).evaluate((el) => el.innerHTML)).toBe('<br>');
+      // The cursor is at the start of that line, which is centred in a centred column (left in Notes)
+      expect(await page.evaluate(() => { const r = getSelection().getRangeAt(0); return [r.collapsed, r.startOffset]; })).toEqual([true, 0]);
+      expect(await ed(sel).evaluate((el) => getComputedStyle(el).textAlign)).toBe(sel === 'td.c-notes' ? 'left' : 'center');
+    }
+    // Typing goes in as usual
+    await page.keyboard.type('Bring a torch');
+    expect(await page.evaluate(() => state.rows[3].notes)).toBe('Bring a torch');
+    await page.mouse.click(5, 300);
+    await page.locator('#sheet tbody tr:nth-child(4) td.c-cost').click();
+    await page.keyboard.type('$5');
+    expect(await page.evaluate(() => state.rows[3].cost)).toBe('$5');
+    // Left empty, the line goes again and the placeholder comes back
+    await page.mouse.click(5, 300);
+    await ed('td.c-forms').click();
+    await page.mouse.click(5, 300);
+    expect(await page.evaluate(() => state.rows[3].forms)).toBe('');
+    expect(await ed('td.c-forms').evaluate((el) => el.innerHTML)).toBe('');
+    expect(await page.evaluate(() => state.rows[3].rich?.forms)).toBeUndefined();
+    expect(errors).toEqual([]);
+  });
+});
