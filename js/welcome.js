@@ -256,7 +256,7 @@ function termSummary(t) {
 
 const TOUR_DESKTOP = [
   { target: ['#sidebar'], title: 'Settings', text: 'Your term dates, meeting night, branding and leaders are here. Open any section to change it.' },
-  { target: ['#paper'], title: 'Your program', text: 'This is the page families get. Click any cell to type in it. Hover a row and use the ⋮ handle at its right-hand end to add, move, highlight or delete it.' },
+  { target: ['#paper'], title: 'Your program', text: 'This is the page families get. Click any cell to type in it. Hover a row and use the ⋮ handle on its right-hand edge to add, move, highlight or delete it.' },
   { target: ['#btnGenerate', '#btnAddRow', '#btnAddBreak'], title: 'Weeks and activities', text: 'Generate dates adds a row for every meeting night of the term. Add one-off activities, or a week off for a holiday.' },
   { target: ['#btnPrograms', '#btnNew'], title: 'Your programs', text: 'Programs save automatically in this browser. Find them under Programs, or start a New one for next term with the same branding.' },
   { target: ['#btnImport', '#btnExport', '#btnCalendar'], title: 'Files and calendars', text: 'Save a file to share with other leaders, and download a calendar families can add to their phones.' },

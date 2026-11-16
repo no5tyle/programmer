@@ -90,9 +90,9 @@ test.describe('sheet', () => {
       const box = await cell.boundingBox();
       await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
       const h = await page.locator('#rowHandle').boundingBox();
-      // Just past the right-hand end of the row, level with it
+      // Centred on the row's right-hand border, level with it
       const row = await page.locator(`tbody tr:has(.ed[data-key="activity"]:text-is("${name}"))`).boundingBox();
-      expect(h.x).toBeGreaterThanOrEqual(row.x + row.width);
+      expect(Math.abs(h.x + h.width / 2 - (row.x + row.width))).toBeLessThan(2);
       expect(Math.abs(h.y + h.height / 2 - (row.y + row.height / 2))).toBeLessThan(2);
       await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2, { steps: 20 });
       await page.mouse.down(); await page.mouse.up();
