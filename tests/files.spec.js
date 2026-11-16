@@ -84,7 +84,7 @@ test.describe('files', () => {
     await page.setInputFiles('#fileJson', require('path').join(__dirname, '..', 'examples', 'example-program.json'));
     // The empty program already fits one page, so wait for the imported one before checking
     await expect.poll(() => page.evaluate(() => [state.branding.groupName, state.rows.filter((r) => r.noMeeting).length, state.extras.dates.length]))
-      .toEqual(['1st Wattle Creek Scout Group', 2, 3]);
+      .toEqual(['1st Wattle Creek Scout Group', 3, 3]);
     await expect(page.locator('#fitStatus')).toContainText('Fits 1 page');
   });
 

@@ -199,3 +199,50 @@ test.describe('moving outside the term', () => {
     await expect(page.locator('#sheet tr.empty-week .c-date')).toHaveText('21–27 Dec');
   });
 });
+
+test.describe('a term starting partway through a week', () => {
+  let errors;
+  test.beforeEach(async ({ page }) => { errors = await openApp(page); });
+  test.afterEach(() => { expect(errors, 'browser errors').toEqual([]); });
+
+  // VIC Term 1 2027 starts on Thursday 28 January
+  const setTerm = (page, meetingDay, weekStart = 1) => page.evaluate(([day, ws]) => {
+    Object.assign(state.term, { region: 'VIC', year: 2027, term: 1, start: '2027-01-28', end: '2027-03-25', meetingDay: day });
+    state.options.weekStart = ws;
+    state.rows = generateRows();
+    renderAll();
+    return state.rows.slice(0, 2).map((r) => ({ date: r.date, noMeeting: r.noMeeting, activity: r.activity, patrol: r.patrol, wk: weekOf(r.date) }));
+  }, [meetingDay, weekStart]);
+
+  test('a meeting night before the start is Week 1, marked as a week off', async ({ page }) => {
+    const rows2 = await setTerm(page, 1);
+    expect(rows2).toEqual([
+      { date: '2027-01-25', noMeeting: true, activity: 'No Cubs – Term starts Thu 28 Jan', patrol: '', wk: 1 },
+      { date: '2027-02-01', noMeeting: false, activity: '', patrol: 'Blue', wk: 2 },
+    ]);
+    const first = page.locator('#sheet tbody tr').first();
+    await expect(first).toHaveClass(/no-meeting/);
+    await expect(first.locator('.c-week .wk')).toHaveText('Week 1');
+    await expect(first).toContainText('No Cubs – Term starts Thu 28 Jan');
+    // Not counted as a meeting
+    await expect(page.locator('#termHint')).toContainText('8 Monday meetings');
+  });
+
+  test('no extra row when the meeting night is on or after the start, and the weeks setting counts', async ({ page }) => {
+    expect((await setTerm(page, 4))[0]).toMatchObject({ date: '2027-01-28', noMeeting: false, wk: 1 });
+    expect((await setTerm(page, 5))[0]).toMatchObject({ date: '2027-01-29', noMeeting: false, wk: 1 });
+    // Weeks running Sunday to Saturday: a Sunday meeting before the start is in Week 1 too
+    expect((await setTerm(page, 0, 0))[0]).toMatchObject({ date: '2027-01-24', noMeeting: true, wk: 1 });
+    // Weeks running Monday to Sunday: Sunday is the end of the week, so the first Sunday (31 Jan) is in the term
+    expect((await setTerm(page, 0, 1))[0]).toMatchObject({ date: '2027-01-31', noMeeting: false, wk: 1 });
+  });
+
+  test('Add missing dates fills it in for a program made before', async ({ page }) => {
+    await setTerm(page, 1);
+    await page.evaluate(() => { state.rows = state.rows.filter((r) => r.date !== '2027-01-25'); state.rows[0].activity = 'Kept'; renderAll(); });
+    await page.click('#btnGenerate');
+    await page.click('.modal [data-i="2"]');
+    const r = await page.evaluate(() => state.rows.slice(0, 2).map((x) => [x.date, x.activity]));
+    expect(r).toEqual([['2027-01-25', 'No Cubs – Term starts Thu 28 Jan'], ['2027-02-01', 'Kept']]);
+  });
+});

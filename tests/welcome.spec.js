@@ -68,7 +68,8 @@ test('first visit: setup wizard, then the tour', async ({ page }) => {
   expect(b.leaders).toEqual([{ name: 'Akela', phone: '0400 000 001' }, { name: 'Baloo', phone: '' }]);
   const t = await page.evaluate(() => [state.term, state.rows.map((r) => r.date)]);
   expect(t[0]).toMatchObject({ region: 'VIC', year: 2027, term: 1, meetingDay: 3, start: '2027-01-28', end: '2027-03-25' });
-  expect(t[1]).toEqual(['2027-02-03', '2027-02-10', '2027-02-17', '2027-02-24', '2027-03-03', '2027-03-10', '2027-03-17', '2027-03-24']);
+  // The term starts on Thursday 28 January: Week 1's Wednesday is a week off
+  expect(t[1]).toEqual(['2027-01-27', '2027-02-03', '2027-02-10', '2027-02-17', '2027-02-24', '2027-03-03', '2027-03-10', '2027-03-17', '2027-03-24']);
   await expect(page.locator('[data-bind="term.region"]')).toHaveValue('VIC');
   await expect(page.locator('#sheet')).toContainText('Akela');
   await stepThroughTour(page, 6);

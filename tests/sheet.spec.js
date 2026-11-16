@@ -121,7 +121,8 @@ test.describe('sheet', () => {
     await page.selectOption('[data-bind="term.term"]', '1');
     await page.selectOption('[data-bind="term.meetingDay"]', '1');
     const off = await page.evaluate(() => state.rows.filter((r) => r.noMeeting).map((r) => `${r.date} ${r.activity}`));
-    expect(off).toEqual(['2026-03-09 No Cubs – Adelaide Cup Day', '2026-04-06 No Cubs – Easter Monday']);
+    // The term starts on Tuesday 27 January, after Week 1's Monday
+    expect(off).toEqual(['2026-01-26 No Cubs – Term starts Tue 27 Jan', '2026-03-09 No Cubs – Adelaide Cup Day', '2026-04-06 No Cubs – Easter Monday']);
     const patrols = await page.evaluate(() => state.rows.filter((r) => !r.noMeeting).map((r) => r.patrol).slice(4, 6));
     expect(patrols).toEqual(['Green', 'Orange']);   // holidays don't use up a duty patrol turn
   });

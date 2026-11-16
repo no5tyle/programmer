@@ -409,7 +409,14 @@ function generateRows(existing = []) {
   const usedDates = new Set(existing.filter((r) => !r.emptyWeek).map((r) => r.date));
   const patrols = state.patrols.filter((p) => p.name);
   let turn = 0;
-  return meetingDates().map((date) => {
+  // A term that starts partway through a week, after the meeting night: that week is still Week 1,
+  // shown with its meeting night as a week off, like a public holiday
+  const before = [];
+  const night = firstWeekNightBeforeTerm();
+  if (night && !usedDates.has(night)) {
+    before.push(newRow(night, { noMeeting: true, autoHoliday: true, activity: weekOffText(`Term starts ${termStartText()}`), time: '', uniform: '' }));
+  }
+  return before.concat(meetingDates().map((date) => {
     const holiday = publicHoliday(date);
     if (holiday) {
       const blank = existing.find((r) => r.date === date && isBlankRow(r));
@@ -421,17 +428,33 @@ function generateRows(existing = []) {
     turn++;
     if (usedDates.has(date)) return null;
     return newRow(date, { patrol });
-  }).filter(Boolean);
+  }).filter(Boolean));
+}
+
+/** "Thu 28 Jan": the term's first day, as plain text for a week-off row. */
+function termStartText() {
+  const d = parseDate(state.term.start);
+  return d ? `${DAY_SHORT[d.getDay()]} ${d.getDate()} ${MONTH_SHORT[d.getMonth()]}` : '';
+}
+
+/** The meeting night of the term's first week when it falls before the term starts, else ''. */
+function firstWeekNightBeforeTerm() {
+  const s = parseDate(state.term.start);
+  if (!s) return '';
+  const night = addDays(startOfWeek(s), (state.term.meetingDay - weekStartDay() + 7) % 7);
+  return night < s ? toISO(night) : '';
 }
 
 /** First day of the week: 1 = weeks run Monday–Sunday, 0 = Sunday–Saturday. */
 function weekStartDay() { return state.options.weekStart === 0 ? 0 : 1; }
 function startOfWeek(d) { return addDays(d, -((d.getDay() - weekStartDay() + 7) % 7)); }
 
+/** The term week number of a date, or null outside the term. The whole of the first week counts,
+ * even the days before a term that starts partway through it. */
 function weekOf(iso) {
   const d = parseDate(iso), s = parseDate(state.term.start), e = parseDate(state.term.end);
   if (!d || !s) return null;
-  if (d < s || (e && d > e)) return null;
+  if (d < startOfWeek(s) || (e && d > e)) return null;
   return Math.floor(dayDiff(startOfWeek(s), d) / 7) + 1;
 }
 
@@ -2280,7 +2303,7 @@ function onBoundInput(e) {
     state.branding.titleColor = luminance(SECTIONS[v].color) < 0.45 ? 'auto' : 'dark';
   }
   if (['term.region', 'term.year', 'term.term'].includes(path)) applyTermPreset();
-  const datesChanged = ['term.region', 'term.year', 'term.term', 'term.start', 'term.end', 'term.meetingDay', 'options.publicHolidays'].includes(path);
+  const datesChanged = ['term.region', 'term.year', 'term.term', 'term.start', 'term.end', 'term.meetingDay', 'options.publicHolidays', 'options.weekStart'].includes(path);
 
   // Rows still showing the old default time follow the new default.
   const nextDefaultTime = defaultTimeText();

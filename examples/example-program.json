@@ -258,6 +258,27 @@
   },
   "rows": [
     {
+      "id": "wk1off",
+      "date": "2027-01-25",
+      "endDate": "",
+      "dateLabel": "",
+      "time": "",
+      "activity": "No Cubs – Term starts Wed 27 Jan",
+      "description": "",
+      "uniform": "",
+      "forms": "",
+      "where": "",
+      "patrol": "",
+      "leader": "",
+      "cost": "",
+      "challenge": "",
+      "notes": "",
+      "category": "",
+      "noMeeting": true,
+      "red": [],
+      "autoHoliday": true
+    },
+    {
       "id": "welsoy1x",
       "date": "2027-02-01",
       "endDate": "",
