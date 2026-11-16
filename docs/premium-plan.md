@@ -98,27 +98,6 @@ Ground rules:
 - **The API is the only thing that reads or writes Firestore.** The builder never talks to it directly, and Firestore's security rules deny all access from browsers. The cap, places, who can edit each unit, trials and who has paid are all checked in the API, where they can be tested.
 - **All data access sits in one module of the API.** That keeps a later move to another database (Postgres, say) a contained job.
 
-### 3.5 Shared across qstored products
-
-So that later products need no second account system, second billing or second groups:
-
-- **Shared from day one:**
-  - one Firebase project and one Google Cloud project for all qstored products;
-  - one `users` collection, one `subscriptions` collection and one `groups` collection, with their members, roles, units and places;
-  - one set of Stripe products and prices.
-- **Separate for each product:** its own data. Programs live in `programs/`; gear will have its own collections.
-- **Who has Premium** is worked out once, for the account (`GET /me` returns `premium`), and every product checks that same answer. A plan is never tied to a product.
-- **Limits belong to each product.** The free cap of 3 is a program limit. The gear app will set its own free limits, and `GET /me` returns each product's limits alongside the shared Premium answer.
-- **The API is organised by product:**
-  - shared parts under `/v1/me`, `/v1/groups` and `/v1/billing`;
-  - the builder's under `/v1/programs` (and the group program's routes);
-  - a later product's under its own path, such as `/v1/gear`.
-
-  It's one Cloud Run service to start with, which can be split by path later if one product grows.
-- **Group places count people, not apps.** A leader in a Group plan has Premium in every qstored product, using one place.
-- **Signing in** uses the same account in every product. Each address keeps its own sign-in, so at first a leader signs in once in each app, with the same email. A shared sign-in page at `account.qstored.org`, signing them in everywhere at once, can follow when there's a second product.
-- **Wording:** the builder says *qstored Premium*, not *Program Builder Premium*. Receipts, checkout and the Account page all use the qstored name.
-
 ### 3.2 Signing in
 
 **By email link, with no passwords.** The leader enters their email. Firebase sends a link, and tapping it signs them in. There's no password to forget, which suits leaders who aren't comfortable with technology. On a phone, the link opens in the phone's default browser. Firebase keeps them signed in, renewing the session as it's used, until *Sign out*.
@@ -217,6 +196,27 @@ publicLinks/{slug}             programId | groupId, sections                    
   - The builder saves to the browser after every short pause, but sends a save to the API at most every few seconds, and when the leader leaves the page.
   - A history version is kept at most once every 10 minutes per leader, and on leaving.
   - Lists come from small summary fields, not whole programs.
+
+### 3.5 Shared across qstored products
+
+So that later products need no second account system, second billing or second groups:
+
+- **Shared from day one:**
+  - one Firebase project and one Google Cloud project for all qstored products;
+  - one `users` collection, one `subscriptions` collection and one `groups` collection, with their members, roles, units and places;
+  - one set of Stripe products and prices.
+- **Separate for each product:** its own data. Programs live in `programs/`; gear will have its own collections.
+- **Who has Premium** is worked out once, for the account (`GET /me` returns `premium`), and every product checks that same answer. A plan is never tied to a product.
+- **Limits belong to each product.** The free cap of 3 is a program limit. The gear app will set its own free limits, and `GET /me` returns each product's limits alongside the shared Premium answer.
+- **The API is organised by product:**
+  - shared parts under `/v1/me`, `/v1/groups` and `/v1/billing`;
+  - the builder's under `/v1/programs` (and the group program's routes);
+  - a later product's under its own path, such as `/v1/gear`.
+
+  It's one Cloud Run service to start with, which can be split by path later if one product grows.
+- **Group places count people, not apps.** A leader in a Group plan has Premium in every qstored product, using one place.
+- **Signing in** uses the same account in every product. Each address keeps its own sign-in, so at first a leader signs in once in each app, with the same email. A shared sign-in page at `account.qstored.org`, signing them in everywhere at once, can follow when there's a second product.
+- **Wording:** the builder says *qstored Premium*, not *Program Builder Premium*. Receipts, checkout and the Account page all use the qstored name.
 
 ## 4. Changes to the builder
 
