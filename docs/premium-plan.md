@@ -1,24 +1,27 @@
 # Premium: scope for accounts, the API and paid tiers
 
-This scopes a **Premium** offering for the Program Builder: accounts, an API that saves programs to them, and two paid tiers, **Individual** and **Group**. Nothing here is built yet. Prices, names and limits marked *(decide)* are proposals to settle before building.
+This scopes a **Premium** offering for the Program Builder: accounts, an API that saves programs to them, and two paid tiers, **Individual** and **Group**. Nothing here is built yet. The decisions taken so far are listed in section 6. The builder isn't public yet, so its current behaviour can change without carrying existing users over.
 
 ## 1. The tiers
 
-| | Free | Individual | Group |
-| --- | --- | --- | --- |
-| Use the builder, print, PDF, spreadsheet, calendar file | Yes | Yes | Yes |
-| Saved programs | **3** | Unlimited | Unlimited |
-| Saved to an account (any device) | Yes, the same 3 *(decide, 6.1)* | Yes | Yes |
-| Leaders with every Premium feature | Just you | Just you | The owner **plus up to 10 leaders** *(decide, 6.2)* |
-| Programs shared across the group | – | – | Yes |
-| Group program, linked both ways with every unit's program (section 8) | – | – | Yes |
-| The Premium features in section 2 | – | Yes | Yes, for every leader in the group |
-| Suggested price (AUD, incl. GST) *(decide)* | Free | $4/month or $36/year | $12/month or $99/year |
+| | Signed out | Free account | Individual | Group |
+| --- | --- | --- | --- | --- |
+| Use the builder, print, PDF, spreadsheet, calendar file | Yes | Yes | Yes | Yes |
+| Saved programs | **1**, in this browser | **3**, in the account | Unlimited | Unlimited |
+| Use them on any device | – | Yes | Yes | Yes |
+| Leaders with every Premium feature | – | – | Just you | The owner **plus up to 10 leaders** |
+| Group library, shared styling, unit programs (section 2) | – | – | – | Yes |
+| Version history, live family link, calendar subscription | – | – | Yes | Yes, for every leader in the group |
+| Group program, linked both ways with unit programs (section 8) | – | – | – | Yes, in the second release |
+| Price (AUD, incl. GST) | Free | Free | $4/month or $36/year | $12/month or $99/year, and yearly can be paid by invoice |
 
 How the rules work:
 
 - **Who has Premium.** A person has Premium while they have an active Individual subscription, **or** they're an active member of a group whose Group subscription is active. Having both is fine; nothing doubles up.
-- **The free cap of 3.** The cap counts a person's own saved programs, not deleted ones. Programs that belong to a group don't count against anyone's cap.
+- **Signed out, one program.** The browser keeps one program. Starting another, opening a file or duplicating asks the leader to sign in (free), or replaces the program on this device after offering *Save file* first. *Programs*, *New program* and *Duplicate* lead to the sign-in for anyone signed out.
+- **The free cap of 3.** The cap counts a person's own programs in their account, not deleted ones. Programs that belong to a group don't count against anyone's cap. The server enforces it, so it can't be got around.
+- **The owner of a group** can be anyone, including a treasurer or committee member who pays and manages the leaders but doesn't write programs. The owner doesn't use one of the 10 leader places.
+- **Several groups.** A leader can belong to more than one group (for example helping at two), with one account. Each group has its own subscription.
 - **When Premium ends** (cancelled, a payment fails after the grace period, or a leader is removed from a group):
   - nothing is deleted;
   - every program can still be opened, edited, exported and deleted;
@@ -28,23 +31,30 @@ How the rules work:
 
 ## 2. Premium features
 
-**At launch** (the minimum, plus what makes the minimum worth paying for):
+**First paid release** (the minimum, plus what makes it worth paying for):
 
 1. **Unlimited programs saved to the account,** on any device. Free accounts get the same thing for up to 3.
-2. **Group library** (Group tier). Programs saved to the group are visible to and editable by every leader in it, and stay with the group when a leader leaves. A leader picks *My programs* or *[Group name]* when saving.
-3. **Group program** (Group tier). One program of group events (camps, parades, fundraisers, working bees) that appear automatically in each unit's program, with each unit's own activities showing back in a week-by-week overview of the whole group. See section 8.
-4. **Shared styling** (Group tier). The group's styling, leaders, patrols, challenge areas and highlights are saved once and used by every new program in the group. The settings that `newProgram()` already carries over become group-level settings.
+2. **Group library** (Group tier). Programs saved to the group are visible to every leader in it, and stay with the group when a leader leaves. A leader picks *My programs* or *[Group name]* when saving. Each group program belongs to a unit (Joeys, Cubs and so on), and who can edit it follows section 2.1.
+3. **Shared styling** (Group tier). The group's styling, leaders, patrols, challenge areas and highlights are saved once and used by every new program in the group. The settings that `newProgram()` already carries over become group-level settings.
+4. **Version history.** Every save is kept for 90 days, and any earlier version can be restored. This covers "someone in the group deleted my week".
+5. **Live family link.** A read-only web page of the program at a short address, always the latest version, for the group's Facebook page or newsletter. It replaces sending a new PDF after every change.
+6. **Calendar subscription.** A `webcal://` address families add once. Their calendar then updates when the program changes, rather than the one-off `.ics` file they get now.
 
-**Soon after** (the reasons to stay subscribed):
+**Second release:**
 
-5. **Version history.** Every save is kept for 90 days, and any earlier version can be restored. This covers "someone in the group deleted my week".
-6. **Live family link.** A read-only web page of the program at a short address, always the latest version, for the group's Facebook page or newsletter. It replaces sending a new PDF after every change.
-7. **Calendar subscription.** A `webcal://` address families add once. Their calendar then updates when the program changes, rather than the one-off `.ics` file they get now.
+7. **Group program** (Group tier). One program of group events (camps, parades, fundraisers, working bees) that appear automatically in each unit's program, with each unit's own activities showing back in a week-by-week overview of the whole group. See section 8.
 
 **Later, if there's demand:**
 
 8. **Activity library.** Search and reuse activities from past programs (with their descriptions, costs and forms).
 9. **Templates.** Start a term from last year's Term 2, or from a group template.
+
+### 2.1 Who can edit a unit's programs
+
+- **By default, that unit's leaders.** Each leader in a group is set to the units they lead (for example Cubs, or Cubs and Scouts). They can edit that unit's programs. Everyone else in the group can view them.
+- **The main unit leader** of each unit (one per unit, chosen by the owner or an admin) can invite other leaders in the group to edit that unit's programs too, for example a Scouts leader helping with a Cubs camp, and can remove them again.
+- **The owner and admins** choose each unit's main leader and set which units each leader leads. They manage the group but, unless they're one of the unit's leaders, they view its programs rather than edit them. If a unit has no main leader, they can step in as one.
+- A leader's *My programs* are only theirs, whatever their units.
 
 Out of scope for now: editing together live (two leaders typing at once; section 4.3 handles clashes instead), youth member records, payments from families, and Terrain integration.
 
@@ -55,7 +65,7 @@ Out of scope for now: editing together live (two leaders typing at once; section
 The API reuses the stack planned for Pinewood Control in `pinewood-control/docs/deployment-plan.md`: Node with Express and Prisma, Postgres 16 and Caddy, in one `docker compose` on the VPS, with nightly backups. It gets its own database and its own container, so the two apps can't affect each other.
 
 - **Address.** The builder and the API should share a domain, for example `programs.<domain>` and `api.<domain>`. Sign-in can then use an ordinary secure cookie. Browsers increasingly block the cross-site cookies that `no5tyle.github.io` talking to a VPS address would need. This depends on buying the domain discussed earlier.
-- **The builder stays a static site** on GitHub Pages. It still works fully without an account or a connection. The API only adds saving to an account.
+- **The builder stays a static site** on GitHub Pages. Without an account it still works, for one program kept in the browser, and it works without a connection. The API adds saving to an account.
 
 ### 3.2 Signing in
 
@@ -90,30 +100,34 @@ Everything is under `/api/v1` and uses JSON. Errors are always `{ "error": { "co
 | `DELETE /programs/{id}` | Moves it to a bin for 30 days. |
 | `POST /programs/{id}/restore` | Brings it back from the bin. |
 | `POST /programs/{id}/move` `{ owner }` | Moves it between *My programs* and a group (Premium). |
-| `POST /programs/import` `{ programs: [...] }` | Uploads the programs already on this device at first sign-in. On a free account it takes the 3 most recently changed and reports the rest as `skipped`. |
-| `GET /programs/{id}/versions`, `GET .../versions/{v}`, `POST .../versions/{v}/restore` | Version history (Premium, phase 3). |
+| `POST /programs/import` `{ programs: [...] }` | Uploads the program kept in this browser at first sign-in (or programs from *Open* files). Answers `program_limit` for any past a free account's 3. |
+| `GET /programs/{id}/versions`, `GET .../versions/{v}`, `POST .../versions/{v}/restore` | Version history (Premium). |
 
 **Groups** (Group tier)
 
 | Method and path | Does |
 | --- | --- |
 | `GET /groups/{id}` and `PATCH /groups/{id}` `{ name }` | The group's details, and renaming it. |
-| `GET /groups/{id}/settings` and `PUT /groups/{id}/settings` | Shared styling and lists (feature 4). |
+| `GET /groups/{id}/settings` and `PUT /groups/{id}/settings` | Shared styling and lists (feature 3). |
 | `GET /groups/{id}/members` | Members and pending invites, with the seats used out of 10. |
 | `POST /groups/{id}/invites` `{ email }` | Emails an invite. Answers **409 `seats_full`** when all 10 are taken, counting pending invites. Owner and admins only. |
 | `POST /invites/{token}/accept` | Joins the group (signing in first if needed). |
 | `DELETE /groups/{id}/invites/{inviteId}` and `DELETE /groups/{id}/members/{userId}` | Cancels an invite or removes a leader. A leader can also remove themselves. |
 | `POST /groups/{id}/owner` `{ userId }` | Hands the group (and its billing) to another member. |
+| `PATCH /groups/{id}/members/{userId}` `{ role, sections }` | Sets a leader's role (admin or leader) and the units they lead. Owner and admins. |
+| `PUT /groups/{id}/units/{section}` `{ mainLeaderId }` | Chooses a unit's main leader. Owner and admins. |
+| `POST /groups/{id}/units/{section}/editors` `{ userId }` and `DELETE .../editors/{userId}` | Lets another leader in the group edit the unit's programs, or stops it. The unit's main leader, the owner and admins. |
 
 **Billing** (Stripe)
 
 | Method and path | Does |
 | --- | --- |
 | `POST /billing/checkout` `{ plan: "individual" \| "group", interval: "month" \| "year", groupName? }` | Returns a Stripe Checkout address to send the person to. Buying Group creates the group, with the buyer as owner. |
+| `POST /billing/invoice` `{ groupName, billingEmail, abn? }` | Group, yearly: sets the subscription up to be paid by invoice (bank transfer). Stripe emails the invoice with 30 days to pay, and Premium starts straight away. |
 | `POST /billing/portal` | Returns a Stripe Customer Portal address for changing the card, the plan or cancelling. |
 | `POST /billing/webhook` | Stripe's notices (`checkout.session.completed`, `customer.subscription.updated` and `.deleted`, `invoice.payment_failed`). These are the only things that change a subscription's status, so the builder never decides who has paid. |
 
-**Public pages** (phase 3, no sign-in needed)
+**Public pages** (Premium; no sign-in needed to view)
 
 | Method and path | Does |
 | --- | --- |
@@ -126,20 +140,24 @@ Everything is under `/api/v1` and uses JSON. Errors are always `{ "error": { "co
 users            id, email (unique), name, created_at, last_seen_at
 login_codes      email, code_hash, expires_at (10 min), attempts            -- 5 tries, then a new code
 sessions         id, user_id, created_at, expires_at, user_agent
-subscriptions    id, plan (individual|group), status (active|past_due|canceled), interval,
+subscriptions    id, plan (individual|group), status (active|past_due|canceled), interval, pays_by (card|invoice),
                  stripe_customer_id, stripe_subscription_id, current_period_end,
                  user_id (individual) | group_id (group)
 groups           id, name, owner_id, settings (jsonb), created_at
-group_members    group_id, user_id, role (owner|admin|leader), joined_at      -- unique (group_id, user_id)
+group_members    group_id, user_id, role (owner|admin|leader), sections text[] (units they lead), joined_at
+                                                                             -- unique (group_id, user_id)
+group_units      group_id, section, main_leader_id                           -- one main leader per unit
+unit_editors     group_id, section, user_id, invited_by, at                  -- extra editors for a unit
 group_invites    id, group_id, email, token_hash, invited_by, expires_at (14 days)
-programs         id (the builder's id), owner_user_id | owner_group_id, name, group_name, year, term,
+programs         id (the builder's id), owner_user_id | owner_group_id, section, name, group_name, year, term,
                  data (jsonb), version, updated_at, updated_by, deleted_at, public_slug
 program_versions program_id, version, data (jsonb), created_at, created_by    -- kept 90 days (Premium)
 ```
 
 - A program's `data` is exactly what the builder saves in the browser today (`state`), so nothing is converted and *Save file* and *Open* keep working.
 - A program is capped at 2 MB. The section or uploaded logo is the biggest part, and it's already shrunk to 400 px.
-- The seat check counts members plus pending invites, inside the same transaction that adds one, so two invites sent at once can't make 11.
+- The seat check counts members plus pending invites, inside the same transaction that adds one, so two invites sent at once can't make 11. The owner isn't counted.
+- Every program write checks the rules in section 2.1 on the server: a group program's `section` decides who may change it.
 
 ## 4. Changes to the builder
 
@@ -147,11 +165,12 @@ program_versions program_id, version, data (jsonb), created_at, created_by    --
 
 - **Sign in** sits in the top bar (and the phone menu), with the line *Save your programs to your account, to use on any device*. Once signed in, it shows their initial, and opens a small menu: *Account*, *Group* (if any), *Sign out*.
 - **The save message** by Undo says where things are: *Saved to your account*, *Saved on this device* (signed out), or *Offline: saved on this device, will upload when you're back online*.
-- **Programs** groups the list under *My programs*, *[Group name]* and *On this device only*, each marked with who last changed it and when ("Akela, yesterday").
+- **Programs** groups the list under *My programs* and each group the leader belongs to (by unit within a group), each marked with who last changed it and when ("Akela, yesterday"). Programs a leader can only view are marked *View only*. Signed out, it shows the one program on this device and *Sign in to keep more than one*.
 - **The 4th program** on a free account doesn't fail. A friendly box explains the limit and offers *Go Premium*, *Delete an old program* or *Not now*.
-- **First sign-in** on a device that already has programs asks *Upload the 3 programs on this device to your account?* (or all of them, with Premium).
+- **First sign-in** uploads the program on this device to the account, after asking.
 - **The Account page** shows the plan, *Manage billing* (Stripe's page), *Download all my programs* and *Delete my account*.
-- **The Group page** (for the owner and admins) lists the leaders, shows *Invite a leader* with the seats left (for example "7 of 10 used"), and lets them remove leaders.
+- **The Group page** (for the owner and admins) lists the leaders and the units each leads, shows *Invite a leader* with the places left (for example "7 of 10 used"), sets each unit's main leader, and removes leaders. A unit's main leader sees their unit there, with *Let another leader edit*.
+- **Several groups:** a leader in more than one group switches between them in *Programs*.
 - **Help** gets three new answers:
   - *How do I use it on another computer?* now answers "Sign in".
   - *How do I give it to another leader?* now answers "Save it to your group".
@@ -174,16 +193,13 @@ When a `PUT` gets `412 version_conflict`, the builder shows both versions side b
 - *Keep theirs*
 - *Keep both* (theirs stays; mine is saved as a copy)
 
-Nothing is ever lost silently. This is enough while live joint editing is out of scope. Version history (feature 5) is the backstop.
+Nothing is ever lost silently. This is enough while live joint editing is out of scope. Version history (feature 4) is the backstop.
 
-### 4.4 The free cap on this device
+### 4.4 One program in the browser
 
-**Today** there's no limit on programs saved in the browser. The options are:
+Signed out, the builder keeps one program in the browser. For a signed-in leader, the browser also holds a working copy of the programs they open, for speed and offline use (section 4.2). That copy is a cache of the account, not a separate save, and it's cleared on *Sign out*.
 
-- **(a)** Apply the cap of 3 to the device too, for new programs only. Anyone who already has more keeps them, but can't add more.
-- **(b)** Apply it only to programs saved to an account.
-
-(b) is kinder to current users. But it gives little reason to upgrade, because a leader who never signs in has no limit. (a) is a client-side check, so a determined person can get around it. It's still enough as a nudge. *(decide, 6.3)*
+Today the builder keeps any number of programs in the browser. Because it isn't public yet, this changes outright, with nothing to carry over: *Programs*, *New program* and *Duplicate* lead to sign-in when signed out.
 
 ## 5. Privacy and safety
 
@@ -193,39 +209,51 @@ Programs hold leaders' names and phone numbers, and sometimes young people's nam
 - **Where data is kept.** In Australia if the VPS is (check its region), encrypted in transit, with database backups encrypted.
 - **Downloading and deleting.** Leaders can download everything (`GET /me/export`) and delete their account (`DELETE /me`) themselves. Deleted programs are purged from backups within 35 days.
 - **A note in the editor.** Ask leaders not to put young people's personal details in programs, in line with Scouts Australia's child safety and privacy guidance.
-- **Live family links (feature 6).** They're off by default, and each program's link is turned on separately. The page shows only what the printout shows. Leader phone numbers are hidden unless the owner chooses to show them.
+- **Live family links (feature 5).** They're off by default, and each program's link is turned on separately. The page shows only what the printout shows. Leader phone numbers are hidden unless the owner chooses to show them.
 - **What gets logged.** Ids and error codes, never program contents. Stripe holds the card details; the API never sees them.
 - **GST.** If the business registers for GST, Stripe Tax can add it to prices.
 
-## 6. Decisions to make
+## 6. Decisions
 
-1. **Do free accounts save to the account at all?** Proposed: yes, up to 3. It's the main way people find Premium, and costs little to store. The alternative is that saving to an account is Premium-only, and free means this device only.
-2. **Are the "10 leaders" on top of the owner?** Proposed: yes, owner plus 10. Also decide whether the owner can be someone who isn't a leader, such as a group treasurer who only pays.
-3. **Should the free cap apply on the device too?** Section 4.4: (a) the cap applies on the device for new programs only, or (b) it applies only to programs saved to an account.
-4. **Prices,** and whether to offer annual billing only for Group. Groups usually pay once a year from group funds, and some will want an invoice rather than a card.
-5. **One group per leader, or several?** Proposed: several, for a leader who helps at two groups. Each group needs its own subscription.
-6. **The domain** (section 3.1). Accounts need the builder and the API on the same domain.
-7. **Who edits the group program?** Proposed: a new *group leader* role, plus the owner and admins. Unit leaders can suggest a group event, and propose joint activities to other sections.
-8. **Do group changes apply automatically, or wait for the unit to accept?** Proposed: they apply automatically, with a notice of what changed and the option to hide an event. Joint activities that one unit proposes to another are the exception: they wait for the other unit to accept.
-9. **What of a unit's program shows in the group overview?** Proposed: date, time, activity, where and weeks off. Leaders, contacts, costs and notes stay in the unit's program.
+Taken:
+
+1. **Free accounts** save up to 3 programs to the account.
+2. **Signed out,** the browser keeps only one program (section 4.4). Not public yet, so no carry-over for current behaviour.
+3. **Group places:** the owner plus 10 leaders. The owner can be someone who only pays and manages.
+4. **Several groups** per leader, each with its own subscription.
+5. **Prices:**
+   - Individual: A$4 a month or A$36 a year.
+   - Group: A$12 a month or A$99 a year, with yearly payable by invoice.
+6. **Editing a unit's programs:** that unit's leaders, plus leaders the unit's main leader invites (section 2.1).
+7. **The group program** can be changed by any leader in the group. Its changes apply automatically, with a notice, and joint activities wait for the invited unit to accept (section 8).
+8. **The group overview** shows what families see: date, time, activity, where and weeks off.
+9. **The first paid release** has unlimited programs, the group library and shared styling, version history, live family links and calendar subscriptions. The group program follows in the second release.
+
+Still open:
+
+- **The domain** (section 3.1) isn't bought yet. It's needed before phase 1, because accounts need the builder and the API on the same domain. `<domain>` stands in for it here.
+- **The VPS's region,** for where data is kept (section 5).
+- **GST registration,** which decides whether Stripe Tax is needed.
+- **People outside the group.** Can a main unit leader let someone outside the group edit, such as a leader from a neighbouring group running a joint camp? Proposed: no; they'd need to join the group, using one of its places.
 
 ## 7. Building it, in phases
 
 | Phase | Includes | Size |
 | --- | --- | --- |
-| 1. Accounts and saving | Domain and API service on the VPS, email codes, `/me`, the program endpoints with version checks, the offline queue, the conflict box, uploading on first sign-in, the free cap, the Account page, Help updates | Large: most of the work, and everything later builds on it |
-| 2. Paying | Stripe products, Checkout and Portal, the webhook, Individual and Group plans, the grace period and lapse rules, the Premium prompts | Medium |
-| 3. Groups | Groups, invites and seats, the group library, moving programs, shared styling, roles, handing over ownership | Medium |
-| 3b. Group program | Group events, linked unit programs, joint activities, the overview, group printout and group calendar, *From the group* notices (section 8) | Large: the most involved part, after Groups are working |
+| 0. Before | Buy the domain; point the builder and `api.<domain>` at it; privacy policy and terms | Small |
+| 1. Accounts and saving | API service on the VPS, email codes, `/me`, the program endpoints with version checks, the offline queue, the conflict box, uploading on first sign-in, one program when signed out, the cap of 3, the Account page, Help updates | Large: most of the work, and everything later builds on it |
+| 2. Paying | Stripe products, Checkout and Portal, invoices for yearly Group, the webhook, the grace period and lapse rules, the Premium prompts | Medium |
+| 3. Groups | Groups and several per leader, invites and places, the group library, moving programs, shared styling, roles, units and their main leaders and editors, handing over ownership | Medium |
 | 4. Reasons to stay | Version history, live family links, calendar subscriptions | Medium |
-| 5. Later | Activity library, templates, Google and Microsoft sign-in | As needed |
+| 5. Group program | Group events, linked unit programs, joint activities, the overview, group printout and group calendar, *From the group* notices (section 8) | Large: the most involved part |
+| 6. Later | Activity library, templates, Google and Microsoft sign-in | As needed |
 
-Phases 1 and 2 can ship together as the first release: unlimited programs for Individual, and the free cap of 3. Group follows as phase 3, then the group program as 3b.
+Phases 1 to 4 are the first paid release. The group program (phase 5) is the second.
 
 **Testing.**
 
-- **The API:** tests against a real Postgres in CI, covering the cap, seats (including two invites at once), version conflicts, every webhook and the lapse rules.
-- **The builder:** Playwright tests with the API mocked, covering offline, conflicts, the 4th program and first sign-in upload.
+- **The API:** tests against a real Postgres in CI, covering the cap, places (including two invites at once), who can edit each unit's programs, version conflicts, every webhook, invoices and the lapse rules.
+- **The builder:** Playwright tests with the API mocked, covering offline, conflicts, one program when signed out, the 4th program, view-only programs and first sign-in upload.
 - **One end-to-end test** against a test deployment, using Stripe's test mode.
 
 ## 8. The group program
@@ -237,7 +265,7 @@ The **group program** is one program of group events. It's linked both ways:
 - **Down:** group events appear in each unit's program automatically, and stay up to date when they change.
 - **Up:** each unit's activities show in the group program's overview, a week-by-week view of every section, which is always current.
 
-It's part of the Group tier.
+It's part of the Group tier, in the second release. Any leader in the group can add and change group events.
 
 ### 8.1 What it holds
 
@@ -260,7 +288,7 @@ A unit program is **linked** to the group program when it's saved to the group w
   - date, time and title;
   - description, where, uniform, cost and forms.
 
-  Clicking one of those says *Set by the group program* and offers *Ask the group leader*, or *Make it our own*. *Make it our own* turns the row into an ordinary row that no longer updates.
+  Clicking one of those says *Set by the group program* and offers *Change it in the group program* (which changes it for every unit), or *Make it our own*. *Make it our own* turns the row into an ordinary row that no longer updates.
 
   The unit keeps its own:
   - leader;
@@ -284,7 +312,7 @@ A unit program is **linked** to the group program when it's saved to the group w
 
 The group program has two views:
 
-- **Group events:** the list the group leader edits. It's like a program, with columns for Date, Event, Sections, *Instead of the meeting*, Where and Cost.
+- **Group events:** the list any leader in the group can edit. It's like a program, with columns for Date, Event, Sections, *Instead of the meeting*, Where and Cost.
 - **Overview:** a table of weeks down the side and sections across the top. Each cell shows that unit's activities for the week, with group events across all their sections. Weeks off, *Not attending* and clashes are marked; a clash is, for example, two sections booked into the hall at the same time.
 
 The overview is built from the linked unit programs each time it's opened, so it's always current, and nothing is copied. It shows only what the unit's printout shows (date, time, activity, where, weeks off), never leader contacts or notes.
@@ -300,32 +328,32 @@ It can be:
 From a unit row's ⋮ menu, *Share with the group* offers:
 
 - **Joint activity:** invites other sections (for example "Cubs invite Scouts to the Night Hike"). It shows as *Proposed* in the group program and in the invited units' *From the group* notices. When a unit's leader accepts, it becomes a linked row in their program. If they decline, the proposing unit is told.
-- **Suggest a group event:** puts it to the group leader, who can confirm it for any sections.
+- **Make it a group event:** moves it into the group program for the sections chosen. It applies to them straight away, like any group event.
 
-Once confirmed, the row in the proposing unit's program becomes a linked row like any other.
+Once it's a group event, the row in the proposing unit's program becomes a linked row like any other.
 
 ### 8.5 Who can do what
 
-| | Group leader, owner, admin | Unit leader (their sections) | Other leaders in the group |
-| --- | --- | --- | --- |
-| Add, change, remove group events | Yes | Suggest only | Suggest only |
-| Their unit's program, and linked rows' own fields | Yes | Yes | View |
-| Accept or decline joint activities | Yes | Yes | – |
-| *Not attending*, *Make it our own* | Yes | Yes | – |
-| See the overview | Yes | Yes | Yes |
+| | Any leader in the group | A unit's leaders and its invited editors |
+| --- | --- | --- |
+| Add, change, remove group events | Yes | Yes |
+| The unit's program, and linked rows' own fields | View | Yes |
+| Accept or decline joint activities for the unit | – | Yes |
+| *Not attending*, *Make it our own* for the unit | – | Yes |
+| See the overview | Yes | Yes |
 
-Group members get a `sections` list (for example Cubs) alongside their role, and a new `group_leader` role.
+The group's *From the group* notices name who made each change ("Bagheera moved the group camp"). Version history on the group program (feature 4) can undo a change made by mistake.
 
 ### 8.6 API additions
 
 | Method and path | Does |
 | --- | --- |
 | `GET /groups/{id}/terms/{year}-{term}` | The group program for a term: its events, with each section's response. |
-| `POST /groups/{id}/events` | Adds a group event (group leader, owner or admin). |
+| `POST /groups/{id}/events` | Adds a group event (any leader in the group). |
 | `PATCH /groups/{id}/events/{eventId}` with `If-Match` | Changes it, and answers `412 version_conflict` if someone changed it first. |
 | `DELETE /groups/{id}/events/{eventId}` | Removes it from the group program and every linked program, keeping a notice. |
 | `POST /groups/{id}/events/{eventId}/responses` `{ section, response: "accept" \| "decline" \| "not_attending" \| "attending" }` | A unit's answer to a joint activity, or *Not attending*. |
-| `POST /programs/{id}/rows/{rowId}/share` `{ kind: "joint" \| "suggest", sections, fits: "instead" \| "extra" }` | Shares a unit row with the group (section 8.4). |
+| `POST /programs/{id}/rows/{rowId}/share` `{ kind: "joint" \| "group", sections, fits: "instead" \| "extra" }` | Shares a unit row with the group (section 8.4). |
 | `PATCH /programs/{id}` `{ linked: true, section, year, term }` | Makes a program the linked one for its section and term. Answers `409 already_linked` with the current one, which can be swapped. |
 | `GET /programs/{id}` | Adds `groupEvents` (this term's events for its section) and `groupEventsVersion` to the existing response. `GET /programs/{id}/group-events?since=` fetches only changes. |
 | `GET /groups/{id}/overview?year=&term=` | The overview table. |
@@ -341,7 +369,6 @@ group_events          id, group_id, year, term, date, end_date, time, title, des
 group_event_responses event_id, section, response (accepted|declined|not_attending), by, at   -- one per section
 group_changes         id, group_id, event_id, sections text[], kind (added|changed|removed|proposed|answered),
                       summary, by, at                                                    -- kept 1 year
-group_members         + role 'group_leader', + sections text[]
 programs              + section, + linked (bool)                       -- unique (group, section, year, term) when linked
 ```
 
@@ -349,7 +376,7 @@ A unit program's data keeps, for each group event, `groupLinks: { [eventId]: { l
 
 ### 8.7 In the builder
 
-- **Programs.** It lists *Group program, Term 3 2027* at the top of the group's programs, for everyone in the group. Only group leaders and admins can change it.
+- **Programs.** It lists *Group program, Term 3 2027* at the top of the group's programs, for everyone in the group to view and change.
 - **Group program editor.** It reuses the program sheet, with the group event columns and a **Sections** picker (chips for each section). It has tabs for *Group events* and *Overview*.
 - **Unit programs.**
   - Linked rows show the group badge.
