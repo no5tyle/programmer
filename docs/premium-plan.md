@@ -100,7 +100,9 @@ Ground rules:
 
 **By email link, with no passwords.** The leader enters their email. Firebase sends a link, and tapping it signs them in. There's no password to forget, which suits leaders who aren't comfortable with technology. On a phone, the link opens in the phone's default browser. Firebase keeps them signed in, renewing the session as it's used, until *Sign out*.
 
-The builder sends Firebase's ID token with each request (`Authorization: Bearer ...`), and the API checks it. Because no cookie is involved, the builder and the API don't need to share a domain. The builder can stay on GitHub Pages, calling the API at its Cloud Run address or, later, `api.<domain>`.
+The builder sends Firebase's ID token with each request (`Authorization: Bearer ...`), and the API checks it. Because no cookie is involved, the builder and the API don't need to share a domain. The builder stays on GitHub Pages, but served from its own address, **`scoutcal.org`**, with the API at **`api.scoutcal.org`** (Cloud Run custom domain) and family pages at `scoutcal.org/p/...`.
+
+The builder must move to `scoutcal.org` **before anyone signs in**. The browser keeps its copy of programs, and Firebase keeps its sign-in, separately for each web address. A move after launch would strand every leader's browser copy and sign-in at the old address. `scoutcal.org` must also be added to Firebase's authorised domains.
 
 The trade-off is that the token is held by the page's JavaScript. That's acceptable because the builder loads no third-party scripts. Its Content-Security-Policy should keep it that way.
 
@@ -292,7 +294,8 @@ Taken:
 
 Still open:
 
-- **The domain** isn't bought yet. It's no longer needed before phase 1, because sign-in doesn't use cookies (section 3.2). It's wanted before launch for tidy addresses, such as the family links and `api.<domain>`. `<domain>` stands in for it here.
+- **The domain:** probably `scoutcal.org`. It wasn't registered when checked on 16 Nov 2026, but that isn't a guarantee it's still free. Buy it before phase 1 and move the builder to it before anyone signs in (section 3.2).
+  - The name includes "Scout". Check with Scouts Australia whether a paid product under that name is acceptable, at the same time as asking about the section logos. Do this before buying, so the domain isn't wasted if they object.
 - **A business name and contact address** for invoices and the terms (section 5.1).
 
 ## 7. Building it, in phases
@@ -307,7 +310,7 @@ Still open:
 | 5. Group program | Group events, linked unit programs, joint activities, the overview, group printout and group calendar, *From the group* notices (section 8) | Large: the most involved part |
 | 6. Later | Activity library, templates, Google and Microsoft sign-in, other countries | As needed |
 
-Buying the domain fits anywhere before launch.
+Buying `scoutcal.org` and moving the builder onto it (GitHub Pages custom domain, with `no5tyle.github.io/programmer` redirecting) is part of phase 0.
 
 Phases 1 to 4 are the first paid release. The group program (phase 5) is the second.
 
