@@ -1097,7 +1097,7 @@ function renderSheet() {
       const label = typeof g.key === 'number' ? `${o.weekPrefix || ''}${g.key}` : (o.holidayLabel || '–');
       const tint = cat && !r.noMeeting && o.highlight === 'row' && g.rows.length === 1 ? ` style="background:${esc(cat.color)}"` : '';
       // Screen only (.ph): add an activity on any day of this week
-      const add = ws && !r.emptyWeek ? `<button type="button" class="ph wk-add" data-add-week="${toISO(ws)}" title="Add an activity to this week" aria-label="Add an activity to ${esc(label)}">+</button>` : '';
+      const add = ws && !r.emptyWeek ? `<button type="button" class="ph wk-add" data-add-week="${toISO(ws)}" title="Add an activity to this week" aria-label="Add an activity to ${esc(label)}"><svg viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></svg></button>` : '';
       // Its style, if it has one (clicking the cell brings up the style toolbar)
       const wst = ws ? cleanStyle(state.weekStyles?.[weekStyleKey(ws)]) : null;
       const wcls = wst ? ` ${styleClasses(wst)}` : '';
