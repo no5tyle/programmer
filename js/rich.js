@@ -193,3 +193,78 @@ document.addEventListener('paste', (e) => {
 
 document.addEventListener('DOMContentLoaded', () => document.body.appendChild(fmtBar));
 if (document.body) document.body.appendChild(fmtBar);
+
+/* ---------------------------------------------------------------- whole-field styles */
+
+/*
+ * The sidebar's text fields that print take a smaller set: bold, italic and a colour, for the whole
+ * field. Their toolbar hovers above the field the same way. The fields are marked [data-fs] and their
+ * styles kept by js/app.js (fieldStyleRef, previewFieldStyles).
+ */
+const fsBar = document.createElement('div');
+fsBar.className = 'fmt-bar fs-bar';
+fsBar.setAttribute('role', 'toolbar');
+fsBar.setAttribute('aria-label', 'Field style');
+fsBar.hidden = true;
+
+function drawFsBar() {
+  const colours = typeof FIELD_COLOURS === 'undefined' ? [] : FIELD_COLOURS;
+  fsBar.innerHTML = `
+    <button type="button" data-fs-act="b" title="Bold" aria-label="Bold" aria-pressed="false"><b>B</b></button>
+    <button type="button" data-fs-act="i" title="Italic" aria-label="Italic" aria-pressed="false"><i>I</i></button>
+    <span class="fs-sep" aria-hidden="true"></span>
+    ${colours.map(([c, name]) => `<button type="button" class="fs-swatch" data-fs-colour="${c}" title="${name}" aria-label="${name} text" aria-pressed="false"><span style="background:${c}"></span></button>`).join('')}
+    <span class="fs-sep" aria-hidden="true"></span>
+    <button type="button" data-fs-act="clear" title="Clear formatting" aria-label="Clear formatting"><svg viewBox="0 0 24 24"><path d="M6 5h11M11 5l-3 14M4 20l16-16"/></svg></button>`;
+}
+
+function styledField() {
+  const el = document.activeElement;
+  return el && el.matches?.('input[data-fs], textarea[data-fs]') && typeof fieldStyleRef === 'function' && fieldStyleRef(el.dataset.fs) ? el : null;
+}
+
+function placeFsBar() {
+  const field = styledField();
+  if (!field) { fsBar.hidden = true; return; }
+  if (!fsBar.firstChild) drawFsBar();
+  fsBar.hidden = false;
+  const r = field.getBoundingClientRect();
+  const w = fsBar.offsetWidth, h = fsBar.offsetHeight, gap = 6;
+  const vv = window.visualViewport;
+  const top0 = vv ? vv.offsetTop : 0, vh = vv ? vv.height : innerHeight;
+  let top = r.top - h - gap;
+  if (top < top0 + 4) top = r.bottom + gap;
+  top = Math.min(top, top0 + vh - h - 4);
+  fsBar.style.top = `${top}px`;
+  fsBar.style.left = `${Math.max(8, Math.min(r.left, innerWidth - w - 8))}px`;
+  const st = fieldStyleRef(field.dataset.fs).get();
+  fsBar.querySelector('[data-fs-act="b"]').setAttribute('aria-pressed', st.b ? 'true' : 'false');
+  fsBar.querySelector('[data-fs-act="i"]').setAttribute('aria-pressed', st.i ? 'true' : 'false');
+  fsBar.querySelectorAll('[data-fs-colour]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.fsColour === st.c ? 'true' : 'false'));
+}
+
+fsBar.addEventListener('pointerdown', (e) => e.preventDefault());
+fsBar.addEventListener('mousedown', (e) => e.preventDefault());
+fsBar.addEventListener('click', (e) => {
+  const field = styledField();
+  const b = e.target.closest('[data-fs-act], [data-fs-colour]');
+  if (!field || !b) return;
+  const ref = fieldStyleRef(field.dataset.fs);
+  const st = { ...ref.get() };
+  if (b.dataset.fsColour) st.c = st.c === b.dataset.fsColour ? undefined : b.dataset.fsColour;  // again: back to the usual colour
+  else if (b.dataset.fsAct === 'clear') { delete st.b; delete st.i; delete st.c; }
+  else st[b.dataset.fsAct] = !st[b.dataset.fsAct] || undefined;
+  pushHistory();
+  ref.set(st);
+  save(); renderDoc(); previewFieldStyles();
+  placeFsBar();
+});
+
+document.addEventListener('focusin', placeFsBar);
+document.addEventListener('focusout', () => setTimeout(placeFsBar, 0));
+window.addEventListener('resize', placeFsBar);
+window.addEventListener('scroll', placeFsBar, true);
+window.visualViewport?.addEventListener('resize', placeFsBar);
+window.visualViewport?.addEventListener('scroll', placeFsBar);
+if (document.body) document.body.appendChild(fsBar);
+document.addEventListener('DOMContentLoaded', () => document.body.appendChild(fsBar));

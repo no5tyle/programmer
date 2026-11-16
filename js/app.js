@@ -196,6 +196,8 @@ function defaultState() {
     },
     // Under the table: other dates for families' calendars (fundraisers, camps) and notes.
     extras: { datesTitle: 'Dates for your calendar', dates: [], notesTitle: '', notes: [] },
+    // Bold, italic and colour for whole sidebar fields that print (see "whole-field styles")
+    styles: {},
     rows: [],
   };
   return s;
@@ -224,6 +226,10 @@ function normalise(raw) {
   }
   s.challenges.forEach((c) => { if (OLD_CHALLENGE_COLORS[c.id] && c.color?.toUpperCase() === OLD_CHALLENGE_COLORS[c.id]) c.color = DEFAULT_CHALLENGES.find((d) => d.id === c.id).color; });
   s.rows = Array.isArray(raw.rows) ? raw.rows.map((r) => ({ ...newRowShape(), ...r, id: r.id || uid(), rich: normaliseRich(r.rich) })) : [];
+  s.styles = normaliseStyles(raw.styles);
+  s.branding.leaders.forEach((l) => normaliseItemStyle(l, STYLED_LISTS.leaders));
+  s.extras.dates.forEach((d) => normaliseItemStyle(d, STYLED_LISTS.dates));
+  s.extras.notes.forEach((n) => normaliseItemStyle(n, STYLED_LISTS.notes));
   return s;
 }
 function newRowShape() {
@@ -632,6 +638,88 @@ function titleText() {
     .trim();
 }
 
+/* ---------------------------------------------------------------- whole-field styles */
+
+/*
+ * The sidebar's text fields that print (group name, title, notes, list lines, ...) take a smaller set
+ * of formatting than the program's cells: bold, italic and a colour, for the whole field. Picked from
+ * the toolbar that hovers above the field (js/rich.js). Stored as { b, i, c } in state.styles by the
+ * field's data-bind path, or on a list item (leader, date, note) by its field name.
+ */
+const STYLED_FIELDS = ['branding.groupName', 'branding.titleTemplate', 'branding.versionText', 'branding.headerNote',
+  'branding.footerText', 'branding.leadersLabel', 'extras.datesTitle', 'extras.notesTitle'];
+const STYLED_LISTS = { leaders: ['name', 'phone'], dates: ['what', 'when'], notes: ['heading', 'text'] };
+const FIELD_COLOURS = [['#d0021b', 'Red'], ['#d9480f', 'Orange'], ['#1e8e3e', 'Green'], ['#0060df', 'Blue'], ['#6f42c1', 'Purple']];
+
+/** A style as saved, checked: { b: true, i: true, c: '#rrggbb' }, with anything else dropped. */
+function cleanStyle(st) {
+  if (!st || typeof st !== 'object') return null;
+  const out = {};
+  if (st.b === true) out.b = true;
+  if (st.i === true) out.i = true;
+  if (typeof st.c === 'string' && /^#[0-9a-f]{6}$/i.test(st.c)) out.c = st.c;
+  return Object.keys(out).length ? out : null;
+}
+
+/** The style of a field by its data-fs key ("branding.headerNote", "list:notes:2:text"), with a setter. */
+function fieldStyleRef(key) {
+  const m = /^list:(\w+):(\d+):(\w+)$/.exec(key || '');
+  if (m) {
+    const item = STYLED_LISTS[m[1]]?.includes(m[3]) ? listArray(m[1])?.[+m[2]] : null;
+    if (!item) return null;
+    return {
+      get: () => item.style?.[m[3]] || {},
+      set: (st) => {
+        const next = { ...(item.style || {}) };
+        if (cleanStyle(st)) next[m[3]] = cleanStyle(st); else delete next[m[3]];
+        if (Object.keys(next).length) item.style = next; else delete item.style;
+      },
+    };
+  }
+  if (!STYLED_FIELDS.includes(key)) return null;
+  return {
+    get: () => state.styles?.[key] || {},
+    set: (st) => {
+      const next = { ...(state.styles || {}) };
+      if (cleanStyle(st)) next[key] = cleanStyle(st); else delete next[key];
+      state.styles = next;
+    },
+  };
+}
+
+/** CSS for a style ('' for none). */
+function styleCss(st) {
+  const c = cleanStyle(st);
+  if (!c) return '';
+  return [c.c && `color:${c.c}`, c.b && 'font-weight:800', c.i && 'font-style:italic'].filter(Boolean).join(';');
+}
+/** A style="" attribute for a field's style, by key, or for a list item's field. */
+const fs = (key) => { const c = styleCss(state.styles?.[key]); return c ? ` style="${c}"` : ''; };
+const fsItem = (item, field) => { const c = styleCss(item?.style?.[field]); return c ? ` style="${c}"` : ''; };
+
+/** Show each styled field's style on the field itself, as a preview. */
+function previewFieldStyles() {
+  $$('[data-fs]').forEach((el) => {
+    const st = cleanStyle(fieldStyleRef(el.dataset.fs)?.get()) || {};
+    el.style.color = st.c || '';
+    el.style.fontWeight = st.b ? '700' : '';
+    el.style.fontStyle = st.i ? 'italic' : '';
+  });
+}
+
+/** Saved styles from a file, checked. */
+function normaliseStyles(raw) {
+  const out = {};
+  if (raw && typeof raw === 'object') STYLED_FIELDS.forEach((k) => { const st = cleanStyle(raw[k]); if (st) out[k] = st; });
+  return out;
+}
+function normaliseItemStyle(item, fields) {
+  if (!item || typeof item !== 'object') return;
+  const st = {};
+  fields.forEach((f) => { const c = cleanStyle(item.style?.[f]); if (c) st[f] = c; });
+  if (Object.keys(st).length) item.style = st; else delete item.style;
+}
+
 function groupNameHTML() {
   return esc(state.branding.groupName).replace(/\b(\d+)(st|nd|rd|th)\b/gi, '$1<sup>$2</sup>');
 }
@@ -738,13 +826,13 @@ function extrasHTML() {
   if (!dates.length && !notes.length) return '';
   const datesHTML = dates.length ? `
     <div class="doc-dates">
-      ${x.datesTitle ? `<div class="doc-extras-title">${esc(x.datesTitle)}</div>` : ''}
-      ${dates.map((d) => `<div class="doc-date"><b>${esc(d.what)}</b>${d.what && d.when ? ' – ' : ''}${esc(d.when)}</div>`).join('')}
+      ${x.datesTitle ? `<div class="doc-extras-title"${fs('extras.datesTitle')}>${esc(x.datesTitle)}</div>` : ''}
+      ${dates.map((d) => `<div class="doc-date"><b${fsItem(d, 'what')}>${esc(d.what)}</b>${d.what && d.when ? ' – ' : ''}<span${fsItem(d, 'when')}>${esc(d.when)}</span></div>`).join('')}
     </div>` : '';
   const notesHTML = notes.length ? `
     <div class="doc-notes">
-      ${x.notesTitle ? `<div class="doc-extras-title">${esc(x.notesTitle)}</div>` : ''}
-      ${notes.map((n) => `<p>${n.heading ? `<b>${esc(n.heading)}</b> ` : ''}${esc(n.text)}</p>`).join('')}
+      ${x.notesTitle ? `<div class="doc-extras-title"${fs('extras.notesTitle')}>${esc(x.notesTitle)}</div>` : ''}
+      ${notes.map((n) => `<p>${n.heading ? `<b${fsItem(n, 'heading')}>${esc(n.heading)}</b> ` : ''}<span${fsItem(n, 'text')}>${esc(n.text)}</span></p>`).join('')}
     </div>` : '';
   return `<div class="doc-extras ${dates.length && notes.length ? '' : 'single'}">${datesHTML}${notesHTML}</div>`;
 }
@@ -772,9 +860,9 @@ function renderSheet() {
   const lCols = leaders.length > 8 ? 3 : leaders.length > 4 ? 2 : 1;
   const leadersHTML = leaders.length ? `
     <div class="doc-leaders">
-      ${b.leadersLabel ? `<div class="doc-leaders-label">${esc(b.leadersLabel)}</div>` : ''}
+      ${b.leadersLabel ? `<div class="doc-leaders-label"${fs('branding.leadersLabel')}>${esc(b.leadersLabel)}</div>` : ''}
       <div class="doc-leaders-grid" style="grid-template-columns:repeat(${lCols}, auto auto);">
-        ${leaders.map((l) => `<span class="l-name">${esc(l.name)}</span><span class="l-phone">${esc(l.phone)}</span>`).join('')}
+        ${leaders.map((l) => `<span class="l-name"${fsItem(l, 'name')}>${esc(l.name)}</span><span class="l-phone"${fsItem(l, 'phone')}>${esc(l.phone)}</span>`).join('')}
       </div>
     </div>` : '';
 
@@ -818,12 +906,12 @@ function renderSheet() {
     <div class="doc-header">
       <div class="doc-logo">${logoHTML()}</div>
       <div class="doc-titles">
-        <div class="doc-group">${state.branding.groupName.trim() ? groupNameHTML() : '<span class="ph">Your Scout Group</span>'}</div>
-        <div class="doc-title">${esc(titleText())}</div>
+        <div class="doc-group"${fs('branding.groupName')}>${state.branding.groupName.trim() ? groupNameHTML() : '<span class="ph">Your Scout Group</span>'}</div>
+        <div class="doc-title"${fs('branding.titleTemplate')}>${esc(titleText())}</div>
       </div>
       <div class="doc-side">
-        <div class="doc-side-row">${leadersHTML}${b.headerNote ? `<div class="doc-note">${esc(b.headerNote)}</div>` : ''}</div>
-        ${b.versionText ? `<div class="doc-version">${esc(b.versionText)}</div>` : ''}
+        <div class="doc-side-row">${leadersHTML}${b.headerNote ? `<div class="doc-note"${fs('branding.headerNote')}>${esc(b.headerNote)}</div>` : ''}</div>
+        ${b.versionText ? `<div class="doc-version"${fs('branding.versionText')}>${esc(b.versionText)}</div>` : ''}
       </div>
     </div>
     <div class="doc-strip"></div>
@@ -834,7 +922,7 @@ function renderSheet() {
       <tbody>${body || `<tr class="empty-row"><td colspan="${cols.length}">No activities yet — use <b>Generate dates</b> or <b>Add activity</b>.</td></tr>`}</tbody>
     </table>
     ${extrasHTML()}
-    ${b.footerText ? `<div class="doc-footer">${esc(b.footerText)}</div>` : ''}`;
+    ${b.footerText ? `<div class="doc-footer"${fs('branding.footerText')}>${esc(b.footerText)}</div>` : ''}`;
 }
 
 /* ---------------------------------------------------------------- page size / fit */
@@ -1228,25 +1316,25 @@ function renderLists() {
   const b = state.branding;
   $('#datesList').innerHTML = state.extras.dates.map((x, i) => `
     <div class="list-row note-row">
-      <input type="text" placeholder="What, e.g. ROONKA (Family Camp)" value="${esc(x.what)}" data-list="dates" data-i="${i}" data-field="what">
+      <input type="text" placeholder="What, e.g. ROONKA (Family Camp)" value="${esc(x.what)}" data-list="dates" data-i="${i}" data-field="what" data-fs="list:dates:${i}:what">
       ${delBtn('dates', i)}
       <span class="date-pair" title="Dates for the families' calendar file">
         <input type="date" value="${esc(x.date)}" data-list="dates" data-i="${i}" data-field="date" aria-label="From">
         <span>to</span>
         <input type="date" value="${esc(x.endDate)}" data-list="dates" data-i="${i}" data-field="endDate" aria-label="To (optional)">
       </span>
-      <input type="text" placeholder="Text shown (blank: from the dates)" value="${esc(x.when)}" data-list="dates" data-i="${i}" data-field="when" class="w-full">
+      <input type="text" placeholder="Text shown (blank: from the dates)" value="${esc(x.when)}" data-list="dates" data-i="${i}" data-field="when" data-fs="list:dates:${i}:when" class="w-full">
     </div>`).join('') || '<p class="hint">No other dates yet.</p>';
   $('#notesList').innerHTML = state.extras.notes.map((x, i) => `
     <div class="list-row note-row">
-      <input type="text" placeholder="Heading, e.g. Friday 6 Nov – Bunnings BBQ" value="${esc(x.heading)}" data-list="notes" data-i="${i}" data-field="heading">
+      <input type="text" placeholder="Heading, e.g. Friday 6 Nov – Bunnings BBQ" value="${esc(x.heading)}" data-list="notes" data-i="${i}" data-field="heading" data-fs="list:notes:${i}:heading">
       ${delBtn('notes', i)}
-      <textarea rows="2" placeholder="Details" data-list="notes" data-i="${i}" data-field="text">${esc(x.text)}</textarea>
+      <textarea rows="2" placeholder="Details" data-list="notes" data-i="${i}" data-field="text" data-fs="list:notes:${i}:text">${esc(x.text)}</textarea>
     </div>`).join('') || '<p class="hint">No notes yet.</p>';
   $('#leadersList').innerHTML = b.leaders.map((l, i) => `
     <div class="list-row">
-      <input type="text" placeholder="Name" value="${esc(l.name)}" data-list="leaders" data-i="${i}" data-field="name">
-      <input type="text" placeholder="Contact" aria-label="Contact (phone or email)" value="${esc(l.phone)}" data-list="leaders" data-i="${i}" data-field="phone">
+      <input type="text" placeholder="Name" value="${esc(l.name)}" data-list="leaders" data-i="${i}" data-field="name" data-fs="list:leaders:${i}:name">
+      <input type="text" placeholder="Contact" aria-label="Contact (phone or email)" value="${esc(l.phone)}" data-list="leaders" data-i="${i}" data-field="phone" data-fs="list:leaders:${i}:phone">
       ${delBtn('leaders', i)}
     </div>`).join('') || '<p class="hint">No leaders listed.</p>';
 
@@ -1299,6 +1387,7 @@ function renderAll() {
   applyPageSize();
   syncInputs();
   renderLists();
+  previewFieldStyles();
   renderSheet();
   fit();
   if (typeof renderMobile === 'function') renderMobile();
@@ -2513,6 +2602,7 @@ function watchNoAutofill() {
 
 function init() {
   watchNoAutofill();
+  STYLED_FIELDS.forEach((k) => { const el = $(`[data-bind="${k}"]`); if (el) el.dataset.fs = k; });
   $('[data-bind="term.region"]').innerHTML = REGIONS.map(([v, label]) => `<option value="${v}">${esc(label)}</option>`).join('');
   const ys = $('#yearSelect');
   const thisYear = new Date().getFullYear();

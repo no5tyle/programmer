@@ -18,9 +18,9 @@ test.describe('desktop', () => {
   test.afterEach(() => { expect(errors, 'browser errors').toEqual([]); });
 
   test('the toolbar hovers above the field while editing, and formats the selection', async ({ page }) => {
-    await expect(page.locator('.fmt-bar')).toBeHidden();
+    await expect(page.locator('.fmt-bar:not(.fs-bar)')).toBeHidden();
     await typeAndSelectLast(page, cell, 'Bring a torch', 5);
-    const bar = page.locator('.fmt-bar');
+    const bar = page.locator('.fmt-bar:not(.fs-bar)');
     await expect(bar).toBeVisible();
     const b = await bar.boundingBox();
     const c = await page.locator(cell).boundingBox();
@@ -84,7 +84,7 @@ test.describe('desktop', () => {
 
   test('formatting is saved, comes back after a reload, and stays out of the calendar and spreadsheet', async ({ page }) => {
     await typeAndSelectLast(page, cell, 'Bring a torch', 5);
-    await page.click('.fmt-bar [data-fmt="bold"]');
+    await page.click('.fmt-bar:not(.fs-bar) [data-fmt="bold"]');
     await page.mouse.click(5, 300);
     await page.waitForTimeout(600);
     await page.reload();
@@ -119,7 +119,7 @@ test.describe('desktop', () => {
     await page.evaluate(() => { state.rows[3].noMeeting = true; state.rows[3].activity = 'No Cubs this week'; renderAll(); });
     const off = '#sheet tbody tr:nth-child(4) td.c-break .ed';
     await typeAndSelectLast(page, off, 'No Cubs – Show Day', 8);
-    await page.click('.fmt-bar [data-fmt="red"]');
+    await page.click('.fmt-bar:not(.fs-bar) [data-fmt="red"]');
     expect(await page.evaluate(() => state.rows[3].rich.activity)).toBe('No Cubs – <span class="r">Show Day</span>');
     await expect(page.locator('#sheet .fmt-bar')).toHaveCount(0);
   });
@@ -135,7 +135,7 @@ test.describe('phone', () => {
     await page.click('.m-row:has-text("Night Walk")');
     const field = '.m-panel:not([hidden]) [data-f="description"]';
     await typeAndSelectLast(page, field, 'Bring a torch', 5);
-    const bar = page.locator('.fmt-bar');
+    const bar = page.locator('.fmt-bar:not(.fs-bar)');
     await expect(bar).toBeVisible();
     const b = await bar.boundingBox();
     expect(b.x).toBeGreaterThanOrEqual(0);
@@ -149,5 +149,73 @@ test.describe('phone', () => {
     await page.click('.m-row:has-text("Night Walk")');
     await expect(page.locator('.m-panel:not([hidden]) [data-f="activity"]')).toHaveText('Night Walk');
     expect(errors).toEqual([]);
+  });
+});
+
+test.describe('whole-field styles on other fields', () => {
+  let errors;
+  test.beforeEach(async ({ page }) => { errors = await openApp(page); await fillCubs(page); });
+  test.afterEach(() => { expect(errors, 'browser errors').toEqual([]); });
+
+  test('the group name and heading note take bold, italic and a colour from a toolbar above them', async ({ page }) => {
+    await page.click('[data-bind="branding.groupName"]');
+    const bar = page.locator('.fs-bar');
+    await expect(bar).toBeVisible();
+    await expect(page.locator('.fmt-bar:not(.fs-bar)')).toBeHidden();
+    const b = await bar.boundingBox();
+    const f = await page.locator('[data-bind="branding.groupName"]').boundingBox();
+    expect(b.y + b.height).toBeLessThanOrEqual(f.y + 1);
+
+    await bar.locator('[data-fs-colour="#0060df"]').click();
+    await bar.locator('[data-fs-act="i"]').click();
+    expect(await page.evaluate(() => state.styles['branding.groupName'])).toEqual({ c: '#0060df', i: true });
+    await expect(page.locator('#sheet .doc-group')).toHaveCSS('color', 'rgb(0, 96, 223)');
+    await expect(page.locator('#sheet .doc-group')).toHaveCSS('font-style', 'italic');
+    // The field shows it too, and keeps the focus
+    await expect(page.locator('[data-bind="branding.groupName"]')).toHaveCSS('color', 'rgb(0, 96, 223)');
+    await expect(page.locator('[data-bind="branding.groupName"]')).toBeFocused();
+    await expect(bar.locator('[data-fs-colour="#0060df"]')).toHaveAttribute('aria-pressed', 'true');
+    // The same colour again goes back to the usual one; Clear removes the rest
+    await bar.locator('[data-fs-colour="#0060df"]').click();
+    expect(await page.evaluate(() => state.styles['branding.groupName'])).toEqual({ i: true });
+    await bar.locator('[data-fs-act="clear"]').click();
+    expect(await page.evaluate(() => state.styles['branding.groupName'])).toBeUndefined();
+
+    await page.fill('[data-bind="branding.headerNote"]', 'Costs can change.');
+    await page.click('.fs-bar [data-fs-colour="#d0021b"]');
+    await page.click('.fs-bar [data-fs-act="b"]');
+    await expect(page.locator('#sheet .doc-note')).toHaveCSS('color', 'rgb(208, 2, 27)');
+    await expect(page.locator('#sheet .doc-note')).toHaveCSS('font-weight', '800');
+    await page.click('#btnUndo');
+    expect(await page.evaluate(() => state.styles['branding.headerNote'])).toEqual({ c: '#d0021b' });
+  });
+
+  test('list lines (leaders, dates, notes) are styled one field at a time, and kept through a reload', async ({ page }) => {
+    await page.click('details.card:has-text("Leaders") summary');
+    await page.click('[data-fs="list:leaders:1:name"]');
+    await page.click('.fs-bar [data-fs-colour="#1e8e3e"]');
+    await page.click('details.card:has-text("Dates & notes") summary');
+    await page.click('[data-add="notes"]');
+    await page.fill('[data-fs="list:notes:0:text"]', 'Bring a hat.');
+    await page.click('.fs-bar [data-fs-colour="#6f42c1"]');
+    await page.mouse.click(5, 5);
+    await expect(page.locator('.fs-bar')).toBeHidden();
+    await expect(page.locator('#sheet .l-name').nth(1)).toHaveCSS('color', 'rgb(30, 142, 62)');
+    await expect(page.locator('#sheet .l-name').nth(0)).not.toHaveCSS('color', 'rgb(30, 142, 62)');
+    await expect(page.locator('#sheet .doc-notes p span')).toHaveCSS('color', 'rgb(111, 66, 193)');
+    await page.waitForTimeout(600);
+    await page.reload();
+    await page.waitForFunction(() => typeof state === 'object');
+    await expect(page.locator('#sheet .l-name').nth(1)).toHaveCSS('color', 'rgb(30, 142, 62)');
+    await expect(page.locator('[data-fs="list:leaders:1:name"]')).toHaveCSS('color', 'rgb(30, 142, 62)');
+  });
+
+  test('styles from a file are checked', async ({ page }) => {
+    const s = await page.evaluate(() => {
+      const n = normalise({ branding: { groupName: 'X', leaders: [{ name: 'A', phone: '', style: { name: { c: 'red;background:url(x)', b: true }, evil: { c: '#000000' } } }] },
+        styles: { 'branding.groupName': { c: '#0060df', b: 'yes', x: 1 }, 'not.a.field': { c: '#d0021b' } } });
+      return [n.styles, n.branding.leaders[0].style];
+    });
+    expect(s).toEqual([{ 'branding.groupName': { c: '#0060df' } }, { name: { b: true } }]);
   });
 });

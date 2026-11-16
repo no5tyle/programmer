@@ -705,3 +705,9 @@ body.mobile .prog .col-grip { display: none; }
 .prog .ed b, .m-rich b { font-weight: 800; }
 .prog .ed .r, .m-rich .r { color: #d0021b; }
 @media print { .fmt-bar { display: none !important; } }
+.fs-bar { align-items: center; }
+.fs-sep { width: 1px; height: 20px; margin: 0 3px; background: var(--border); }
+.fs-bar .fs-swatch { width: 30px; }
+.fs-bar .fs-swatch span { width: 18px; height: 18px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .15); }
+.fs-bar .fs-swatch[aria-pressed="true"] { background: var(--tint-fill); }
+.fs-bar .fs-swatch[aria-pressed="true"] span { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--primary); }
