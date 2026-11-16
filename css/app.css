@@ -786,3 +786,38 @@ body.mobile .prog .col-grip { display: none; }
 .help-list summary { padding: 9px 2px; cursor: pointer; font-weight: 600; color: var(--text); }
 .help-list details p { margin: 0 2px 10px; }
 @media print { .prog .ph.wk-add, .prog .ph.wk-empty-add { display: none !important; } }
+
+/* ---- accounts (js/account.js) ---- */
+.save-state[data-state="local"] { color: var(--text-2); }
+.save-state[data-state="local"] svg { display: none; }
+.save-state span { overflow: hidden; text-overflow: ellipsis; }
+.btn-signin { margin-left: 4px; }
+.btn-account { width: 36px; padding: 0; justify-content: center; }
+.avatar {
+  display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--primary); color: #fff; font-weight: 700; font-size: 13px;
+}
+.pop-email { margin: 2px 0 0; font-size: 12.5px; overflow-wrap: anywhere; }
+.prog-signin {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px;
+  background: var(--tint-fill); font-size: 12.5px; color: var(--text-2);
+}
+.prog-signin span { flex: 1; }
+.conflict { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; }
+.conflict-side { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; font-size: 13px; }
+.conflict-side h3 { margin: 0 0 2px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.conflict-side b { font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.modal-body .hint { margin: 0; }
+.modal-body .field { margin-top: 10px; }
+.account-page { display: flex; flex-direction: column; gap: 12px; }
+.account-page p { margin: 0; }
+.account-name { display: flex; align-items: flex-end; gap: 8px; }
+.account-name .field { flex: 1; margin: 0; }
+.account-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.btn-danger-text { color: var(--danger); }
+.account-bin-title { font-weight: 700; font-size: 13px; margin-bottom: 4px; color: var(--text); }
+.account-bin-item { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border); }
+.account-bin-item span { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.account-bin-item b { font-weight: 600; font-size: 13.5px; color: var(--text); }
+.account-bin-item small { font-size: 12px; color: var(--muted); }
+@media (max-width: 520px) { .conflict { grid-template-columns: 1fr; } }

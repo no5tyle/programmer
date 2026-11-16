@@ -54,6 +54,8 @@
       <button class="btn btn-ghost btn-help" id="btnHelp" title="Help" aria-label="Help">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg>
       </button>
+      <!-- Sign in, or the account menu once signed in. Hidden unless accounts are set up (js/config.js) -->
+      <button class="btn btn-outline btn-signin" id="btnAccount" hidden>Sign in</button>
     </div>
   </header>
 
@@ -337,8 +339,10 @@
   <input type="file" id="fileJson" accept=".json,.csv,application/json,text/csv" hidden>
   <input type="file" id="fileImage" accept="image/*" hidden>
 
+  <script src="js/config.js?v=20261117-1"></script>
   <script src="js/data.js?v=20261117-1"></script>
   <script src="js/rich.js?v=20261117-1"></script>
+  <script src="js/account.js?v=20261117-1"></script>
   <script src="js/app.js?v=20261117-1"></script>
   <script src="js/mobile.js?v=20261117-1"></script>
   <script src="js/welcome.js?v=20261117-1"></script>

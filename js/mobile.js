@@ -143,7 +143,7 @@ function openMenu() {
       const cardItem = (c, i) => item(`data-card="${i}"`, c.querySelector('.card-icon').innerHTML, esc(c.querySelector('summary').textContent.trim()));
       body.innerHTML = `
         <div class="m-group">
-          ${item('data-m="programs"', '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>', 'Programs', `${library.items.length} saved in this browser`)}
+          ${item('data-m="programs"', '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>', 'Programs', !accountsOn() ? `${library.items.length} saved in this browser` : signedIn() ? `${library.items.length} in your account` : 'One on this phone. Sign in to keep more')}
           ${item('data-m="new"', '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>', 'New program')}
           ${item('data-m="open"', '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>', 'Open a file', 'A program file you saved, or a spreadsheet of activities')}
           ${item('data-m="generate"', '<svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>', 'Generate meeting dates')}
@@ -157,12 +157,20 @@ function openMenu() {
         <div class="m-group">
           ${cards.map((c, i) => [c, i]).filter(([c]) => c.closest('.more-settings')).map(([c, i]) => cardItem(c, i)).join('')}
         </div>
+        ${accountsOn() ? `<div class="m-group">
+          ${signedIn()
+    ? item('data-m="account"', '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>', 'Account', esc(session.email))
+      + item('data-m="signout"', '<svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 8l-4 4 4 4M6 12h9"/></svg>', 'Sign out')
+    : item('data-m="signin"', '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>', 'Sign in', 'Save your programs to your account, to use on any device')}
+        </div>` : ''}
         <div class="m-group">
           ${item('data-m="help"', '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg>', 'Help', 'How do I…? Answers to everyday questions')}
           ${item('data-m="tour"', '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg>', 'Take the tour', 'A quick look around')}
           ${item('data-m="desktop"', '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>', 'Use the desktop editor', 'Edit on the sheet itself')}
         </div>
-        <p class="hint m-note">Programs are saved on this phone only. To keep a copy or move to another device, use Share, then Full program file.</p>`;
+        <p class="hint m-note">${!accountsOn() ? 'Programs are saved on this phone only. To keep a copy or move to another device, use Share, then Full program file.'
+    : signedIn() ? 'Your programs save to your account as you work, and on this phone when there\'s no signal.'
+      : 'Your program is saved on this phone only. Sign in to save it to your account and use it on any device.'}</p>`;
       body.onclick = (e) => {
         const b = e.target.closest('[data-m], [data-card]');
         if (!b) return;
@@ -175,6 +183,9 @@ function openMenu() {
         if (m === 'undo') { undo(); closeAllPanels(); }
         if (m === 'tour') { closeAllPanels(); startTour(); }
         if (m === 'help') { closeAllPanels(); openHelp(); }
+        if (m === 'signin') { closeAllPanels(); openSignIn(); }
+        if (m === 'account') { closeAllPanels(); openAccountPage(); }
+        if (m === 'signout') { closeAllPanels(); signOut(); }
         if (m === 'desktop') { closeAllPanels(); setViewPref('desktop'); }
       };
     },
