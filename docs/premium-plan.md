@@ -337,7 +337,21 @@ Still open:
 | 5. Group program | Group events, linked unit programs, joint activities, the overview, group printout and group calendar, *From the group* notices (section 8) | Large: the most involved part |
 | 6. Later | Activity library, templates, Google and Microsoft sign-in, other countries | As needed |
 
-Moving the builder onto `program.qstored.org` (GitHub Pages custom domain, with `no5tyle.github.io/programmer` redirecting) is part of phase 0. `qstored.org` is bought; the steps for the move are in the README.
+**Where phases 0 and 1 stand** (16 Nov 2026):
+
+- **Done:**
+  - `qstored.org` bought; the builder at `program.qstored.org`, published by the workflow;
+  - Google Cloud and Firebase projects for staging and production, with a budget alert;
+  - the API on Cloud Run at `api.qstored.org`, deployed from GitHub;
+  - email-link sign-in, with the web API key restricted to the builder's addresses and sign-in emails from `qstored.org`;
+  - all of phase 1's code.
+- **Still to do before other leaders sign in:**
+  - check the bin's 30-day expiry (TTL on `programs.purgeAt`) is on in production;
+  - create the images bucket and turn on daily backups (the API's README has the commands);
+  - an ABN, a business name and a contact address;
+  - the support address (`SUPPORT_EMAIL`);
+  - finish, review and publish the privacy policy and terms (drafts in `policies/`).
+- **Before phase 2:** a Stripe account in the business name.
 
 Phases 1 to 4 are the first paid release. The group program (phase 5) is the second.
 
