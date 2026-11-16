@@ -25,6 +25,9 @@ test.describe('desktop', () => {
     const b = await bar.boundingBox();
     const c = await page.locator(cell).boundingBox();
     expect(b.y + b.height).toBeLessThanOrEqual(c.y + 1);
+    // Placed as the style toolbar is for other fields: just above, lined up with the field's left edge
+    expect(Math.abs(b.x - c.x)).toBeLessThan(1);
+    expect(c.y - (b.y + b.height)).toBeLessThan(10);
 
     await bar.locator('[data-fmt="bold"]').click();
     await expect(bar.locator('[data-fmt="bold"]')).toHaveAttribute('aria-pressed', 'true');

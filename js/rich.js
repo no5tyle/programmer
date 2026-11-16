@@ -161,22 +161,15 @@ function placeFmtBar() {
   const field = richField();
   if (!field) { fmtBar.hidden = true; return; }
   fmtBar.hidden = false;
-  // Above the whole field, so it never covers what's being edited; lined up with the selected text if
-  // there is some, else with the field
-  const sel = getSelection();
+  // Above the field, lined up with its left edge, as the style toolbar is for other fields (placeFsBar)
   const r = field.getBoundingClientRect();
-  let cx = r.left + r.width / 2;
-  if (sel.rangeCount && !sel.isCollapsed && field.contains(sel.anchorNode)) {
-    const sr = sel.getRangeAt(0).getBoundingClientRect();
-    if (sr.width || sr.height) cx = sr.left + sr.width / 2;
-  }
   const w = fmtBar.offsetWidth, h = fmtBar.offsetHeight, gap = 6;
   const vv = window.visualViewport;
   const top0 = vv ? vv.offsetTop : 0, vh = vv ? vv.height : innerHeight;
   let top = r.top - h - gap;
   if (top < top0 + 4) top = r.bottom + gap;             // no room above: below instead
   top = Math.min(top, top0 + vh - h - 4);
-  const left = Math.max(8, Math.min(cx - w / 2, innerWidth - w - 8));
+  const left = Math.max(8, Math.min(r.left, innerWidth - w - 8));
   fmtBar.style.top = `${top}px`;
   fmtBar.style.left = `${left}px`;
   const colour = selectionColour();
