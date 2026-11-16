@@ -153,6 +153,12 @@
               </div>
             </div>
           </div>
+          <label class="field" id="logoStyleField"><span>Section logo</span>
+            <select data-bind="branding.logoStyle">
+              <option value="named">With the section's name</option>
+              <option value="emblem">Emblem only (no name)</option>
+            </select>
+          </label>
           <label class="field"><span>Version / date note</span><input type="text" data-bind="branding.versionText" placeholder="e.g. Version 1 – 9/10/2026"></label>
           <label class="field"><span>Heading note (optional)</span><textarea rows="2" data-bind="branding.headerNote" class="bound-textarea" placeholder="e.g. NOTE: Costing &amp; dates subject to change. Please see a leader if you need to discuss payment."></textarea></label>
           <label class="field"><span>Footer text</span><input type="text" data-bind="branding.footerText" placeholder="e.g. Program subject to change. Check Facebook for updates."></label>

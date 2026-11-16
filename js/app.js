@@ -178,7 +178,7 @@ function defaultState() {
     branding: {
       groupName: '', section: 'cubs', sectionName: 'Cubs', color: SECTIONS.cubs.color,
       titleTemplate: '{section} Program – Term {term} {year}', titleColor: 'dark', headerStyle: 'tint',
-      font: 'Nunito', logo: null, versionText: '', footerText: '', headerNote: '', leadersLabel: 'Leaders:',
+      font: 'Nunito', logo: null, logoStyle: 'named', versionText: '', footerText: '', headerNote: '', leadersLabel: 'Leaders:',
       leaders: [{ name: 'Leader name', phone: '0400 000 000' }, { name: 'Leader name', phone: '0400 000 000' }],
     },
     term: {
@@ -210,6 +210,7 @@ function normalise(raw) {
   if (!raw || typeof raw !== 'object') return d;
   const s = { ...d, ...raw };
   s.branding = { ...d.branding, ...(raw.branding || {}) };
+  if (!['named', 'emblem'].includes(s.branding.logoStyle)) s.branding.logoStyle = 'named';
   s.term = { ...d.term, ...(raw.term || {}) };
   s.options = { ...d.options, ...(raw.options || {}) };
   s.extras = { ...d.extras, ...(raw.extras || {}) };
@@ -849,7 +850,8 @@ function groupNameHTML() {
 function logoHTML() {
   const b = state.branding;
   if (b.logo) return `<img src="${b.logo}" alt="">`;
-  const official = SECTIONS[b.section]?.logo;
+  // The section's logo with its name under it, or the emblem alone (Branding → Section logo)
+  const official = SECTIONS[b.section]?.[b.logoStyle === 'emblem' ? 'emblem' : 'logo'];
   if (official) return `<img src="${official}" alt="${esc(SECTIONS[b.section].name)} logo">`;
   return `<span class="logo-glyph" style="color:${esc(b.color)}">⚜</span>`;
 }
@@ -1441,6 +1443,8 @@ function syncInputs() {
   const noHols = state.options.publicHolidays && t.region !== 'custom' && (!src || t.year > src.to) ? ' Public holidays aren’t built in for this year, so add any as weeks off.' : '';
   $('#termHint').textContent = `${t.region === 'custom' || !hasPreset ? 'Enter term dates above. ' : ''}${n} ${DAY_LONG[t.meetingDay]} meeting${n === 1 ? '' : 's'} this term.${holText}${noHols}`;
   $('#logoPreview').innerHTML = logoHTML();
+  // The name-or-emblem choice is for the official section logos only
+  $('#logoStyleField').hidden = !!state.branding.logo || !SECTIONS[state.branding.section];
 }
 
 function colorInput(list, i, field, value) {

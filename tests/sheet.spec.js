@@ -252,3 +252,31 @@ test.describe('sheet', () => {
     await expect(page.locator('.doc-extras')).toHaveCount(0);
   });
 });
+
+test.describe('section logo', () => {
+  test('with the name or the emblem only', async ({ page }) => {
+    const errors = await openApp(page);
+    const logo = page.locator('#sheet .doc-logo img');
+    await expect(logo).toHaveAttribute('src', 'assets/section-logos/cubs.png');
+    await expect(page.locator('#logoStyleField')).toBeVisible();
+    await page.selectOption('[data-bind="branding.logoStyle"]', 'emblem');
+    await expect(logo).toHaveAttribute('src', 'assets/section-logos/cubs-emblem.png');
+    await expect(page.locator('#logoPreview img')).toHaveAttribute('src', 'assets/section-logos/cubs-emblem.png');
+    // Every section has both, and they load
+    for (const s of ['joeys', 'scouts', 'venturers', 'rovers', 'cubs']) {
+      await page.selectOption('[data-bind="branding.section"]', s);
+      await expect(logo).toHaveAttribute('src', `assets/section-logos/${s}-emblem.png`);
+      await expect.poll(() => logo.evaluate((img) => img.complete && img.naturalWidth)).toBeGreaterThan(0);
+      // The emblem is cropped: about as tall as it is wide (the full logo is much taller)
+      const ratio = await logo.evaluate((img) => img.naturalHeight / img.naturalWidth);
+      expect(ratio).toBeLessThan(1.05);
+    }
+    // A logo of your own: the choice goes, and comes back with the section logo
+    await page.evaluate(() => { state.branding.logo = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='; renderAll(); });
+    await expect(page.locator('#logoStyleField')).toBeHidden();
+    await page.click('#btnLogoClear');
+    await expect(page.locator('#logoStyleField')).toBeVisible();
+    await expect(logo).toHaveAttribute('src', 'assets/section-logos/cubs-emblem.png');
+    expect(errors).toEqual([]);
+  });
+});

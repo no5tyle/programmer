@@ -6,12 +6,13 @@
  * (as distributed in the Scouts NSW logo pack); colours are each logo's main brand colour.
  * Use the logos as provided — do not alter them.
  */
+/* Each section's official logo, with its name under the emblem (logo) and cropped to the emblem alone (emblem). */
 const SECTIONS = {
-  joeys:     { name: 'Joeys',     color: '#B65518', logo: 'assets/section-logos/joeys.png' },
-  cubs:      { name: 'Cubs',      color: '#FFC82E', logo: 'assets/section-logos/cubs.png' },
-  scouts:    { name: 'Scouts',    color: '#00AE42', logo: 'assets/section-logos/scouts.png' },
-  venturers: { name: 'Venturers', color: '#9E1B32', logo: 'assets/section-logos/venturers.png' },
-  rovers:    { name: 'Rovers',    color: '#DC291E', logo: 'assets/section-logos/rovers.png' },
+  joeys:     { name: 'Joeys',     color: '#B65518', logo: 'assets/section-logos/joeys.png', emblem: 'assets/section-logos/joeys-emblem.png' },
+  cubs:      { name: 'Cubs',      color: '#FFC82E', logo: 'assets/section-logos/cubs.png', emblem: 'assets/section-logos/cubs-emblem.png' },
+  scouts:    { name: 'Scouts',    color: '#00AE42', logo: 'assets/section-logos/scouts.png', emblem: 'assets/section-logos/scouts-emblem.png' },
+  venturers: { name: 'Venturers', color: '#9E1B32', logo: 'assets/section-logos/venturers.png', emblem: 'assets/section-logos/venturers-emblem.png' },
+  rovers:    { name: 'Rovers',    color: '#DC291E', logo: 'assets/section-logos/rovers.png', emblem: 'assets/section-logos/rovers-emblem.png' },
 };
 /* Section colours used by earlier versions of this app, migrated to the official ones on load. */
 const OLD_SECTION_COLORS = { joeys: '#B5651D', cubs: '#FFC72C', scouts: '#00A651', venturers: '#8B1E3F', rovers: '#D6001C' };
