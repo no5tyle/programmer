@@ -237,9 +237,11 @@ function placeFsBar() {
   top = Math.min(top, top0 + vh - h - 4);
   fsBar.style.top = `${top}px`;
   fsBar.style.left = `${Math.max(8, Math.min(r.left, innerWidth - w - 8))}px`;
-  const st = fieldStyleRef(field.dataset.fs).get();
-  fsBar.querySelector('[data-fs-act="b"]').setAttribute('aria-pressed', st.b ? 'true' : 'false');
-  fsBar.querySelector('[data-fs-act="i"]').setAttribute('aria-pressed', st.i ? 'true' : 'false');
+  // On if the field has it, by its own style or by default
+  const ref = fieldStyleRef(field.dataset.fs);
+  const st = ref.get(), d = ref.defaults || {};
+  fsBar.querySelector('[data-fs-act="b"]').setAttribute('aria-pressed', (st.b ?? !!d.b) ? 'true' : 'false');
+  fsBar.querySelector('[data-fs-act="i"]').setAttribute('aria-pressed', (st.i ?? !!d.i) ? 'true' : 'false');
   fsBar.querySelectorAll('[data-fs-colour]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.fsColour === st.c ? 'true' : 'false'));
 }
 
@@ -250,10 +252,17 @@ fsBar.addEventListener('click', (e) => {
   const b = e.target.closest('[data-fs-act], [data-fs-colour]');
   if (!field || !b) return;
   const ref = fieldStyleRef(field.dataset.fs);
-  const st = { ...ref.get() };
+  const d = ref.defaults || {};
+  let st = { ...ref.get() };
   if (b.dataset.fsColour) st.c = st.c === b.dataset.fsColour ? undefined : b.dataset.fsColour;  // again: back to the usual colour
-  else if (b.dataset.fsAct === 'clear') { delete st.b; delete st.i; delete st.c; }
-  else st[b.dataset.fsAct] = !st[b.dataset.fsAct] || undefined;
+  // Clear: plain text, so a field that's bold or italic by default loses that too (B or I puts it back)
+  else if (b.dataset.fsAct === 'clear') st = { b: d.b ? false : undefined, i: d.i ? false : undefined };
+  else {
+    // Bold or italic flips what the field shows; matching its default is stored as no style at all
+    const k = b.dataset.fsAct;
+    const next = !(st[k] ?? !!d[k]);
+    st[k] = next === !!d[k] ? undefined : next;
+  }
   pushHistory();
   ref.set(st);
   save(); renderDoc(); previewFieldStyles();

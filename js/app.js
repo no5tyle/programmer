@@ -650,13 +650,26 @@ const STYLED_FIELDS = ['branding.groupName', 'branding.titleTemplate', 'branding
   'branding.footerText', 'branding.leadersLabel', 'extras.datesTitle', 'extras.notesTitle'];
 const STYLED_LISTS = { leaders: ['name', 'phone'], dates: ['what', 'when'], notes: ['heading', 'text'] };
 const FIELD_COLOURS = [['#d0021b', 'Red'], ['#d9480f', 'Orange'], ['#1e8e3e', 'Green'], ['#0060df', 'Blue'], ['#6f42c1', 'Purple']];
+/*
+ * How a field prints when it has no style of its own (from css/app.css): the toolbar shows these as
+ * on, and turning one off is saved as false. List fields are keyed "list:<list>:<field>".
+ */
+const FIELD_DEFAULTS = {
+  'branding.groupName': { b: true }, 'branding.titleTemplate': { b: true }, 'branding.leadersLabel': { b: true },
+  'extras.datesTitle': { b: true }, 'extras.notesTitle': { b: true, i: true },
+  'list:leaders:name': { b: true }, 'list:dates:what': { b: true },
+  'list:notes:heading': { b: true, i: true }, 'list:notes:text': { i: true },
+};
 
-/** A style as saved, checked: { b: true, i: true, c: '#rrggbb' }, with anything else dropped. */
+/**
+ * A style as saved, checked: { b, i, c: '#rrggbb' }, with anything else dropped. b and i are true (on)
+ * or false (off, for a field that's bold or italic by default).
+ */
 function cleanStyle(st) {
   if (!st || typeof st !== 'object') return null;
   const out = {};
-  if (st.b === true) out.b = true;
-  if (st.i === true) out.i = true;
+  if (typeof st.b === 'boolean') out.b = st.b;
+  if (typeof st.i === 'boolean') out.i = st.i;
   if (typeof st.c === 'string' && /^#[0-9a-f]{6}$/i.test(st.c)) out.c = st.c;
   return Object.keys(out).length ? out : null;
 }
@@ -668,6 +681,7 @@ function fieldStyleRef(key) {
     const item = STYLED_LISTS[m[1]]?.includes(m[3]) ? listArray(m[1])?.[+m[2]] : null;
     if (!item) return null;
     return {
+      defaults: FIELD_DEFAULTS[`list:${m[1]}:${m[3]}`] || {},
       get: () => item.style?.[m[3]] || {},
       set: (st) => {
         const next = { ...(item.style || {}) };
@@ -678,6 +692,7 @@ function fieldStyleRef(key) {
   }
   if (!STYLED_FIELDS.includes(key)) return null;
   return {
+    defaults: FIELD_DEFAULTS[key] || {},
     get: () => state.styles?.[key] || {},
     set: (st) => {
       const next = { ...(state.styles || {}) };
@@ -691,19 +706,22 @@ function fieldStyleRef(key) {
 function styleCss(st) {
   const c = cleanStyle(st);
   if (!c) return '';
-  return [c.c && `color:${c.c}`, c.b && 'font-weight:800', c.i && 'font-style:italic'].filter(Boolean).join(';');
+  return [c.c && `color:${c.c}`, c.b === true && 'font-weight:800', c.b === false && 'font-weight:400',
+    c.i === true && 'font-style:italic', c.i === false && 'font-style:normal'].filter(Boolean).join(';');
 }
 /** A style="" attribute for a field's style, by key, or for a list item's field. */
 const fs = (key) => { const c = styleCss(state.styles?.[key]); return c ? ` style="${c}"` : ''; };
 const fsItem = (item, field) => { const c = styleCss(item?.style?.[field]); return c ? ` style="${c}"` : ''; };
 
-/** Show each styled field's style on the field itself, as a preview. */
+/** Show each styled field's look (its own style, else how it prints by default) on the field itself. */
 function previewFieldStyles() {
   $$('[data-fs]').forEach((el) => {
-    const st = cleanStyle(fieldStyleRef(el.dataset.fs)?.get()) || {};
+    const ref = fieldStyleRef(el.dataset.fs);
+    const st = cleanStyle(ref?.get()) || {};
+    const d = ref?.defaults || {};
     el.style.color = st.c || '';
-    el.style.fontWeight = st.b ? '700' : '';
-    el.style.fontStyle = st.i ? 'italic' : '';
+    el.style.fontWeight = (st.b ?? d.b) ? '700' : '';
+    el.style.fontStyle = (st.i ?? d.i) ? 'italic' : '';
   });
 }
 

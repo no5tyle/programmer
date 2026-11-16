@@ -166,6 +166,18 @@ test.describe('whole-field styles on other fields', () => {
     const f = await page.locator('[data-bind="branding.groupName"]').boundingBox();
     expect(b.y + b.height).toBeLessThanOrEqual(f.y + 1);
 
+    // The group name prints bold, so Bold shows as on (and the field shows it bold)
+    await expect(bar.locator('[data-fs-act="b"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(bar.locator('[data-fs-act="i"]')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('[data-bind="branding.groupName"]')).toHaveCSS('font-weight', '700');
+    await bar.locator('[data-fs-act="b"]').click();
+    expect(await page.evaluate(() => state.styles['branding.groupName'])).toEqual({ b: false });
+    await expect(page.locator('#sheet .doc-group')).toHaveCSS('font-weight', '400');
+    await expect(bar.locator('[data-fs-act="b"]')).toHaveAttribute('aria-pressed', 'false');
+    await bar.locator('[data-fs-act="b"]').click();
+    expect(await page.evaluate(() => state.styles['branding.groupName'])).toBeUndefined();
+    await expect(page.locator('#sheet .doc-group')).toHaveCSS('font-weight', '800');
+
     await bar.locator('[data-fs-colour="#0060df"]').click();
     await bar.locator('[data-fs-act="i"]').click();
     expect(await page.evaluate(() => state.styles['branding.groupName'])).toEqual({ c: '#0060df', i: true });
@@ -178,8 +190,11 @@ test.describe('whole-field styles on other fields', () => {
     // The same colour again goes back to the usual one; Clear removes the rest
     await bar.locator('[data-fs-colour="#0060df"]').click();
     expect(await page.evaluate(() => state.styles['branding.groupName'])).toEqual({ i: true });
+    // Clear makes it plain, taking off the default bold too
     await bar.locator('[data-fs-act="clear"]').click();
-    expect(await page.evaluate(() => state.styles['branding.groupName'])).toBeUndefined();
+    expect(await page.evaluate(() => state.styles['branding.groupName'])).toEqual({ b: false });
+    await expect(page.locator('#sheet .doc-group')).toHaveCSS('font-weight', '400');
+    await expect(page.locator('#sheet .doc-group')).toHaveCSS('font-style', 'normal');
 
     await page.fill('[data-bind="branding.headerNote"]', 'Costs can change.');
     await page.click('.fs-bar [data-fs-colour="#d0021b"]');
@@ -197,6 +212,12 @@ test.describe('whole-field styles on other fields', () => {
     await page.click('details.card:has-text("Dates & notes") summary');
     await page.click('[data-add="notes"]');
     await page.fill('[data-fs="list:notes:0:text"]', 'Bring a hat.');
+    await page.click('.fs-bar [data-fs-colour="#6f42c1"]');
+    // Notes print in italics, so Italic shows as on; Clear makes the line upright
+    await expect(page.locator('.fs-bar [data-fs-act="i"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.fs-bar [data-fs-act="b"]')).toHaveAttribute('aria-pressed', 'false');
+    await page.click('.fs-bar [data-fs-act="clear"]');
+    await expect(page.locator('#sheet .doc-notes p span')).toHaveCSS('font-style', 'normal');
     await page.click('.fs-bar [data-fs-colour="#6f42c1"]');
     await page.mouse.click(5, 5);
     await expect(page.locator('.fs-bar')).toBeHidden();
@@ -217,5 +238,7 @@ test.describe('whole-field styles on other fields', () => {
       return [n.styles, n.branding.leaders[0].style];
     });
     expect(s).toEqual([{ 'branding.groupName': { c: '#0060df' } }, { name: { b: true } }]);
+    // false is kept (bold or italic turned off on a field that has it by default)
+    expect(await page.evaluate(() => normalise({ styles: { 'branding.groupName': { b: false } } }).styles)).toEqual({ 'branding.groupName': { b: false } });
   });
 });
