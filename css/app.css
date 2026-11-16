@@ -197,16 +197,16 @@ textarea.bound-textarea:focus { outline: none; border-color: var(--primary); box
 
 /* Workspace toolbar */
 .ws-toolbar {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px;
   padding: 12px 20px;
   border-bottom: .5px solid var(--border);
   background: var(--bar-bg);
   -webkit-backdrop-filter: var(--bar-filter); backdrop-filter: var(--bar-filter);
 }
-.ws-group { display: flex; align-items: center; gap: 8px; }
+.ws-group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .chip {
   display: inline-flex; align-items: center; height: 28px; padding: 0 12px;
-  border-radius: 999px; font-size: 13px; font-weight: 600;
+  border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap;
   background: var(--fill); color: var(--text-2);
 }
 .chip.ok { background: var(--alert-success-bg); color: var(--alert-success-text); }
@@ -653,3 +653,23 @@ body.mobile .prog .col-grip { display: none; }
 .tour-tip[data-side="inside"] .tour-arrow { display: none; }
 @media (prefers-reduced-motion: reduce) { .tour-spot, .tour-tip { transition: none; } }
 @media print { .wz-backdrop, .tour-layer { display: none !important; } }
+
+/* Whole weeks (js/app.js "whole weeks"): an empty week, and adding an activity on a day of a week */
+.prog tr.empty-week td { background: #fafafa; }
+.prog td.c-empty-week { text-align: center; }
+.prog .ph.wk-empty-add {
+  padding: .35em .9em; border: 1px dashed #9dbcf0; border-radius: .5em; background: #fff;
+  color: #0060df; font: inherit; font-style: normal; font-weight: 600; cursor: pointer;
+}
+.prog .ph.wk-empty-add:hover { background: #eef4ff; }
+.prog .ph.wk-add {
+  /* On the cell's left edge, half outside the table (the row handle sits on its right edge) */
+  position: absolute; left: 0; top: 50%; transform: translate(-50%, -50%); z-index: 2;
+  display: grid; place-items: center; width: 1.7em; height: 1.7em; padding: 0;
+  border: 0; border-radius: 50%; background: #007aff; color: #fff;
+  font: 700 1em/1 system-ui, sans-serif; font-style: normal; cursor: pointer;
+  opacity: 0; transition: opacity .15s;
+}
+.prog td.c-week:hover .ph.wk-add, .prog .ph.wk-add:focus-visible { opacity: 1; }
+@media (hover: none) { .prog .ph.wk-add { opacity: .85; } }
+.day.meet b { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }

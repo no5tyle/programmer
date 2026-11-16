@@ -49,6 +49,13 @@ function rowMeta(r) {
 }
 
 function rowItem(r) {
+  if (r.emptyWeek) {
+    const ws = parseDate(r.date);
+    return `<button class="m-row m-empty-week" data-week="${esc(r.date)}">
+    <span class="m-when"><b>${esc(weekRangeText(ws))}</b></span>
+    <span class="m-what"><span class="m-act"><i>No activities yet</i></span><small class="m-meta m-add-hint">+ Add an activity</small></span>
+  </button>`;
+  }
   const cat = state.categories.find((c) => c.id === r.category);
   const ch = state.challenges.find((c) => c.id === r.challenge);
   const time = r.noMeeting ? '' : (r.time || '').split('\n')[0];
@@ -69,7 +76,8 @@ function renderMobile() {
   $('#mList').innerHTML = state.rows.length
     ? groups.map((g) => `
       <section class="m-week">
-        <div class="m-wk">${esc(typeof g.key === 'number' ? `${state.options.weekPrefix || ''}${g.key}`.trim() : (state.options.holidayLabel || '–'))}</div>
+        <div class="m-wk">${esc(typeof g.key === 'number' ? `${state.options.weekPrefix || ''}${g.key}`.trim() : (state.options.holidayLabel || '–'))}
+          ${g.rows[0].emptyWeek ? '' : `<button class="m-wk-add" data-week="${toISO(rowWeekStart(g.rows[0]))}" aria-label="Add an activity to this week"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>`}</div>
         <div class="m-rows">${g.rows.map(rowItem).join('')}</div>
       </section>`).join('')
     : `<div class="m-empty"><p>No activities yet.</p><button class="btn btn-primary" id="mGenerate">Generate meeting dates</button></div>`;
@@ -267,8 +275,8 @@ function editorHTML(r) {
     <div class="m-actions">
       <button class="btn btn-outline" data-act="add">Add another activity this week</button>
       <div class="m-two">
-        <button class="btn btn-outline" data-act="up" ${up ? '' : 'disabled'}>${up ? `Move to ${esc(groupLabel({ key: up.wk }))}` : 'Move up a week'}</button>
-        <button class="btn btn-outline" data-act="down" ${down ? '' : 'disabled'}>${down ? `Move to ${esc(groupLabel({ key: down.wk }))}` : 'Move down a week'}</button>
+        <button class="btn btn-outline" data-act="up" ${up ? '' : 'disabled'}>${up ? `Move to ${esc(up.name)}` : 'Move up a week'}</button>
+        <button class="btn btn-outline" data-act="down" ${down ? '' : 'disabled'}>${down ? `Move to ${esc(down.name)}` : 'Move down a week'}</button>
       </div>
       <div class="m-two">
         <button class="btn btn-outline" data-act="dup">Duplicate</button>
@@ -349,6 +357,57 @@ function wireEditor(body, id, draw) {
 
 /* ---------------------------------------------------------------- add, preview, share */
 
+/** Ask which day of a week, then add an activity on it and open it in the editor. */
+function openAddToWeek(ws) {
+  if (!ws) return;
+  openPanel({
+    title: 'Add an activity',
+    cls: 'm-small',
+    build(body) {
+      body.innerHTML = `
+        <div class="m-card">
+          <p class="m-week-title"><b>${esc(weekName(ws))}</b> · ${esc(weekRangeText(ws))}</p>
+          <p class="hint">Which day? Your meeting night is underlined.</p>
+          ${weekDaysHTML(ws)}
+        </div>`;
+      body.onclick = (e) => {
+        const b = e.target.closest('[data-day]');
+        if (!b) return;
+        closeAllPanels();
+        addActivityOn(b.dataset.day);
+      };
+    },
+  });
+}
+
+function weekItem(where, label, path) {
+  const ws = newWeekStart(where);
+  if (!ws) return '';
+  return `<button class="m-item" data-add="${where}"><span class="card-icon"><svg viewBox="0 0 24 24">${path}</svg></span><span class="m-item-text">${label}<small>Empty ${esc(weekName(ws))} · ${esc(weekRangeText(ws))}</small></span></button>`;
+}
+
+/** Pick one of the program's weeks, then the day. */
+function openPickWeek() {
+  const starts = [...new Set(weekGroups().map((g) => rowWeekStart(g.rows[0])).filter(Boolean).map(toISO))];
+  openPanel({
+    title: 'Which week?',
+    cls: 'm-small',
+    build(body) {
+      if (!starts.length) { body.innerHTML = '<div class="m-card"><p class="hint">There are no weeks yet. Generate meeting dates or add a week first.</p></div>'; return; }
+      body.innerHTML = `<div class="m-group">${starts.map((iso) => {
+        const ws = parseDate(iso);
+        return `<button class="m-item" data-pick="${iso}"><span class="m-item-text">${esc(weekName(ws))}<small>${esc(weekRangeText(ws))}</small></span><svg class="m-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>`;
+      }).join('')}</div>`;
+      body.onclick = (e) => {
+        const b = e.target.closest('[data-pick]');
+        if (!b) return;
+        closePanel();
+        openAddToWeek(parseDate(b.dataset.pick));
+      };
+    },
+  });
+}
+
 function openAddMenu() {
   openPanel({
     title: 'Add',
@@ -357,11 +416,19 @@ function openAddMenu() {
       body.innerHTML = `
         <div class="m-group">
           <button class="m-item" data-add="activity"><span class="card-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><span class="m-item-text">Activity<small>On the next free meeting night</small></span></button>
+          <button class="m-item" data-add="day"><span class="card-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/></svg></span><span class="m-item-text">Activity on another day<small>Pick the week and day</small></span></button>
           <button class="m-item" data-add="off"><span class="card-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M10 14l4 4M14 14l-4 4"/></svg></span><span class="m-item-text">Week off<small>Public holiday, school holidays…</small></span></button>
+        </div>
+        <div class="m-group-label">Weeks</div>
+        <div class="m-group">
+          ${weekItem('before', 'Week before', '<path d="M12 19V5M5 12l7-7 7 7"/>')}
+          ${programWeekBounds()?.none ? '' : weekItem('after', 'Week after', '<path d="M12 5v14M5 12l7 7 7-7"/>')}
         </div>`;
       body.onclick = (e) => {
         const b = e.target.closest('[data-add]');
         if (!b) return;
+        if (b.dataset.add === 'before' || b.dataset.add === 'after') { closeAllPanels(); addEmptyWeek(b.dataset.add); return; }
+        if (b.dataset.add === 'day') { closePanel(); openPickWeek(); return; }
         if (b.dataset.add === 'activity') {
           const used = new Set(state.rows.filter((x) => !isBlankRow(x)).map((x) => x.date));
           const blank = state.rows.find((x) => x.date && isBlankRow(x));
@@ -502,6 +569,8 @@ function initMobile() {
   $('#mBack').onclick = () => showPreview(false);
   $('#mShare2').onclick = openShare;
   $('#mList').addEventListener('click', (e) => {
+    const week = e.target.closest('[data-week]');
+    if (week) { openAddToWeek(parseDate(week.dataset.week)); return; }
     const row = e.target.closest('.m-row');
     if (row) openEditor(row.dataset.id);
   });

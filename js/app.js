@@ -207,7 +207,8 @@ function normalise(raw) {
 }
 function newRowShape() {
   return { id: '', date: '', endDate: '', dateLabel: '', time: '', activity: '', description: '', uniform: '', forms: '',
-    where: '', patrol: '', leader: '', cost: '', challenge: '', notes: '', category: '', noMeeting: false, autoHoliday: false };
+    where: '', patrol: '', leader: '', cost: '', challenge: '', notes: '', category: '', noMeeting: false, autoHoliday: false,
+    emptyWeek: false };
 }
 
 /* ---------------------------------------------------------------- saved programs */
@@ -374,7 +375,7 @@ function weekOffText(reason) { return `No ${state.branding.sectionName || 'meeti
 
 /** A row nobody has typed into yet (as made by Generate dates). */
 function isBlankRow(r) {
-  return !r.noMeeting && !['activity', 'description', 'notes', 'leader', 'cost', 'where'].some((k) => (r[k] || '').trim())
+  return !r.noMeeting && !r.emptyWeek && !['activity', 'description', 'notes', 'leader', 'cost', 'where'].some((k) => (r[k] || '').trim())
     && !r.challenge && !r.category;
 }
 
@@ -384,7 +385,7 @@ function isBlankRow(r) {
  * rows on a public holiday are turned into weeks off).
  */
 function generateRows(existing = []) {
-  const usedDates = new Set(existing.map((r) => r.date));
+  const usedDates = new Set(existing.filter((r) => !r.emptyWeek).map((r) => r.date));
   const patrols = state.patrols.filter((p) => p.name);
   let turn = 0;
   return meetingDates().map((date) => {
@@ -425,6 +426,69 @@ function rowWeekStart(row) {
   return s ? startOfWeek(s) : null;
 }
 
+/* ---------------------------------------------------------------- whole weeks */
+
+/*
+ * A week can be added before or after the program before anything is planned for it. It's kept as
+ * a placeholder row ({ emptyWeek: true, date: the week's first day }) that shows the week and an
+ * "Add activity" prompt, and goes away as soon as anything else is dated in that week.
+ */
+
+/** The term week number of the week starting on `ws` (if any of its days are in the term), else null. */
+function weekNumberFrom(ws) {
+  for (let i = 0; i < 7; i++) { const n = weekOf(toISO(addDays(ws, i))); if (n) return n; }
+  return null;
+}
+
+/** "5–11 Oct" or "28 Sep – 4 Oct" for the week starting on `ws`. */
+function weekRangeText(ws) {
+  const e = addDays(ws, 6);
+  return ws.getMonth() === e.getMonth()
+    ? `${ws.getDate()}–${e.getDate()} ${MONTH_SHORT[e.getMonth()]}`
+    : `${ws.getDate()} ${MONTH_SHORT[ws.getMonth()]} – ${e.getDate()} ${MONTH_SHORT[e.getMonth()]}`;
+}
+
+/** "Week 3", or the holidays label for a week outside the term. */
+function weekName(ws) {
+  const n = weekNumberFrom(ws);
+  return n ? groupLabel({ key: n }) : (state.options.holidayLabel || 'Holidays');
+}
+
+/** Drop placeholder weeks that now have something in them (or are duplicates), and keep each on its week's first day. */
+function tidyEmptyWeeks() {
+  if (!state.rows.some((r) => r.emptyWeek)) return;
+  const weekKey = (iso) => { const d = parseDate(iso); return d ? toISO(startOfWeek(d)) : ''; };
+  const busy = new Set(state.rows.filter((r) => !r.emptyWeek).map((r) => weekKey(r.date)).filter(Boolean));
+  const seen = new Set();
+  state.rows = state.rows.filter((r) => {
+    if (!r.emptyWeek) return true;
+    const k = weekKey(r.date);
+    if (!k || busy.has(k) || seen.has(k)) return false;
+    seen.add(k);
+    r.date = k;
+    return true;
+  });
+}
+
+/** The first days of the program's first and last weeks (from the dated rows), or the term's first week if there are none. */
+function programWeekBounds() {
+  const days = state.rows.flatMap((r) => [r.date, r.endDate]).map(parseDate).filter(Boolean);
+  if (!days.length) {
+    const s = parseDate(state.term.start);
+    return s ? { first: startOfWeek(s), last: startOfWeek(s), none: true } : null;
+  }
+  const t = days.map((d) => d.getTime());
+  return { first: startOfWeek(new Date(Math.min(...t))), last: startOfWeek(new Date(Math.max(...t))), none: false };
+}
+
+/** The first day of the week that "Add week before/after" would add, or null. */
+function newWeekStart(where) {
+  const b = programWeekBounds();
+  if (!b) return null;
+  if (b.none) return b.first;
+  return where === 'before' ? addDays(b.first, -7) : addDays(b.last, 7);
+}
+
 /** Minutes after midnight of the first time in a cell ("18:15", "6:30 PM", "9 AM"), or null. */
 function startMinutes(text) {
   const m = /(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?/i.exec(text || '');
@@ -440,6 +504,7 @@ function startMinutes(text) {
  * Undated rows travel with the row above them. Ties keep their current order.
  */
 function sortRows() {
+  tidyEmptyWeeks();
   let last = '';
   const keyed = state.rows.map((r, i) => {
     if (r.date) last = r.date;
@@ -469,7 +534,9 @@ function weekGroups() {
   const groups = [];
   let prevKey = Symbol('start');
   state.rows.forEach((r, i) => {
-    const key = r.date ? (weekOf(r.date) ?? `out-${toISO(startOfWeek(parseDate(r.date)))}`) : prevKey;
+    const key = r.emptyWeek && parseDate(r.date)
+      ? (weekNumberFrom(startOfWeek(parseDate(r.date))) ?? `out-${toISO(startOfWeek(parseDate(r.date)))}`)
+      : r.date ? (weekOf(r.date) ?? `out-${toISO(startOfWeek(parseDate(r.date)))}`) : prevKey;
     if (groups.length && key === prevKey) groups[groups.length - 1].rows.push(r);
     else groups.push({ key, start: i, rows: [r] });
     prevKey = key;
@@ -483,7 +550,7 @@ function groupLabel(g) {
 
 /**
  * Where moving a row a week up (-1) or down (+1) would take it, or null if that week is
- * outside the term. Returns the target week's first day and its term week number.
+ * outside the term and the program. Returns the target week's first day, its term week number and its name.
  */
 function movePlan(rowId, dir) {
   const row = rowById(rowId);
@@ -491,8 +558,11 @@ function movePlan(rowId, dir) {
   const s = parseDate(state.term.start), e = parseDate(state.term.end);
   if (!ws || !s) return null;
   const target = addDays(ws, dir * 7);
-  if (addDays(target, 6) < s || (e && target > e)) return null;
-  return { target, wk: Math.floor(dayDiff(startOfWeek(s), target) / 7) + 1 };
+  const inTerm = !(addDays(target, 6) < s || (e && target > e));
+  // A week outside the term is fine if the program has it (e.g. an added empty week)
+  const inProgram = state.rows.some((r) => r !== row && parseDate(r.date) && toISO(startOfWeek(parseDate(r.date))) === toISO(target));
+  if (!inTerm && !inProgram) return null;
+  return { target, wk: inTerm ? Math.floor(dayDiff(startOfWeek(s), target) / 7) + 1 : null, name: weekName(target) };
 }
 
 /** Move a row a whole week, keeping its weekday (an undated row lands on the meeting night). */
@@ -670,8 +740,16 @@ function renderSheet() {
   const body = groups.map((g) => g.rows.map((r, i) => {
     const cat = state.categories.find((c) => c.id === r.category);
     const spanCols = cols.filter((c) => c.key !== 'week' && c.key !== 'date').length;
+    const ws = i === 0 ? rowWeekStart(r) : null;
     let spanned = false;
     const cells = cols.map((c) => {
+      if (r.emptyWeek && c.key === 'date') return `<td class="c-date"${c.align ? ` data-align="${c.align}"` : ''}><div class="dt">${esc(weekRangeText(parseDate(r.date)))}</div></td>`;
+      if (r.emptyWeek && c.key !== 'week') {
+        if (spanned) return '';
+        spanned = true;
+        // Screen only (.ph): printed, the week is an empty row
+        return `<td class="c-empty-week" colspan="${spanCols}"><button type="button" class="ph wk-empty-add" data-add-week="${esc(r.date)}">+ Add an activity to this week</button></td>`;
+      }
       if (r.noMeeting && c.key !== 'week' && c.key !== 'date') {
         if (spanned) return '';
         spanned = true;
@@ -681,9 +759,11 @@ function renderSheet() {
       if (i > 0) return '';
       const label = typeof g.key === 'number' ? `${o.weekPrefix || ''}${g.key}` : (o.holidayLabel || '–');
       const tint = cat && !r.noMeeting && o.highlight === 'row' && g.rows.length === 1 ? ` style="background:${esc(cat.color)}"` : '';
-      return `<td class="c-week" rowspan="${g.rows.length}"${tint}><span class="wk">${esc(label)}</span></td>`;
+      // Screen only (.ph): add an activity on any day of this week
+      const add = ws && !r.emptyWeek ? `<button type="button" class="ph wk-add" data-add-week="${toISO(ws)}" title="Add an activity to this week" aria-label="Add an activity to ${esc(label)}">+</button>` : '';
+      return `<td class="c-week" rowspan="${g.rows.length}"${tint}><span class="wk">${esc(label)}</span>${add}</td>`;
     }).join('');
-    const cls = [r.noMeeting && 'no-meeting', i > 0 && cols[0]?.key === 'week' && 'cont'].filter(Boolean).join(' ');
+    const cls = [r.noMeeting && 'no-meeting', r.emptyWeek && 'empty-week', i > 0 && cols[0]?.key === 'week' && 'cont'].filter(Boolean).join(' ');
     return `<tr data-id="${r.id}"${cls ? ` class="${cls}"` : ''}>${cells}</tr>`;
   }).join('')).join('');
 
@@ -1307,13 +1387,15 @@ function openChoicePopover(td, row, key) {
 
 function openRowMenu(anchor, rowId) {
   const r = rowById(rowId); if (!r) return;
+  if (r.emptyWeek) { openEmptyWeekMenu(anchor, r); return; }
   const up = movePlan(rowId, -1), down = movePlan(rowId, 1);
-  const moveLabel = (plan, word) => (plan ? `Move to ${esc(groupLabel({ key: plan.wk }))}` : `Move ${word} a week`);
+  const moveLabel = (plan, word) => (plan ? `Move to ${esc(plan.name)}` : `Move ${word} a week`);
   const icon = (d) => `<svg viewBox="0 0 24 24">${d}</svg>`;
   openPopover(anchor, `
     <div class="menu">
       <button data-act="below">${icon('<path d="M12 5v14M5 12h14"/>')}Add activity below <small>same date</small></button>
       <button data-act="above">${icon('<path d="M12 5v14M5 12h14"/>')}Add activity above</button>
+      <button data-act="week">${icon('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/>')}Add activity this week… <small>pick the day</small></button>
       <button data-act="break">${icon(r.noMeeting ? '<path d="M3 12h4l3-8 4 16 3-8h4"/>' : '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M9 14l6 5M15 14l-6 5"/>')}${r.noMeeting ? 'Turn back into an activity' : 'Mark as no meeting'}</button>
       <button data-act="dup">${icon('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>')}Duplicate</button>
       <button data-act="up" ${up ? '' : 'disabled'}>${icon('<path d="m6 15 6-6 6 6"/>')}${moveLabel(up, 'up')}</button>
@@ -1336,6 +1418,7 @@ function openRowMenu(anchor, rowId) {
   pop.onclick = (e) => {
     const btn = e.target.closest('[data-act],[data-cat],[data-red]');
     if (!btn || btn.disabled) return;
+    if (btn.dataset.act === 'week') { openAddToWeekPopover(anchor, rowWeekStart(rowById(rowId))); return; }
     pushHistory();
     const i = state.rows.findIndex((x) => x.id === rowId);
     const row = state.rows[i];
@@ -1362,6 +1445,35 @@ function openRowMenu(anchor, rowId) {
     pop.onclick = null;
     closePopover(); hideHandle();
     save(); renderDoc();
+  };
+}
+
+/** The row menu of an empty week: add an activity, make it a week off, or remove it. */
+function openEmptyWeekMenu(anchor, r) {
+  const ws = parseDate(r.date);
+  const icon = (d) => `<svg viewBox="0 0 24 24">${d}</svg>`;
+  const section = state.branding.sectionName || 'meeting';
+  openPopover(anchor, `
+    <div class="menu">
+      <div class="menu-label">${esc(weekName(ws))} · ${esc(weekRangeText(ws))}</div>
+      <button data-act="add">${icon('<path d="M12 5v14M5 12h14"/>')}Add an activity… <small>pick the day</small></button>
+      <button data-act="off">${icon('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M9 14l6 5M15 14l-6 5"/>')}Make it a week off</button>
+      <div class="menu-sep"></div>
+      <button data-act="del" class="danger">${icon('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>')}Remove this week</button>
+    </div>`, { type: 'row', id: r.id });
+  pop.onclick = (e) => {
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (!act) return;
+    if (act === 'add') { openAddToWeekPopover(anchor, ws); return; }
+    pushHistory();
+    if (act === 'off') {
+      // On the meeting night of that week
+      const night = addDays(ws, (state.term.meetingDay - ws.getDay() + 7) % 7);
+      Object.assign(r, { emptyWeek: false, noMeeting: true, date: toISO(night), activity: `No ${section} this week` });
+    }
+    if (act === 'del') state.rows = state.rows.filter((x) => x !== r);
+    closePopover(); hideHandle();
+    sortRows(); save(); renderDoc();
   };
 }
 
@@ -1419,6 +1531,82 @@ function addActivity() {
   save(); renderDoc();
   const tr = $(`tr[data-id="${state.rows[state.rows.length - 1].id}"] .ed[data-key="activity"]`);
   tr?.focus();
+}
+
+/** Add an activity on a date (the default time only on the meeting night), then start editing it. */
+function addActivityOn(iso) {
+  const d = parseDate(iso);
+  if (!d) return null;
+  pushHistory();
+  const n = newRow(iso, d.getDay() === state.term.meetingDay ? {} : { time: '' });
+  state.rows.push(n);
+  sortRows(); save(); renderDoc();
+  if (document.body.classList.contains('mobile')) {
+    if (typeof openEditor === 'function') openEditor(n.id);
+  } else {
+    const ed = $(`tr[data-id="${n.id}"] .ed[data-key="activity"]`);
+    ed?.scrollIntoView({ block: 'nearest' });
+    ed?.focus();
+  }
+  return n;
+}
+
+/** The seven days of the week starting on `ws`, as day buttons; the meeting night is marked. */
+function weekDaysHTML(ws) {
+  return `<div class="days">${Array.from({ length: 7 }, (_, i) => addDays(ws, i)).map((d) => {
+    const meet = d.getDay() === state.term.meetingDay;
+    return `<button type="button" class="day ${meet ? 'meet' : ''}" data-day="${toISO(d)}" title="${DAY_LONG[d.getDay()]} ${d.getDate()} ${MONTH_LONG[d.getMonth()]}${meet ? ' (meeting night)' : ''}"><b>${DAY_SHORT[d.getDay()]}</b><span>${d.getDate()}</span></button>`;
+  }).join('')}</div>`;
+}
+
+/** Ask which day of a week, then add an activity on it. */
+function openAddToWeekPopover(anchor, ws) {
+  if (!ws) return;
+  openPopover(anchor, `
+    <div class="pop-title">Add an activity <span class="pop-sub">${esc(weekName(ws))} · ${esc(weekRangeText(ws))}</span></div>
+    <p class="hint">Which day? Your meeting night is underlined.</p>
+    ${weekDaysHTML(ws)}`, { type: 'addweek' });
+  ($('.day.meet', pop) || $('.day', pop))?.focus();
+  pop.onclick = (e) => {
+    const b = e.target.closest('[data-day]');
+    if (!b) return;
+    closePopover(); hideHandle();
+    addActivityOn(b.dataset.day);
+  };
+}
+
+/** Add an empty week before or after the program's weeks. */
+function addEmptyWeek(where) {
+  const ws = newWeekStart(where);
+  if (!ws) { toast('Check the term start date first.', 'error'); return null; }
+  pushHistory();
+  const n = newRow(toISO(ws), { emptyWeek: true, time: '', uniform: '' });
+  state.rows.push(n);
+  sortRows(); save(); renderDoc();
+  if (!document.body.classList.contains('mobile')) $(`tr[data-id="${n.id}"]`)?.scrollIntoView({ block: 'nearest' });
+  toast(`${weekName(ws)} (${weekRangeText(ws)}) added. Add an activity to it when you're ready.`);
+  return n;
+}
+
+/** Toolbar: add a week before the first week or after the last. */
+function openAddWeekPopover(anchor) {
+  const before = newWeekStart('before'), after = newWeekStart('after');
+  if (!before) { toast('Check the term start date first.', 'error'); return; }
+  const icon = (d) => `<svg viewBox="0 0 24 24">${d}</svg>`;
+  const option = (where, ws, label, path) => `<button data-where="${where}">${icon(path)}${label}<small>${esc(weekName(ws))} · ${esc(weekRangeText(ws))}</small></button>`;
+  openPopover(anchor, `
+    <div class="pop-title">Add a week</div>
+    <p class="hint">It starts empty. Add activities to it from its Week cell.</p>
+    <div class="menu">
+      ${option('before', before, 'Before the first week', '<path d="M12 19V5M5 12l7-7 7 7"/>')}
+      ${programWeekBounds()?.none ? '' : option('after', after, 'After the last week', '<path d="M12 5v14M5 12l7 7 7-7"/>')}
+    </div>`, { type: 'addweek' });
+  pop.onclick = (e) => {
+    const b = e.target.closest('[data-where]');
+    if (!b) return;
+    closePopover();
+    addEmptyWeek(b.dataset.where);
+  };
 }
 
 /** Add a week off on a date, reusing an untouched generated row on that date if there is one. */
@@ -1561,7 +1749,7 @@ function exportCalendar() {
   let count = 0;
   state.rows.forEach((r) => {
     const start = parseDate(r.date);
-    if (!start) return;
+    if (!start || r.emptyWeek) return;
     const end = parseDate(r.endDate) && parseDate(r.endDate) >= start ? parseDate(r.endDate) : start;
     const [s, e] = r.noMeeting ? [null, null] : timesIn(r.time);
     const ev = ['BEGIN:VEVENT', `UID:${r.id}@scout-program-builder`, `DTSTAMP:${stamp}`];
@@ -1651,7 +1839,7 @@ function exportCsv() {
     if (k === 'red') return (r.red || []).map((key) => state.columns.find((c) => c.key === key)?.label || key).join(', ');
     return r[k] ?? '';
   };
-  const lines = [CSV_FIELDS.map(([, h]) => h), ...state.rows.map((r) => CSV_FIELDS.map(([k]) => value(r, k)))];
+  const lines = [CSV_FIELDS.map(([, h]) => h), ...state.rows.filter((r) => !r.emptyWeek).map((r) => CSV_FIELDS.map(([k]) => value(r, k)))];
   // A byte-order mark so Excel reads it as UTF-8 (en dashes, apostrophes, emoji).
   downloadFile(`${programFileName()} - activities.csv`, '﻿' + lines.map((l) => l.map(csvCell).join(',')).join('\r\n') + '\r\n', 'text/csv');
   toast('Spreadsheet saved. Edit it in Excel, Google Sheets or Numbers, save as CSV, then use Open.');
@@ -1994,7 +2182,7 @@ function onBoundInput(e) {
   // Rows still showing the old default time follow the new default.
   const nextDefaultTime = defaultTimeText();
   if (nextDefaultTime !== prevDefaultTime) {
-    state.rows.forEach((r) => { if (!r.time || r.time === prevDefaultTime) r.time = nextDefaultTime; });
+    state.rows.forEach((r) => { if (!r.emptyWeek && (!r.time || r.time === prevDefaultTime)) r.time = nextDefaultTime; });
   }
 
   if (datesChanged && e.type === 'change') {
@@ -2118,6 +2306,8 @@ function bindEvents() {
     document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain'));
   });
   sheet.addEventListener('click', (e) => {
+    const addIn = e.target.closest('[data-add-week]');
+    if (addIn) { openAddToWeekPopover(addIn, parseDate(addIn.dataset.addWeek)); return; }
     const td = e.target.closest('td.clickable'); if (!td) return;
     const r = rowById(td.closest('tr').dataset.id); if (!r) return;
     if (td.dataset.pop === 'date') openDatePopover(td, r);
@@ -2137,6 +2327,7 @@ function bindEvents() {
   $('#btnGenerate2').onclick = generateDates;
   $('#btnAddRow').onclick = addActivity;
   $('#btnAddBreak').onclick = (e) => openBreakPopover(e.currentTarget);
+  $('#btnAddWeek').onclick = (e) => openAddWeekPopover(e.currentTarget);
   $('#btnUndo').onclick = undo;
   $('#btnNew').onclick = newProgram;
   $('#btnPrograms').onclick = (e) => openProgramsMenu(e.currentTarget);

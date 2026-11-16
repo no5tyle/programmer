@@ -205,3 +205,19 @@ body.mobile .popover:has(.prog-list) { min-width: min(340px, calc(100vw - 24px))
     border-radius: 50%; background: rgba(255, 255, 255, .88); padding: 2px;
   }
 }
+
+/* Whole weeks: a "+" under each week's label, empty weeks, and the day picker */
+/* Label and "+" together fit a one-line row's 52px, so weeks stay as short as before */
+.m-wk { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding-top: 9px; }
+.m-wk-add {
+  position: relative; display: grid; place-items: center; width: 24px; height: 24px; padding: 0;
+  border: 0; border-radius: 50%; background: var(--tint-fill); color: var(--primary); cursor: pointer;
+}
+.m-wk-add svg { width: 14px; height: 14px; }
+/* A bigger area to tap than it looks */
+.m-wk-add::after { content: ''; position: absolute; inset: -8px -10px; }
+.m-wk-add:active { background: var(--tint-fill-strong); }
+.m-row.m-empty-week { border-left-style: dashed; border-left-color: var(--border); }
+.m-row.m-empty-week .m-add-hint { color: var(--primary); font-weight: 600; }
+.m-week-title { margin: 0 0 4px; }
+.m-card .days .day { padding: 10px 0; }
