@@ -47,6 +47,20 @@ async function runWizard(page) {
 async function stepThroughTour(page, count) {
   for (let i = 1; i <= count; i++) {
     await expect(page.locator('.tour-count')).toHaveText(`${i} of ${count}`);
+    // Each stop's highlight takes in every one of its targets that's on screen
+    // (polled: the highlight slides from the last stop for a quarter of a second)
+    await expect.poll(() => page.evaluate(() => {
+      const spot = document.querySelector('.tour-spot').getBoundingClientRect();
+      const step = tour.steps[tour.i];
+      return step.target.filter((sel) => {
+        const el = document.querySelector(sel); if (!visibleEl(el)) return false;
+        const r = el.getBoundingClientRect();
+        const inView = r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth;
+        // The highlight stops 4px short of the screen's edges
+        const c = { left: Math.max(4, r.left), top: Math.max(4, r.top), right: Math.min(innerWidth - 4, r.right), bottom: Math.min(innerHeight - 4, r.bottom) };
+        return inView && (c.left < spot.left - 1 || c.right > spot.right + 1 || c.top < spot.top - 1 || c.bottom > spot.bottom + 1);
+      });
+    })).toEqual([]);
     const tip = await page.locator('.tour-tip').boundingBox();
     const vp = page.viewportSize();
     expect(tip.x).toBeGreaterThanOrEqual(0);
@@ -56,6 +70,10 @@ async function stepThroughTour(page, count) {
     await page.click('[data-tour="next"]');
   }
   await expect(page.locator('.tour-layer')).toHaveCount(0);
+  // Every button in the toolbar is in a stop
+  const toolbar = await page.evaluate(() => [...document.querySelectorAll('.ws-toolbar .ws-group:first-child button')]
+    .filter(visibleEl).map((b) => `#${b.id}`).filter((id) => !TOUR_DESKTOP.some((s) => s.target.includes(id))));
+  expect(toolbar).toEqual([]);
 }
 
 test('first visit: setup wizard, then the tour', async ({ page }) => {

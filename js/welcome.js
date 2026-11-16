@@ -257,7 +257,7 @@ function termSummary(t) {
 const TOUR_DESKTOP = [
   { target: ['#sidebar'], title: 'Settings', text: 'Your term dates, meeting night, branding and leaders are here. Open any section to change it.' },
   { target: ['#paper'], title: 'Your program', text: 'This is the page families get. Click any cell to type in it. Hover a row and use the ⋮ handle on its right-hand edge to add, move, highlight or delete it.' },
-  { target: ['#btnGenerate', '#btnAddRow', '#btnAddBreak'], title: 'Weeks and activities', text: 'Generate dates adds a row for every meeting night of the term. Add one-off activities, or a week off for a holiday.' },
+  { target: ['#btnGenerate', '#btnAddRow', '#btnAddBreak', '#btnAddWeek'], title: 'Weeks and activities', text: 'Generate dates adds a row for every meeting night of the term. Add one-off activities, a week off for a holiday, or a week before or after the term.' },
   { target: ['#btnPrograms', '#btnNew'], title: 'Your programs', text: 'Programs save automatically in this browser. Find them under Programs, or start a New one for next term with the same branding.' },
   { target: ['#btnImport', '#btnExport', '#btnCalendar'], title: 'Files and calendars', text: 'Save a file to share with other leaders, and download a calendar families can add to their phones.' },
   { target: ['#btnPrint'], title: 'Print or PDF', text: 'When it\'s ready, print it or save a PDF to send to families.' },
@@ -265,7 +265,7 @@ const TOUR_DESKTOP = [
 
 const TOUR_MOBILE = [
   { target: ['#mList'], title: 'Your program', text: 'Each meeting night, week by week. Tap one to fill in its activity, leader and duty patrol.' },
-  { target: ['#mAdd'], title: 'Add', text: 'Add an activity, or a week off for a holiday.' },
+  { target: ['#mAdd'], title: 'Add', text: 'Add an activity, a week off for a holiday, or a week before or after the term.' },
   { target: ['#mPreview'], title: 'Preview', text: 'See the page as families will.' },
   { target: ['#mShare'], title: 'Share', text: 'Send it as a PDF, add it to a calendar, or save a file for other leaders.' },
   { target: ['#mTitle'], title: 'Your programs', text: 'Programs save automatically. Tap the title to switch between them.' },
