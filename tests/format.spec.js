@@ -321,3 +321,58 @@ test.describe('styles on picked fields (phone)', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test.describe('week styles', () => {
+  test('clicking a Week cell styles the whole week, until a click elsewhere', async ({ page }) => {
+    const errors = await openApp(page);
+    await fillCubs(page);
+    // Two activities in Week 2, so its cell spans both
+    await page.evaluate(() => { state.rows.splice(2, 0, newRow('2026-10-25', { activity: 'Sunday hike' })); renderAll(); });
+    const wk = page.locator('#sheet td.c-week', { hasText: 'Week 2' });
+    await wk.click({ position: { x: 30, y: 10 } });
+    const bar = page.locator('.fs-bar');
+    await expect(bar).toBeVisible();
+    await expect(bar.locator('[data-fs-act="b"]')).toHaveAttribute('aria-pressed', 'true');   // prints bold
+    await bar.locator('[data-fs-colour="#0060df"]').click();
+    await bar.locator('[data-fs-act="i"]').click();
+    expect(await page.evaluate(() => state.weekStyles)).toEqual({ '2026-10-19': { c: '#0060df', i: true } });
+    await expect(wk.locator('.wk')).toHaveCSS('color', 'rgb(0, 96, 223)');
+    await expect(wk.locator('.wk')).toHaveCSS('font-style', 'italic');
+    await expect(wk).toHaveAttribute('rowspan', '2');
+    // Its + isn't styled, and still adds to the week
+    await expect(wk.locator('.wk-add')).toHaveCSS('color', 'rgb(255, 255, 255)');
+    await page.mouse.click(5, 300);
+    await expect(bar).toBeHidden();
+    // The style stays with the week when its activities change
+    await page.evaluate(() => { state.rows = state.rows.filter((r) => r.activity !== 'Sunday hike'); renderAll(); });
+    await expect(page.locator('#sheet td.c-week', { hasText: 'Week 2' }).locator('.wk')).toHaveCSS('color', 'rgb(0, 96, 223)');
+    await page.click('#btnUndo');
+    // Escape puts the bar away too
+    await page.locator('#sheet td.c-week', { hasText: 'Week 3' }).click({ position: { x: 30, y: 10 } });
+    await expect(bar).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(bar).toBeHidden();
+    // Saved and checked
+    const kept = await page.evaluate(() => normalise({ weekStyles: { '2026-10-19': { c: '#0060df' }, junk: { c: '#0060df' }, '2026-10-26': { c: 'url(x)' } } }).weekStyles);
+    expect(kept).toEqual({ '2026-10-19': { c: '#0060df' } });
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('week styles (phone)', () => {
+  const { defaultBrowserType, ...iPhone } = devices['iPhone 13'];
+  test.use(iPhone);
+  test('the editor has Aa for the week', async ({ page }) => {
+    const errors = await openApp(page);
+    await fillCubs(page);
+    await page.click('.m-row:has-text("Knots")');
+    const panel = page.locator('.m-panel:not([hidden])');
+    await expect(panel.locator('[data-style-field="week"]')).toContainText('Week 2');
+    await panel.locator('[data-style-cell="week"]').click();
+    await page.locator('.fs-bar [data-fs-act="b"]').tap();
+    expect(await page.evaluate(() => state.weekStyles)).toEqual({ '2026-10-19': { b: false } });
+    await panel.locator('[data-panel-done]').click();
+    await expect(page.locator('#sheet td.c-week', { hasText: 'Week 2' })).toHaveCSS('font-weight', '400');
+    expect(errors).toEqual([]);
+  });
+});

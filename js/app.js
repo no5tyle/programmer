@@ -198,6 +198,7 @@ function defaultState() {
     extras: { datesTitle: 'Dates for your calendar', dates: [], notesTitle: '', notes: [] },
     // Bold, italic and colour for whole sidebar fields that print (see "whole-field styles")
     styles: {},
+    weekStyles: {},
     rows: [],
   };
   return s;
@@ -228,6 +229,7 @@ function normalise(raw) {
   s.rows = Array.isArray(raw.rows) ? raw.rows.map((r) => ({ ...newRowShape(), ...r, id: r.id || uid(), rich: normaliseRich(r.rich) })) : [];
   s.rows.forEach((r) => { migrateRed(r); normaliseCellStyle(r); });
   s.styles = normaliseStyles(raw.styles);
+  s.weekStyles = normaliseWeekStyles(raw.weekStyles);
   s.branding.leaders.forEach((l) => normaliseItemStyle(l, STYLED_LISTS.leaders));
   s.extras.dates.forEach((d) => normaliseItemStyle(d, STYLED_LISTS.dates));
   s.extras.notes.forEach((n) => normaliseItemStyle(n, STYLED_LISTS.notes));
@@ -749,6 +751,49 @@ function cellStyleRef(rowId, key) {
   };
 }
 
+/*
+ * A Week cell (shared by the week's rows) takes the same style, kept in state.weekStyles by the week's
+ * first day, so it stays with the week whatever happens to its activities. It prints bold by default.
+ */
+const WEEK_DEFAULTS = { b: true };
+
+/** The saved style of the week starting on ws (found by any day of that week, should the weeks' first day change). */
+function weekStyleKey(ws) {
+  const iso = toISO(ws);
+  return Object.keys(state.weekStyles || {}).find((k) => { const d = parseDate(k); return d && toISO(startOfWeek(d)) === iso; }) || iso;
+}
+
+function weekStyleRef(ws) {
+  if (!ws) return null;
+  return {
+    defaults: WEEK_DEFAULTS,
+    get: () => state.weekStyles?.[weekStyleKey(ws)] || {},
+    set: (st) => {
+      const next = { ...(state.weekStyles || {}) };
+      delete next[weekStyleKey(ws)];
+      if (cleanStyle(st)) next[toISO(ws)] = cleanStyle(st);
+      state.weekStyles = next;
+    },
+  };
+}
+
+function normaliseWeekStyles(raw) {
+  const out = {};
+  if (raw && typeof raw === 'object') Object.entries(raw).forEach(([k, v]) => { const st = cleanStyle(v); if (st && /^\d{4}-\d{2}-\d{2}$/.test(k)) out[k] = st; });
+  return out;
+}
+
+/** Classes and a colour variable for a cell with a style (see the .fs-* rules in css/app.css). */
+function styleClasses(st) {
+  return [st.c && 'fs-c', st.b === true && 'fs-b', st.b === false && 'fs-nb', st.i === true && 'fs-i', st.i === false && 'fs-ni'].filter(Boolean).join(' ');
+}
+
+/** The style toolbar over a Week cell, until a click somewhere else (desktop). */
+function styleWeek(iso) {
+  if (typeof setStyleTarget !== 'function') return;
+  setStyleTarget({ getEl: () => $(`#sheet td.c-week[data-week="${iso}"]`), ref: weekStyleRef(parseDate(iso)), outside: true });
+}
+
 /** The style toolbar over a cell while its picker is open (desktop). */
 function styleCellWhilePicking(rowId, key) {
   const ref = cellStyleRef(rowId, key);
@@ -857,8 +902,7 @@ function cellHTML(col, r) {
   const html = cellInner(col, r);
   const st = CELL_STYLE_KEYS.includes(col.key) ? cleanStyle(r.cellStyle?.[col.key]) : null;
   if (!st) return html;
-  const cls = [st.c && 'fs-c', st.b === true && 'fs-b', st.b === false && 'fs-nb', st.i === true && 'fs-i', st.i === false && 'fs-ni']
-    .filter(Boolean).join(' ');
+  const cls = styleClasses(st);
   let out = html.replace('<td class="', `<td class="${cls} `);
   if (st.c) {
     const tagEnd = out.indexOf('>');
@@ -983,7 +1027,12 @@ function renderSheet() {
       const tint = cat && !r.noMeeting && o.highlight === 'row' && g.rows.length === 1 ? ` style="background:${esc(cat.color)}"` : '';
       // Screen only (.ph): add an activity on any day of this week
       const add = ws && !r.emptyWeek ? `<button type="button" class="ph wk-add" data-add-week="${toISO(ws)}" title="Add an activity to this week" aria-label="Add an activity to ${esc(label)}">+</button>` : '';
-      return `<td class="c-week" rowspan="${g.rows.length}"${tint}><span class="wk">${esc(label)}</span>${add}</td>`;
+      // Its style, if it has one (clicking the cell brings up the style toolbar)
+      const wst = ws ? cleanStyle(state.weekStyles?.[weekStyleKey(ws)]) : null;
+      const wcls = wst ? ` ${styleClasses(wst)}` : '';
+      let wstyle = tint;
+      if (wst?.c) wstyle = tint ? tint.replace(' style="', ` style="--fsc:${wst.c};`) : ` style="--fsc:${wst.c}"`;
+      return `<td class="c-week${wcls}" rowspan="${g.rows.length}"${ws ? ` data-week="${toISO(ws)}"` : ''}${wstyle}><span class="wk">${esc(label)}</span>${add}</td>`;
     }).join('');
     const cls = [r.noMeeting && 'no-meeting', r.emptyWeek && 'empty-week', i > 0 && cols[0]?.key === 'week' && 'cont'].filter(Boolean).join(' ');
     return `<tr data-id="${r.id}"${cls ? ` class="${cls}"` : ''}>${cells}</tr>`;
@@ -2602,6 +2651,8 @@ function bindEvents() {
   sheet.addEventListener('click', (e) => {
     const addIn = e.target.closest('[data-add-week]');
     if (addIn) { openAddToWeekPopover(addIn, parseDate(addIn.dataset.addWeek)); return; }
+    const wk = e.target.closest('td.c-week[data-week]');
+    if (wk) { styleWeek(wk.dataset.week); return; }
     const td = e.target.closest('td.clickable'); if (!td) return;
     const r = rowById(td.closest('tr').dataset.id); if (!r) return;
     if (td.dataset.pop === 'date') openDatePopover(td, r);

@@ -231,6 +231,14 @@ function styledField() {
 let styleTarget = null;
 function setStyleTarget(t) { styleTarget = t || null; placeFsBar(); }
 
+// A target marked { outside: true } goes when there's a press anywhere but on it or the bar, or Escape
+document.addEventListener('pointerdown', (e) => {
+  if (!styleTarget?.outside || fsBar.contains(e.target)) return;
+  if (styleTarget.getEl()?.contains(e.target)) return;
+  setStyleTarget(null);
+}, true);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && styleTarget?.outside) setStyleTarget(null); });
+
 /** What the bar styles now: { el, ref, avoid }, or null. */
 function currentStyle() {
   const f = styledField();

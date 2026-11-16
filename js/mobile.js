@@ -270,7 +270,8 @@ function editorHTML(r) {
   }
   return `
     <div class="m-card">
-      <div class="m-field" data-style-field="date">${aa('date', `${wk ? `${esc(groupLabel({ key: wk }))} · ` : ''}Day`)}
+      ${ws ? `<div class="m-field" data-style-field="week">${aa('week', `<span>Week: <b>${esc(weekName(ws))}</b></span>`)}</div>` : ''}
+      <div class="m-field" data-style-field="date">${aa('date', 'Day')}
         ${days.length ? `<div class="days">${days.map((d) => `<button class="day ${toISO(d) === r.date ? 'on' : ''}" data-day="${toISO(d)}"><b>${DAY_SHORT[d.getDay()]}</b><span>${d.getDate()}</span></button>`).join('')}</div>` : ''}
       </div>
       <div class="m-two">
@@ -349,7 +350,10 @@ function wireEditor(body, id, draw) {
     const styleBtn = e.target.closest('[data-style-cell]');
     if (styleBtn) {
       const k = styleBtn.dataset.styleCell;
-      setStyleTarget({ getEl: () => document.querySelector(`.m-panel:not([hidden]) [data-style-field="${k}"]`), ref: cellStyleRef(id, k) });
+      setStyleTarget({
+        getEl: () => document.querySelector(`.m-panel:not([hidden]) [data-style-field="${k}"]`),
+        ref: k === 'week' ? weekStyleRef(rowWeekStart(rowById(id))) : cellStyleRef(id, k),
+      });
       return;
     }
     setStyleTarget(null);
