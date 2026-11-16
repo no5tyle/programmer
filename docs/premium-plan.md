@@ -24,12 +24,24 @@ How the rules work:
 - **More places.** A group can add places beyond the 10, one at a time, at a cost per place (proposed A$1 a month or A$9 a year, so 11 to 20 leaders cost less each than the base plan). They're added to the same subscription: billed pro rata for the rest of the period, or added to the next invoice for groups paying by invoice. Places can be removed again, but not below the number of leaders and pending invites. Inviting a leader when every place is taken offers *Add a place* to the owner and admins.
 - **Editors from outside the group.** A unit's main leader can let someone from outside the group edit that unit's programs if they have Premium of their own (Individual, or through another group), for example a leader from a neighbouring group running a joint camp. They don't use one of the group's places, and they see only that unit's programs, not the rest of the group. If their Premium lapses, the access becomes view-only until it returns or they're removed.
 - **Several groups.** A leader can belong to more than one group (for example helping at two), with one account. Each group has its own subscription.
-- **When Premium ends** (cancelled, a payment fails after the grace period, or a leader is removed from a group):
+- **Roles in a group.** *Owner*, *admin* and *leader*.
+  - **The owner and admins** manage leaders, units and places.
+  - **Only the owner** handles billing and can hand the group over.
+  - There's one owner per group.
+- **Free trial.** Individual and Group both have a 14-day trial, with a card taken at the start. It's charged automatically on day 15 unless cancelled. Stripe emails a reminder 3 days before. Groups paying by invoice skip the trial and start on the invoice's 30 days to pay. One trial per person, and one per group.
+- **When a person's Premium ends** (Individual cancelled, or a payment fails after the grace period):
   - nothing is deleted;
   - every program can still be opened, edited, exported and deleted;
   - only *creating* a new program is blocked until there are fewer than 3;
   - Premium-only features (history, live links) stop, but their data is kept for 12 months in case Premium comes back.
+- **When a Group subscription ends** (cancelled, or unpaid past the grace period):
+  - the group's programs become view-only for 12 months: every leader can still open, print and export them, but not change them;
+  - the group program and live links stop;
+  - restarting the subscription in that time brings everything back as it was;
+  - after 12 months, the owner is emailed a month ahead, then the group's programs are deleted.
+- **Leaving a group** (or being removed). A leader keeps their *My programs*, under their own plan. Without Premium of their own, the free cap of 3 applies: they keep everything, but can't create more until they have fewer than 3. The group's programs stay with the group.
 - **Failed payments.** Stripe retries for 14 days before the subscription counts as lapsed.
+- **Australia first.** Prices are in AUD, and the terms are Australian. The term dates and public holidays built in are Australian states'. Other countries can follow later, with leaders entering their own term dates.
 
 ## 2. Premium features
 
@@ -64,29 +76,43 @@ Out of scope for now: editing together live (two leaders typing at once; section
 
 ### 3.1 Where it runs
 
-The API reuses the stack planned for Pinewood Control in `pinewood-control/docs/deployment-plan.md`: Node with Express and Prisma, Postgres 16 and Caddy, in one `docker compose` on the VPS, with nightly backups. It gets its own database and its own container, so the two apps can't affect each other.
+On **Google Cloud**, in Sydney (`australia-southeast1`), using services that **cost nothing while idle**. Each one has a free monthly allowance that a few hundred leaders won't exceed, so the running cost is about nothing until people pay.
 
-- **Address.** The builder and the API should share a domain, for example `programs.<domain>` and `api.<domain>`. Sign-in can then use an ordinary secure cookie. Browsers increasingly block the cross-site cookies that `no5tyle.github.io` talking to a VPS address would need. This depends on buying the domain discussed earlier.
+| Part | Uses | Notes |
+| --- | --- | --- |
+| API | **Cloud Run**, Node and TypeScript in a small container, minimum instances 0, maximum about 5 | Starts when a request comes in, and stops when idle. The cap on instances caps the bill if something goes wrong. A cold start takes about 1–2 s; to keep it short, use a small image with no ORM, and turn on startup CPU boost. Leaders don't notice the wait, because the builder saves to the browser first and syncs in the background (section 4.2). |
+| Data | **Firestore** (Native mode) | Billed per read and write, with no idle cost. A program is one document, as it is in the browser. Transactions cover places and version checks, and its automatic expiry (TTL) removes old versions and the bin. |
+| Sign-in | **Firebase Authentication**, by email link (section 3.2) | Free at this scale. It sends the sign-in emails and handles abuse protection. Google and Microsoft sign-in can be added later with a setting. |
+| Logos | **Cloud Storage** | Uploaded logos are kept here rather than inside the program, keeping each program well under Firestore's 1 MB document limit. |
+| Family pages and calendar feeds | Served by Cloud Run, behind **Firebase Hosting**'s cache (a few minutes) | Families' calendar apps check their feeds often. The cache answers those checks without starting the API. |
+| Secrets | **Secret Manager** | Stripe and email keys. |
+| Scheduled jobs | **Cloud Scheduler** calling the API | Purging the bin and deleted accounts, trial and lapse reminders, and the nightly Firestore export to Cloud Storage as a backup. |
+| Email | A transactional email service, such as Postmark or Resend | For invites, *From the group* notices and receipts. Firebase sends sign-in emails itself, and Stripe sends invoices. |
+| Deploys | GitHub Actions, using Google's keyless sign-in (Workload Identity Federation) | Each push deploys a staging service, and `main` deploys production, as the site does now. No stored keys. |
+
+Ground rules:
+
 - **The builder stays a static site** on GitHub Pages. Without an account it still works, for one program kept in the browser, and it works without a connection. The API adds saving to an account.
+- **The API is the only thing that reads or writes Firestore.** The builder never talks to it directly, and Firestore's security rules deny all access from browsers. The cap, places, who can edit each unit, trials and who has paid are all checked in the API, where they can be tested.
+- **All data access sits in one module of the API.** That keeps a later move to another database (Postgres, say) a contained job.
 
 ### 3.2 Signing in
 
-Use **email sign-in codes, not passwords.** The leader enters their email and gets a 6-digit code (and a link) to type in. There's no password to forget, and it suits leaders who aren't comfortable with technology. *Sign in with Google* and *Sign in with Microsoft* can be added later.
+**By email link, with no passwords.** The leader enters their email. Firebase sends a link, and tapping it signs them in. There's no password to forget, which suits leaders who aren't comfortable with technology. On a phone, the link opens in the phone's default browser. Firebase keeps them signed in, renewing the session as it's used, until *Sign out*.
 
-The session is an `HttpOnly`, `Secure`, `SameSite=Lax` cookie that lasts 90 days and renews as it's used. Requests that change anything must carry an `Origin` header matching the builder's address.
+The builder sends Firebase's ID token with each request (`Authorization: Bearer ...`), and the API checks it. Because no cookie is involved, the builder and the API don't need to share a domain. The builder can stay on GitHub Pages, calling the API at its Cloud Run address or, later, `api.<domain>`.
+
+The trade-off is that the token is held by the page's JavaScript. That's acceptable because the builder loads no third-party scripts. Its Content-Security-Policy should keep it that way.
 
 ### 3.3 Endpoints
 
-Everything is under `/api/v1` and uses JSON. Errors are always `{ "error": { "code": "...", "message": "..." } }`, and the message is in plain words the builder can show as is.
+Everything is under `/api/v1`, uses JSON, and needs a Firebase ID token except the Stripe webhook and public pages. The account itself is created on the first request after sign-in. Errors are always `{ "error": { "code": "...", "message": "..." } }`, and the message is in plain words the builder can show as is.
 
 **Account**
 
 | Method and path | Does |
 | --- | --- |
-| `POST /auth/code` `{ email }` | Emails a sign-in code. Always answers 204, so nobody can find out which emails have accounts. Rate-limited per email and per IP. |
-| `POST /auth/verify` `{ email, code }` | Signs in (creating the account the first time) and sets the cookie. |
-| `POST /auth/logout` | Signs out on this device. |
-| `GET /me` | The person and what they can do: `{ user, premium: { active, via: "individual" \| "group", until }, programs: { count, limit }, groups: [...] }`. The builder reads its limits from here instead of hard-coding them. |
+| `GET /me` | The person and what they can do: `{ user, premium: { active, via: "individual" \| "group", trial, until }, programs: { count, limit }, groups: [...] }`. The builder reads its limits from here instead of hard-coding them. |
 | `PATCH /me` `{ name }` | Changes their name. |
 | `GET /me/export` | All their data, as a zip of program files. |
 | `DELETE /me` | Deletes the account after confirmation. Programs they own go too; group programs stay with the group. |
@@ -125,54 +151,57 @@ Everything is under `/api/v1` and uses JSON. Errors are always `{ "error": { "co
 
 | Method and path | Does |
 | --- | --- |
-| `POST /billing/checkout` `{ plan: "individual" \| "group", interval: "month" \| "year", groupName? }` | Returns a Stripe Checkout address to send the person to. Buying Group creates the group, with the buyer as owner. |
+| `POST /billing/checkout` `{ plan: "individual" \| "group", interval: "month" \| "year", groupName? }` | Returns a Stripe Checkout address to send the person to, with the 14-day trial if they haven't had one. Buying Group creates the group, with the buyer as owner. |
 | `POST /billing/invoice` `{ groupName, billingEmail, abn? }` | Group, yearly: sets the subscription up to be paid by invoice (bank transfer). Stripe emails the invoice with 30 days to pay, and Premium starts straight away. |
 | `POST /billing/portal` | Returns a Stripe Customer Portal address for changing the card, the plan or cancelling. |
-| `POST /billing/webhook` | Stripe's notices (`checkout.session.completed`, `customer.subscription.updated` and `.deleted`, `invoice.payment_failed`). These are the only things that change a subscription's status, so the builder never decides who has paid. |
+| `POST /billing/webhook` | Stripe's notices (`checkout.session.completed`, `customer.subscription.updated` and `.deleted`, `customer.subscription.trial_will_end`, `invoice.payment_failed`). These are the only things that change a subscription's status, so the builder never decides who has paid. |
 
 **Public pages** (Premium; no sign-in needed to view)
 
 | Method and path | Does |
 | --- | --- |
-| `GET /p/{slug}` | The live family page for a program whose owner has turned its link on. |
+| `GET /p/{slug}` | The live family page for a program whose link is turned on. The slug is long and random, the page tells search engines not to list it (`noindex`), and the link can be turned off, or swapped for a new one, if it's shared too widely. |
 | `GET /p/{slug}.ics` | The calendar subscription for it. |
 
 ### 3.4 Data
 
+Firestore collections (`/` marks a subcollection):
+
 ```
-users            id, email (unique), name, created_at, last_seen_at
-login_codes      email, code_hash, expires_at (10 min), attempts            -- 5 tries, then a new code
-sessions         id, user_id, created_at, expires_at, user_agent
-subscriptions    id, plan (individual|group), status (active|past_due|canceled), interval, pays_by (card|invoice),
-                 extra_places (int, default 0),
-                 stripe_customer_id, stripe_subscription_id, current_period_end,
-                 user_id (individual) | group_id (group)
-groups           id, name, owner_id, settings (jsonb), created_at
-group_members    group_id, user_id, role (owner|admin|leader), sections text[] (units they lead), joined_at
-                                                                             -- unique (group_id, user_id)
-group_units      group_id, section, main_leader_id                           -- one main leader per unit
-unit_editors     group_id, section, user_id | invited_email, outside (bool), invited_by, at
-                                                     -- extra editors for a unit; outside ones need Premium
-group_invites    id, group_id, email, token_hash, invited_by, expires_at (14 days)
-programs         id (the builder's id), owner_user_id | owner_group_id, section, name, group_name, year, term,
-                 data (jsonb), version, updated_at, updated_by, deleted_at, public_slug
-program_versions program_id, version, data (jsonb), created_at, created_by    -- kept 90 days (Premium)
+users/{uid}                    email, name, createdAt, lastSeenAt, trialUsed, stripeCustomerId
+subscriptions/{id}             plan (individual|group), status (trialing|active|past_due|canceled), interval,
+                               paysBy (card|invoice), extraPlaces, stripeSubscriptionId, currentPeriodEnd,
+                               trialEnd, userId (individual) | groupId (group), endedAt
+groups/{gid}                   name, ownerId, settings (shared styling and lists), placesUsed, places,
+                               trialUsed, readOnlyUntil (set when the subscription ends)
+groups/{gid}/members/{uid}     role (owner|admin|leader), sections [units they lead], joinedAt
+groups/{gid}/units/{section}   mainLeaderId, editors [{ uid | email, outside, invitedBy, at }]
+groups/{gid}/invites/{id}      email, tokenHash, invitedBy, expiresAt (TTL, 14 days)
+programs/{id}                  ownerUid | ownerGroupId, section, name, groupName, year, term,
+                               data, logoPath, version, updatedAt, updatedBy, deletedAt, publicSlug
+programs/{id}/versions/{v}     data, createdAt, createdBy, expireAt (TTL, 90 days)
+publicLinks/{slug}             programId | groupId, sections                          -- for /p and /g lookups
 ```
 
 - A program's `data` is exactly what the builder saves in the browser today (`state`), so nothing is converted and *Save file* and *Open* keep working.
-- A program is capped at 2 MB. The section or uploaded logo is the biggest part, and it's already shrunk to 400 px.
-- The seat check counts members plus pending invites, inside the same transaction that adds one, so two invites sent at once can't go over. The owner and outside editors aren't counted.
+- A program is capped at 900 KB, inside Firestore's 1 MB document limit. Without the logo (in Cloud Storage), a full term is about 15 KB.
+- The seat check uses `placesUsed` on the group document, read and updated in the same transaction that adds an invite, counting members plus pending invites, so two invites sent at once can't go over. The owner and outside editors aren't counted.
 - Whether an outside editor can edit is checked on every write against their own Premium, not stored.
 - Every program write checks the rules in section 2.1 on the server: a group program's `section` decides who may change it.
+- **Keeping writes down:**
+  - The builder saves to the browser after every short pause, but sends a save to the API at most every few seconds, and when the leader leaves the page.
+  - A history version is kept at most once every 10 minutes per leader, and on leaving.
+  - Lists come from small summary fields, not whole programs.
 
 ## 4. Changes to the builder
 
 ### 4.1 What leaders see
 
-- **Sign in** sits in the top bar (and the phone menu), with the line *Save your programs to your account, to use on any device*. Once signed in, it shows their initial, and opens a small menu: *Account*, *Group* (if any), *Sign out*.
+- **Sign in** sits in the top bar (and the phone menu), with the line *Save your programs to your account, to use on any device*. It asks for an email and says *We've sent you a link*. Opening the link, on the same device or another, signs that device in. Once signed in, it shows their initial, and opens a small menu: *Account*, *Group* (if any), *Sign out*.
 - **The save message** by Undo says where things are: *Saved to your account*, *Saved on this device* (signed out), or *Offline: saved on this device, will upload when you're back online*.
 - **Programs** groups the list under *My programs* and each group the leader belongs to (by unit within a group), each marked with who last changed it and when ("Akela, yesterday"). Programs a leader can only view are marked *View only*. Signed out, it shows the one program on this device and *Sign in to keep more than one*.
-- **The 4th program** on a free account doesn't fail. A friendly box explains the limit and offers *Go Premium*, *Delete an old program* or *Not now*.
+- **The 4th program** on a free account doesn't fail. A friendly box explains the limit and offers *Try Premium free for 14 days*, *Delete an old program* or *Not now*.
+- **A view-only group** (its subscription ended) shows a banner on its programs: *[Group] has ended Premium. Its programs can be viewed, printed and exported until [date].* The owner sees *Restart*.
 - **First sign-in** uploads the program on this device to the account, after asking.
 - **The Account page** shows the plan, *Manage billing* (Stripe's page), *Download all my programs* and *Delete my account*.
 - **The Group page** (for the owner and admins) lists the leaders and the units each leads, shows *Invite a leader* with the places left (for example "7 of 10 used") and *Add places*, sets each unit's main leader, and removes leaders. A unit's main leader sees their unit there, with *Let another leader edit*.
@@ -212,10 +241,10 @@ Today the builder keeps any number of programs in the browser. Because it isn't 
 Programs hold leaders' names and phone numbers, and sometimes young people's names in the notes. Once they're on a server, the Australian Privacy Principles apply. In practice:
 
 - **Policies.** A short privacy policy and terms of use, linked from *Sign in* and the Account page.
-- **Where data is kept.** In Australia if the VPS is (check its region), encrypted in transit, with database backups encrypted.
+- **Where data is kept.** In Sydney (`australia-southeast1`), for the database, files, backups and API. Firebase Authentication keeps the email address itself, which Google may process outside Australia; the privacy policy should say so. Everything is encrypted in transit and at rest.
 - **Downloading and deleting.** Leaders can download everything (`GET /me/export`) and delete their account (`DELETE /me`) themselves. Deleted programs are purged from backups within 35 days.
 - **A note in the editor.** Ask leaders not to put young people's personal details in programs, in line with Scouts Australia's child safety and privacy guidance.
-- **Live family links (feature 5).** They're off by default, and each program's link is turned on separately. The page shows only what the printout shows. Leader phone numbers are hidden unless the owner chooses to show them.
+- **Live family links (feature 5).** They're off by default, and each program's link is turned on separately. Anyone with the link can view, with no PIN: the address is long and random, not listed by search engines, and can be turned off or replaced at any time. The page shows only what the printout shows. Leader phone numbers are hidden unless the owner chooses to show them.
 - **What gets logged.** Ids and error codes, never program contents. Stripe holds the card details; the API never sees them.
 - **GST.** If the business registers for GST, Stripe Tax can add it to prices.
 
@@ -234,12 +263,18 @@ Taken:
 6. **Editing a unit's programs:** that unit's leaders, plus leaders the unit's main leader invites (section 2.1).
 7. **The group program** can be changed by any leader in the group. Its changes apply automatically, with a notice, and joint activities wait for the invited unit to accept (section 8).
 8. **The group overview** shows what families see: date, time, activity, where and weeks off.
-9. **The first paid release** has unlimited programs, the group library and shared styling, version history, live family links and calendar subscriptions. The group program follows in the second release.
+9. **Where it runs:** Google Cloud in Sydney, scaling to zero: Cloud Run, Firestore, and Firebase Authentication by email link (section 3).
+10. **Free trial:** 14 days for both plans, with a card, charged unless cancelled.
+11. **When a group's subscription ends,** its programs are view-only for 12 months.
+12. **Family links** open with just the link.
+13. **Australia first:** AUD prices, Australian terms and term dates.
+14. **Leaving a group,** a leader keeps their *My programs* under their own plan.
+15. **Roles:** owner, admin and leader. Only the owner handles billing.
+16. **The first paid release** has unlimited programs, the group library and shared styling, version history, live family links and calendar subscriptions. The group program follows in the second release.
 
 Still open:
 
-- **The domain** (section 3.1) isn't bought yet. It's needed before phase 1, because accounts need the builder and the API on the same domain. `<domain>` stands in for it here.
-- **The VPS's region,** for where data is kept (section 5).
+- **The domain** isn't bought yet. It's no longer needed before phase 1, because sign-in doesn't use cookies (section 3.2). It's wanted before launch for tidy addresses, such as the family links and `api.<domain>`. `<domain>` stands in for it here.
 - **GST registration,** which decides whether Stripe Tax is needed.
 - **The price of extra places.** Proposed A$1 a month or A$9 a year each.
 
@@ -247,19 +282,21 @@ Still open:
 
 | Phase | Includes | Size |
 | --- | --- | --- |
-| 0. Before | Buy the domain; point the builder and `api.<domain>` at it; privacy policy and terms | Small |
-| 1. Accounts and saving | API service on the VPS, email codes, `/me`, the program endpoints with version checks, the offline queue, the conflict box, uploading on first sign-in, one program when signed out, the cap of 3, the Account page, Help updates | Large: most of the work, and everything later builds on it |
-| 2. Paying | Stripe products, Checkout and Portal, invoices for yearly Group, the webhook, the grace period and lapse rules, the Premium prompts | Medium |
+| 0. Before | Google Cloud project and billing account with a budget alert, Firebase on the same project, staging and production, privacy policy and terms | Small |
+| 1. Accounts and saving | The API on Cloud Run, Firestore, Firebase email-link sign-in, `/me`, the program endpoints with version checks, the offline queue, the conflict box, uploading on first sign-in, one program when signed out, the cap of 3, the Account page, Help updates | Large: most of the work, and everything later builds on it |
+| 2. Paying | Stripe products, Checkout and Portal, the 14-day trials, invoices for yearly Group, the webhook, the grace period, the lapse rules and view-only groups, the Premium prompts | Medium |
 | 3. Groups | Groups and several per leader, invites and places, extra places, outside editors, the group library, moving programs, shared styling, roles, units and their main leaders and editors, handing over ownership | Medium |
 | 4. Reasons to stay | Version history, live family links, calendar subscriptions | Medium |
 | 5. Group program | Group events, linked unit programs, joint activities, the overview, group printout and group calendar, *From the group* notices (section 8) | Large: the most involved part |
-| 6. Later | Activity library, templates, Google and Microsoft sign-in | As needed |
+| 6. Later | Activity library, templates, Google and Microsoft sign-in, other countries | As needed |
+
+Buying the domain fits anywhere before launch.
 
 Phases 1 to 4 are the first paid release. The group program (phase 5) is the second.
 
 **Testing.**
 
-- **The API:** tests against a real Postgres in CI, covering the cap, places (including two invites at once, extra places and removing them), outside editors whose Premium lapses, who can edit each unit's programs, version conflicts, every webhook, invoices and the lapse rules.
+- **The API:** tests against the Firestore and Firebase Authentication emulators in CI, covering the cap, trials, view-only groups, leaving a group, places (including two invites at once, extra places and removing them), outside editors whose Premium lapses, who can edit each unit's programs, version conflicts, every webhook, invoices and the lapse rules.
 - **The builder:** Playwright tests with the API mocked, covering offline, conflicts, one program when signed out, the 4th program, view-only programs and first sign-in upload.
 - **One end-to-end test** against a test deployment, using Stripe's test mode.
 
@@ -367,18 +404,20 @@ The group's *From the group* notices name who made each change ("Bagheera moved 
 | `GET /programs/{id}` | Adds `groupEvents` (this term's events for its section) and `groupEventsVersion` to the existing response. `GET /programs/{id}/group-events?since=` fetches only changes. |
 | `GET /groups/{id}/overview?year=&term=` | The overview table. |
 | `GET /groups/{id}/changes?since=&section=` | The *From the group* notices. |
-| `GET /g/{slug}` and `GET /g/{slug}.ics?sections=cubs,scouts` | The public group page and group calendar (when turned on). |
+| `GET /g/{slug}` and `GET /g/{slug}.ics?sections=cubs,scouts` | The public group page and group calendar (when turned on), on the same terms as family links. |
 
 Data:
 
 ```
-group_events          id, group_id, year, term, date, end_date, time, title, description, where_text, uniform,
-                      cost, forms, sections text[], fits (instead|extra), status (proposed|confirmed),
-                      proposed_by_program_id, version, created_by, updated_by, updated_at, deleted_at
-group_event_responses event_id, section, response (accepted|declined|not_attending), by, at   -- one per section
-group_changes         id, group_id, event_id, sections text[], kind (added|changed|removed|proposed|answered),
-                      summary, by, at                                                    -- kept 1 year
-programs              + section, + linked (bool)                       -- unique (group, section, year, term) when linked
+groups/{gid}/events/{eventId}       year, term, date, endDate, time, title, description, where, uniform, cost, forms,
+                                    sections [...], fits (instead|extra), status (proposed|confirmed),
+                                    proposedByProgramId, responses { [section]: { response, by, at } },
+                                    version, createdBy, updatedBy, updatedAt, deletedAt
+groups/{gid}/changes/{id}           eventId, sections [...], kind (added|changed|removed|proposed|answered),
+                                    summary, by, at, expireAt (TTL, 1 year)
+programs/{id}                       + section, + linked                  -- one linked per group, section, year and term,
+                                                                            enforced in a transaction on a
+                                                                            groups/{gid}/linked/{section-year-term} document
 ```
 
 A unit program's data keeps, for each group event, `groupLinks: { [eventId]: { leader, patrol, notes, category, style, notAttending } }`, and its own rows as now. The builder joins the two to render, print and export.
