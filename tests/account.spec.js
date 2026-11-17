@@ -497,14 +497,14 @@ test.describe('signed in', () => {
   test('the app switcher lists the internal dashboard for sysadmins only', async ({ page }) => {
     const server = await open(page);
     await page.click('.appbar .qs-switch-btn');
-    await expect(page.locator('.appbar .qs-switch-name')).toHaveText(['Program Builder']);
+    await expect(page.locator('.appbar .qs-switch-name')).toHaveText(['Program Builder', 'Pinewood Control']);
     await page.keyboard.press('Escape');
 
     server.sysadmin = true;
     await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));   // catches up with the account
     await expect(page.locator('.appbar qs-app-switcher')).toHaveAttribute('sysadmin', '');
     await page.click('.appbar .qs-switch-btn');
-    await expect(page.locator('.appbar .qs-switch-name')).toHaveText(['Program Builder', 'Internal']);
+    await expect(page.locator('.appbar .qs-switch-name')).toHaveText(['Program Builder', 'Pinewood Control', 'Internal']);
     await expect(page.locator('.appbar .qs-switch-item:has-text("Internal")')).toHaveAttribute('href', 'https://internal.qstored.org/');
   });
 

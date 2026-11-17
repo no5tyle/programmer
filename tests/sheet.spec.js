@@ -19,9 +19,9 @@ test.describe('sheet', () => {
     // and the internal dashboard only for sysadmins (tests/account.spec.js)
     await page.locator('.appbar .qs-switch-btn').click();
     await expect(page.locator('.appbar .qs-switch-item[aria-current=page]')).toContainText('Program Builder');
-    await expect(page.locator('.appbar .qs-switch-name')).toHaveText(['Program Builder']);
+    await expect(page.locator('.appbar .qs-switch-name')).toHaveText(['Program Builder', 'Pinewood Control']);
     await page.keyboard.press('ArrowDown');
-    await expect(page.locator('.appbar .qs-switch-item').first()).toBeFocused();
+    await expect(page.locator('.appbar .qs-switch-item').nth(1)).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(page.locator('.appbar .qs-switch-menu')).toBeHidden();
     await expect(page.locator('.appbar .qs-switch-btn')).toBeFocused();
