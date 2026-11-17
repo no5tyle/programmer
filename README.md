@@ -94,7 +94,7 @@ Each address keeps its own saved programs in the browser, so programs saved at t
 ## Sign in with Microsoft
 
 The sign-in box can offer **Sign in with Microsoft**
-above the email link, here and on account.qstored.org and internal.qstored.org. It's off until it's set up, and
+above the email link, here and on account.qstored.org, internal.qstored.org and pinewood.qstored.org. It's off until it's set up, and
 then switched on with a repository variable. Firebase does the OAuth with Microsoft, through its REST API, so
 no script from Google or Microsoft is loaded (`startMicrosoftSignIn` in `js/account.js`).
 
@@ -105,8 +105,9 @@ no script from Google or Microsoft is loaded (`startMicrosoftSignIn` in `js/acco
      so work, school and personal Microsoft accounts all work.
    - *Redirect URI*: **Web**, and the address Firebase shows in step 2 (`https://qstored.firebaseapp.com/__/auth/handler`).
 
-   Then, under *Authentication*, add three more **Web** redirect URIs, one for each site, since each comes back
-   to itself: `https://program.qstored.org/`, `https://account.qstored.org/` and `https://internal.qstored.org/`.
+   Then, under *Authentication*, add four more **Web** redirect URIs, one for each site, since each comes back
+   to itself: `https://program.qstored.org/`, `https://account.qstored.org/`, `https://internal.qstored.org/`
+   and `https://pinewood.qstored.org/login` (Pinewood comes back to its sign-in page).
    Under *Certificates & secrets*, make a **New client secret** and copy its *Value*; the *Overview* has the
    *Application (client) ID*.
 2. **Turn it on in Firebase.** Firebase console (project `qstored`) → *Authentication* → *Sign-in method* → *Add new
@@ -115,9 +116,9 @@ no script from Google or Microsoft is loaded (`startMicrosoftSignIn` in `js/acco
    the same email*, which is the default), so a leader's email link and Microsoft sign-ins share their programs.
 4. **Try it before anyone else sees it.** On program.qstored.org, open the browser's console, run
    `ACCOUNT.microsoftSignIn = true`, then *Sign in*: the button is there for you alone, until the page is reloaded.
-5. **Switch it on:** set the variable `MICROSOFT_SIGN_IN` to `true` in this repository, qstored-account and
-   qstored-internal (Settings → Secrets and variables → Actions → Variables), and re-run each one's latest
-   publish or deploy.
+5. **Switch it on:** set the variable `MICROSOFT_SIGN_IN` to `true` in this repository, qstored-account,
+   qstored-internal and pinewood-control (Settings → Secrets and variables → Actions → Variables), and re-run
+   each one's latest publish or deploy.
 
 **An organisation's Microsoft 365 may ask for approval.** Many organisations only let their people sign in to apps from a
 *verified publisher*, or that an administrator has approved. If a leader sees *Need admin approval*, either:
