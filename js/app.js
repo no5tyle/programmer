@@ -365,7 +365,7 @@ async function deleteProgram(id) {
   const ok = await modal({
     title: 'Delete this program?',
     body: signedIn() && item.version != null
-      ? `<p><strong>${esc(item.name)}</strong>${item.group ? ` (${esc(item.group)})` : ''} will be deleted from your account, on every device. It can be brought back for 30 days, under <strong>Data</strong> in your qstored account.</p>`
+      ? `<p><strong>${esc(item.name)}</strong>${item.group ? ` (${esc(item.group)})` : ''} will be deleted from your account, on every device. It can be brought back for 30 days, under <strong>Data</strong> in your qStored account.</p>`
       : `<p><strong>${esc(item.name)}</strong>${item.group ? ` (${esc(item.group)})` : ''} will be removed from this browser. This can't be undone, so use <strong>Save file</strong> first if you might want it again.</p>`,
     buttons: [{ label: 'Cancel', value: false, cls: 'btn-text' }, { label: 'Delete', value: true, cls: 'btn-danger' }],
   });

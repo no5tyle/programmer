@@ -98,7 +98,7 @@ above the email link, here and on account.qstored.org and internal.qstored.org. 
 then switched on with a repository variable. Firebase does the OAuth with Microsoft, through its REST API, so
 no script from Google or Microsoft is loaded (`startMicrosoftSignIn` in `js/account.js`).
 
-1. **Register qstored with Microsoft.** In the [Microsoft Entra admin center](https://entra.microsoft.com): *App
+1. **Register qStored with Microsoft.** In the [Microsoft Entra admin center](https://entra.microsoft.com): *App
    registrations* → *New registration*.
    - *Name*: qstored.
    - *Supported account types*: **Accounts in any organizational directory and personal Microsoft accounts**,
@@ -121,9 +121,9 @@ no script from Google or Microsoft is loaded (`startMicrosoftSignIn` in `js/acco
 
 **An organisation's Microsoft 365 may ask for approval.** Many organisations only let their people sign in to apps from a
 *verified publisher*, or that an administrator has approved. If a leader sees *Need admin approval*, either:
-- verify qstored as a publisher (*App registrations* → qstored → *Branding & properties* → *Publisher verification*,
+- verify qStored as a publisher (*App registrations* → qStored → *Branding & properties* → *Publisher verification*,
   which needs a free Microsoft Partner Network ID and the qstored.org domain), or
-- ask that organisation's Microsoft 365 administrators to approve qstored for everyone in it.
+- ask that organisation's Microsoft 365 administrators to approve qStored for everyone in it.
 
 The sign-in only asks Microsoft for the leader's name and email address.
 
@@ -133,7 +133,7 @@ Drafts are in `policies/` (`privacy.html` and `terms.html`). They aren't publish
 workflow copies only the app's own folders. To publish them, fill in the highlighted placeholders, take out
 the draft notice, add `policies` to the `cp` line in `.github/workflows/pages.yml`, and set the
 `PRIVACY_URL` and `TERMS_URL` variables to their addresses (`https://program.qstored.org/policies/...`).
-*Sign in* (and the qstored account site) then link to them. The support address on them comes from `SUPPORT_EMAIL`.
+*Sign in* (and the qStored account site) then link to them. The support address on them comes from `SUPPORT_EMAIL`.
 
 ## Running locally
 

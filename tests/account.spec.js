@@ -411,7 +411,7 @@ test.describe('signed in', () => {
     const server = await open(page, { programs: [program('prog1111', EXAMPLE, { name: 'Cubs Term 3' }), other] });
     await page.hover('#directory .dir-row:has([data-delprog="prog1111"])');
     await page.click('#directory [data-delprog="prog1111"]');
-    await expect(page.locator('.modal-body')).toContainText('brought back for 30 days, under Data in your qstored account');
+    await expect(page.locator('.modal-body')).toContainText('brought back for 30 days, under Data in your qStored account');
     await page.click('.modal .btn-danger');
     await expect.poll(() => server.programs.get('prog1111').deletedAt).not.toBeNull();
     await expect.poll(() => page.evaluate(() => library.current)).toBe('prog2222');
@@ -435,7 +435,7 @@ test.describe('signed in', () => {
     await expect.poll(() => page.evaluate(() => library.current)).toBe('prog2222');
   });
 
-  test('Account, under the initials, opens the qstored account site', async ({ page, context }) => {
+  test('Account, under the initials, opens the qStored account site', async ({ page, context }) => {
     await open(page);
     await page.click('#btnAccount');
     await expect(page.locator('#popover')).toContainText('akela@example.com');

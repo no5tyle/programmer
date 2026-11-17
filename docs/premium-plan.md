@@ -1,8 +1,8 @@
 # Premium: scope for accounts, the API and paid tiers
 
-This scopes **qstored Premium**, starting with the Program Builder: accounts, an API that saves programs to them, and two paid tiers, **Individual** and **Group**.
+This scopes **qStored Premium**, starting with the Program Builder: accounts, an API that saves programs to them, and two paid tiers, **Individual** and **Group**.
 
-Premium belongs to the qstored account, not to one app. The builder (`program.qstored.org`) is the first product it covers. Later products, starting with gear and inventory (`gear.qstored.org`), join the same plans, accounts and groups rather than having their own. This document scopes only the builder's features, but the account, group and billing parts are built to be shared from the start (section 3.5). Phase 1 (accounts and saving) is built: the API is in the `programmer-api` repository, and the builder's side is on `main`. The decisions taken so far are listed in section 6. The builder isn't public yet, so its current behaviour can change without carrying existing users over.
+Premium belongs to the qStored account, not to one app. The builder (`program.qstored.org`) is the first product it covers. Later products, starting with gear and inventory (`gear.qstored.org`), join the same plans, accounts and groups rather than having their own. This document scopes only the builder's features, but the account, group and billing parts are built to be shared from the start (section 3.5). Phase 1 (accounts and saving) is built: the API is in the `programmer-api` repository, and the builder's side is on `main`. The decisions taken so far are listed in section 6. The builder isn't public yet, so its current behaviour can change without carrying existing users over.
 
 ## 1. The tiers
 
@@ -201,12 +201,12 @@ publicLinks/{slug}             programId | groupId, sections                    
   - A history version is kept at most once every 10 minutes per leader, and on leaving.
   - Lists come from small summary fields, not whole programs.
 
-### 3.5 Shared across qstored products
+### 3.5 Shared across qStored products
 
 So that later products need no second account system, second billing or second groups:
 
 - **Shared from day one:**
-  - one Firebase project and one Google Cloud project for all qstored products;
+  - one Firebase project and one Google Cloud project for all qStored products;
   - one `users` collection, one `subscriptions` collection and one `groups` collection, with their members, roles, units and places;
   - one set of Stripe products and prices.
 - **Separate for each product:** its own data. Programs live in `programs/`; gear will have its own collections.
@@ -218,9 +218,9 @@ So that later products need no second account system, second billing or second g
   - a later product's under its own path, such as `/v1/gear`.
 
   It's one Cloud Run service to start with, which can be split by path later if one product grows.
-- **Group places count people, not apps.** A leader in a Group plan has Premium in every qstored product, using one place.
+- **Group places count people, not apps.** A leader in a Group plan has Premium in every qStored product, using one place.
 - **Signing in** uses the same account in every product. Each address keeps its own sign-in, so at first a leader signs in once in each app, with the same email. A shared sign-in page at `account.qstored.org`, signing them in everywhere at once, can follow when there's a second product.
-- **Wording:** the builder says *qstored Premium*, not *Program Builder Premium*. Receipts, checkout and the Account page all use the qstored name.
+- **Wording:** the builder says *qStored Premium*, not *Program Builder Premium*. Receipts, checkout and the Account page all use the qStored name.
 
 ## 4. Changes to the builder
 
@@ -317,13 +317,13 @@ Taken:
 17. **GST:** not registered yet, so no GST is charged (section 5).
 18. **The seller** is a sole trader with an ABN.
 19. **Support:** by email, best effort.
-20. **qstored Premium covers every qstored product,** with one account, one set of plans and the same groups. The builder is the first product it covers (section 3.5).
+20. **qStored Premium covers every qStored product,** with one account, one set of plans and the same groups. The builder is the first product it covers (section 3.5).
 21. **The first paid release** has unlimited programs, the group library and shared styling, version history, live family links and calendar subscriptions. The group program follows in the second release.
-22. **The domain:** `qstored.org`, bought in November 2026. The builder is at `program.qstored.org` and the API at `api.qstored.org`. The family page leads with the group's name and logo, because "qstored" on its own means nothing to parents.
+22. **The domain:** `qstored.org`, bought in November 2026. The builder is at `program.qstored.org` and the API at `api.qstored.org`. The family page leads with the group's name and logo, because "qStored" on its own means nothing to parents.
 
 Still open:
 
-- **The other qstored domains.** Whether to take `qstored.com` and `qstored.com.au` too, redirecting to `.org`, so families typing `.com` land in the right place. Check IP Australia's trade mark search for "qstored" as well.
+- **The other qStored domains.** Whether to take `qstored.com` and `qstored.com.au` too, redirecting to `.org`, so families typing `.com` land in the right place. Check IP Australia's trade mark search for "qStored" as well.
 - **Pricing when a second product arrives.** Whether existing subscribers get it at the same price, or prices rise for new subscribers only.
 - **Scouts Australia.** The builder is called *Scout Program Builder*. Check whether a paid product under that name is acceptable, at the same time as asking about the section logos.
 - **A business name and contact address** for invoices and the terms (section 5.1).

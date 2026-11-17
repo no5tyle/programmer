@@ -15,7 +15,7 @@ test.describe('sheet', () => {
     // The shared look (no5tyle.github.io/shared/no5tyle.css) supplies the colours
     await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(242, 242, 247)');
     await expect(page.locator('#btnExport')).toHaveCSS('background-color', 'rgb(0, 122, 255)');
-    // The qstored app switcher (js/qstored-switcher.js) replaces the icon at the top left: qstored's apps only,
+    // The qStored app switcher (js/qstored-switcher.js) replaces the icon at the top left: qStored's apps only,
     // and the internal dashboard only for sysadmins (tests/account.spec.js)
     await page.locator('.appbar .qs-switch-btn').click();
     await expect(page.locator('.appbar .qs-switch-item[aria-current=page]')).toContainText('Program Builder');

@@ -513,7 +513,7 @@ function showLimitBox(extra = '') {
   const limit = me?.programs?.limit ?? 3;
   return modal({
     title: `A free account keeps ${limit} programs`,
-    body: `${extra}<p>Your account has ${limit} programs already. To keep another, delete one you no longer need. Deleted programs can be brought back for 30 days, under <strong>Data</strong> in your qstored account.</p>
+    body: `${extra}<p>Your account has ${limit} programs already. To keep another, delete one you no longer need. Deleted programs can be brought back for 30 days, under <strong>Data</strong> in your qStored account.</p>
       <p class="hint">Premium, with as many programs as you like, is on its way.</p>`,
     buttons: [{ label: 'Not now', value: null, cls: 'btn-text' }, { label: 'Delete an old program', value: 'delete', cls: 'btn-primary' }],
   }).then((choice) => { if (choice === 'delete') showDirectoryToDelete(); });
@@ -747,7 +747,7 @@ async function completeMicrosoftSignIn(answer) {
   } catch (err) {
     toast(err.offline ? 'You\'re offline. Try again when you\'re connected.'
       : String(err.code || '').startsWith('FEDERATED_USER_ID_ALREADY_LINKED')
-        ? 'That Microsoft account is already used by another qstored account.'
+        ? 'That Microsoft account is already used by another qStored account.'
         : 'Microsoft sign-in didn\'t finish. Try again, or use an email link.', 'error');
     return;
   }
@@ -768,7 +768,7 @@ async function completeMicrosoftSignIn(answer) {
 }
 
 /**
- * The Microsoft account's email already has a qstored account (made with an email link). Firebase keeps one
+ * The Microsoft account's email already has a qStored account (made with an email link). Firebase keeps one
  * account per email, so this person signs in with an email link once more, and Microsoft is then linked to it.
  */
 async function askToLinkMicrosoft(r) {
@@ -776,7 +776,7 @@ async function askToLinkMicrosoft(r) {
   try { localStorage.setItem(LINK_KEY, JSON.stringify({ email, pendingToken: r.pendingToken || null, at: Date.now() })); } catch { /* ignore */ }
   const choice = await modal({
     title: 'Sign in with your email once',
-    body: `<p>There's already a qstored account for <strong>${esc(email || 'this email')}</strong>, from signing in with an email link.
+    body: `<p>There's already a qStored account for <strong>${esc(email || 'this email')}</strong>, from signing in with an email link.
       Sign in that way once more, and Microsoft will be linked to it, so all your programs stay together.</p>`,
     buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' }, { label: 'Email me a link', value: 'send', cls: 'btn-primary' }],
   });
@@ -886,7 +886,7 @@ function openAccountMenu(anchor) {
   openPopover(anchor, `
     <div class="pop-title">${esc(me?.user?.name || 'Your account')}<div class="pop-sub pop-email">${esc(session.email)}</div></div>
     <div class="menu">
-      <button id="pAccount" title="Your name, plan, billing and data, across qstored's apps (opens account.qstored.org)"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Account</button>
+      <button id="pAccount" title="Your name, plan, billing and data, across qStored's apps (opens account.qstored.org)"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Account</button>
       <button id="pSignOut"><svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 8l-4 4 4 4M6 12h9"/></svg>Sign out</button>
     </div>`, { type: 'account' });
   $('#pAccount').onclick = () => { closePopover(); openQstoredAccount(); };
@@ -894,8 +894,8 @@ function openAccountMenu(anchor) {
 }
 
 /**
- * The qstored account site, in a new tab: the name, plan and billing, and the data (download, the bin of
- * deleted programs, delete the account). The same for every qstored app, so the builder keeps none of it.
+ * The qStored account site, in a new tab: the name, plan and billing, and the data (download, the bin of
+ * deleted programs, delete the account). The same for every qStored app, so the builder keeps none of it.
  */
 const QSTORED_ACCOUNT_URL = 'https://account.qstored.org/';
 function openQstoredAccount() { window.open(QSTORED_ACCOUNT_URL, '_blank', 'noopener'); }

@@ -18,7 +18,7 @@ test('the menu has Sign in, then Account and Sign out', async ({ page }) => {
   await expect(page.locator('.modal h2')).toHaveText('Sign in');
 });
 
-test('signed in, the menu opens the qstored account site', async ({ page, context }) => {
+test('signed in, the menu opens the qStored account site', async ({ page, context }) => {
   await mockAccount(page, { signedIn: true, programs: [program('prog1111', EXAMPLE)] });
   errors = await openAccountApp(page, SIGN_IN_LINK);
   await expect.poll(() => page.evaluate(() => library.current)).toBe('prog1111');
