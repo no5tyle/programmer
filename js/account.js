@@ -571,12 +571,25 @@ function atLimit() {
 
 function showLimitBox(extra = '') {
   const limit = me?.programs?.limit ?? 3;
+  // Once paid plans can be bought (the API has Stripe), Premium is offered beside deleting one
+  const billing = me?.billing;
+  const canBuy = !!billing?.available;
+  const premium = canBuy
+    ? `<p>Or get <strong>Premium</strong>, for as many programs as you like: A$4 a month or A$36 a year${billing.trialAvailable ? ', with a 14-day free trial' : ''}. It works in every qStored app.</p>`
+    : '<p class="hint">Premium, with as many programs as you like, is on its way.</p>';
   return modal({
     title: `A free account keeps ${limit} programs`,
     body: `${extra}<p>Your account has ${limit} programs already. To keep another, delete one you no longer need. Deleted programs can be brought back for 30 days, under <strong>Data</strong> in your qStored account.</p>
-      <p class="hint">Premium, with as many programs as you like, is on its way.</p>`,
-    buttons: [{ label: 'Not now', value: null, cls: 'btn-text' }, { label: 'Delete an old program', value: 'delete', cls: 'btn-primary' }],
-  }).then((choice) => { if (choice === 'delete') showDirectoryToDelete(); });
+      ${premium}`,
+    buttons: canBuy
+      ? [{ label: 'Not now', value: null, cls: 'btn-text' }, { label: 'Delete an old program', value: 'delete', cls: 'btn-outline' },
+        { label: billing.trialAvailable ? 'Try Premium free' : 'Get Premium', value: 'premium', cls: 'btn-primary' }]
+      : [{ label: 'Not now', value: null, cls: 'btn-text' }, { label: 'Delete an old program', value: 'delete', cls: 'btn-primary' }],
+  }).then((choice) => {
+    if (choice === 'delete') showDirectoryToDelete();
+    // Billing, in the account site in a new tab; coming back here picks the new limit up (see start)
+    if (choice === 'premium') window.open(`${QSTORED_ACCOUNT_URL}#/billing`, '_blank', 'noopener');
+  });
 }
 
 /**
@@ -994,6 +1007,8 @@ function accountInit() {
     if (document.visibilityState !== 'visible') return;
     // Signed in or out on another qStored site: start again with that
     if (syncShared() !== 'same') { accountLeaving = true; location.reload(); return; }
+    // A free account may have got Premium in another tab (the account site's Billing): look again
+    if (signedIn() && me?.programs?.limit != null) loadMe().catch(() => { /* offline: keep what's here */ });
     catchUp();
   });
 

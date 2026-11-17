@@ -411,6 +411,26 @@ test.describe('signed in', () => {
     await expect.poll(() => server.live().length).toBe(3);
   });
 
+  test('once paid plans can be bought, the limit offers Premium, and coming back with it lifts the limit', async ({ page, context }) => {
+    const server = await open(page, { programs: ['a', 'b', 'c'].map((x) => program(`prog${x}${x}${x}${x}`, EXAMPLE)) });
+    server.billing = { available: true, trialAvailable: true };
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await expect.poll(() => server.called('GET /me').length).toBeGreaterThan(1);
+    await page.click('#btnDirNew');
+    await expect(page.locator('.modal-body')).toContainText('A$4 a month or A$36 a year, with a 14-day free trial');
+    await context.route('https://account.qstored.org/**', (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<title>Billing</title>' }));
+    const [billing] = await Promise.all([context.waitForEvent('page'), page.click('.modal button:has-text("Try Premium free")')]);
+    expect(billing.url()).toBe('https://account.qstored.org/#/billing');
+    await billing.close();
+
+    // Premium bought in the other tab: back here, there's no limit
+    server.limit = null;
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await expect.poll(() => server.called('GET /me').length).toBeGreaterThan(2);
+    await page.click('#btnDirNew');
+    await expect(page.locator('.modal h2')).toHaveText('Start a new program');
+  });
+
   test('a program the account has no room for stays on this device, and says so', async ({ page }) => {
     const server = await open(page, { programs: ['a', 'b'].map((x) => program(`prog${x}${x}${x}${x}`, EXAMPLE)) });
     await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));   // coming back to the page catches up

@@ -105,6 +105,7 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
         user: { id: SESSION.uid, email: SESSION.email, name: server.name, createdAt: '2026-01-01T00:00:00.000Z' },
         premium: { active: server.limit === null, via: server.limit === null ? 'individual' : null, trial: false, until: null },
         programs: { count: server.live().length, limit: server.limit }, groups: [],
+        ...(server.billing ? { billing: server.billing } : {}),
         roles: server.sysadmin ? ['sysadmin'] : [],
       });
     }
