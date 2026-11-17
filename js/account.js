@@ -100,7 +100,13 @@ async function signInWithLink(email, oobCode) {
   });
 }
 
+/** Signs in (or out, with null) here and on every other qStored site. */
 function setSession(next) {
+  keepSession(next ? { ...next, shared: true } : null);
+  if (session) writeShared(session); else clearShared();
+}
+
+function keepSession(next) {
   session = next;
   try {
     if (next) localStorage.setItem(SESSION_KEY, JSON.stringify(next));
@@ -108,8 +114,62 @@ function setSession(next) {
   } catch { /* signed in for this visit only */ }
 }
 
+/*
+ * One sign-in for every qStored site: signing in on any of them signs you in on all, and signing out on one
+ * signs you out of all. Each site's storage is its own, so the sign-in is also kept in a cookie on
+ * qstored.org, which every qstored.org site can read: { uid, email, refreshToken }. A site takes it up when
+ * it opens, when its tab is shown again, and before it calls the API; each makes its own short-lived token
+ * from it. Locally (not on qstored.org) the cookie is this host's only. The same code is in each qStored
+ * site; change them together.
+ */
+const SHARED_COOKIE = 'qstored_session';
+const SHARED_DAYS = 90;   // signed out after this long without opening any qStored site
+
+function sharedAttrs() {
+  const domain = /(^|\.)qstored\.org$/.test(location.hostname) ? '; Domain=qstored.org' : '';
+  return `; Path=/; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}${domain}`;
+}
+
+function readShared() {
+  const m = document.cookie.match(/(?:^|;\s*)qstored_session=([^;]*)/);
+  if (!m) return null;
+  try {
+    const v = JSON.parse(decodeURIComponent(m[1]));
+    return v && typeof v.uid === 'string' && typeof v.refreshToken === 'string' ? v : null;
+  } catch { return null; }
+}
+
+function writeShared(s) {
+  const value = encodeURIComponent(JSON.stringify({ uid: s.uid, email: s.email, refreshToken: s.refreshToken }));
+  document.cookie = `${SHARED_COOKIE}=${value}; Max-Age=${SHARED_DAYS * 86400}${sharedAttrs()}`;
+}
+
+function clearShared() { document.cookie = `${SHARED_COOKIE}=; Max-Age=0${sharedAttrs()}`; }
+
+/**
+ * Brings this site's sign-in into line with the shared one. Answers 'same', 'out' (signed out on another
+ * site) or 'in' (signed in on another site, maybe as someone else).
+ */
+function syncShared() {
+  const shared = readShared();
+  if (!shared) {
+    if (session?.shared) { keepSession(null); return 'out'; }
+    // Signed in here before sign-ins were shared: share it
+    if (session) setSession(session);
+    return 'same';
+  }
+  if (session?.uid === shared.uid) {
+    if (session.refreshToken !== shared.refreshToken || !session.shared) keepSession({ ...session, refreshToken: shared.refreshToken, shared: true });
+    return 'same';
+  }
+  keepSession({ uid: shared.uid, email: shared.email || '', refreshToken: shared.refreshToken, idToken: '', expiresAt: 0, shared: true });
+  return 'in';
+}
+
 /** A token the API will accept, renewed when it's about to run out. */
 async function idToken(force = false) {
+  // Signed in or out on another qStored site since this page looked: start again with that
+  if (accountsOn() && syncShared() !== 'same') { accountLeaving = true; location.reload(); throw authError(); }
   if (!session) throw authError();
   if (!force && session.expiresAt - Date.now() > 60000) return session.idToken;
   refreshing ||= (async () => {
@@ -930,11 +990,22 @@ function accountInit() {
   });
   window.addEventListener('online', catchUp);
   window.addEventListener('pagehide', flushOnLeave);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') catchUp(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    // Signed in or out on another qStored site: start again with that
+    if (syncShared() !== 'same') { accountLeaving = true; location.reload(); return; }
+    catchUp();
+  });
+
+  // Signed in or out on another qStored site since this device last looked. Signed out elsewhere, the
+  // programs here stay (as when a sign-in runs out); signed in elsewhere, it's a first sign-in here.
+  const shared = syncShared();
+  renderAccountButton(); refreshSaveState();
 
   const params = new URLSearchParams(location.search);
   const answer = readJSON(IDP_KEY) ? idpAnswer() : null;
   if (answer) completeMicrosoftSignIn(answer);
   else if (params.get('mode') === 'signIn' && params.get('oobCode')) completeSignIn(params.get('oobCode'));
+  else if (signedIn() && (shared === 'in' || (library.owner && library.owner !== session.uid))) afterSignIn();
   else if (signedIn()) catchUp();
 }

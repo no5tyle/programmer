@@ -164,6 +164,46 @@ test.describe('signing in', () => {
   });
 });
 
+test.describe('one sign-in for every qStored site', () => {
+  const sharedCookie = async (context) => (await context.cookies()).find((c) => c.name === 'qstored_session');
+
+  test('signing in here shares the sign-in, and signing out ends it everywhere', async ({ page, context }) => {
+    await mockAccount(page, { signedIn: true });
+    errors = await openAccountApp(page, SIGN_IN_LINK);
+    await expect(page.locator('#btnAccount .avatar')).toBeVisible();
+    expect(JSON.parse(decodeURIComponent((await sharedCookie(context)).value)))
+      .toEqual({ uid: 'u1', email: 'akela@example.com', refreshToken: 'refresh-1' });
+    await page.click('#btnAccount');
+    await page.click('#pSignOut');
+    await expect(page.locator('#btnAccount')).toHaveText('Sign in');
+    expect(await sharedCookie(context)).toBeUndefined();
+  });
+
+  test('a sign-in from another qStored site is a first sign-in here', async ({ page, context }) => {
+    const server = await mockAccount(page, { programs: [program('acct1111', EXAMPLE)] });
+    await context.addCookies([{
+      name: 'qstored_session', domain: 'localhost', path: '/',
+      value: encodeURIComponent(JSON.stringify({ uid: 'u1', email: 'akela@example.com', refreshToken: 'refresh-1' })),
+    }]);
+    errors = await openAccountApp(page);
+    await expect(page.locator('#btnAccount .avatar')).toHaveText('A');
+    await expect.poll(() => page.evaluate(() => library.current)).toBe('acct1111');
+    await expect(page.locator('#dirWhere')).toHaveText('In your account');
+    expect(server.called('POST /programs')).toEqual([]);
+  });
+
+  test('signed out on another qStored site, the programs here stay', async ({ page, context }) => {
+    await mockAccount(page, { signedIn: true });
+    errors = await openAccountApp(page, SIGN_IN_LINK);
+    await expect(page.locator('#btnAccount .avatar')).toBeVisible();
+    await edit(page, 'Night hike');
+    await context.clearCookies();
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await expect(page.locator('#btnAccount')).toHaveText('Sign in');
+    await expect.poll(() => page.evaluate(() => { try { return state.rows[0].activity; } catch { return null; } })).toBe('Night hike');
+  });
+});
+
 test.describe('Sign in with Microsoft', () => {
   test('is offered only once it is switched on', async ({ page }) => {
     await mockAccount(page);
