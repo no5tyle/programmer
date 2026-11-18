@@ -37,6 +37,7 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
     published: new Map(),   // program id → the version families see
     // Groups the person is in ({ id, name, role, plan }), and each one's library: { units, styling }, set on the group site
     groups, libraries: new Map(),
+    renewals: [],   // what each renewal of a link asked for
     live() { return [...this.programs.values()].filter((p) => !p.deletedAt && (p.owner || 'me') === 'me'); },
     called(prefix) { return this.calls.filter((c) => c.startsWith(prefix)); },
   };
@@ -184,7 +185,7 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
       if (method === 'GET') return json(route, 200, { link: link ? linkJson(link) : null, premium });
       if (method === 'DELETE') { server.links.delete(section); return route.fulfill({ status: 204, headers: CORS }); }
       if (!premium) return error(route, 402, 'premium_required');
-      if (sh[2] === '/renew') { link = { ...link, slug: `renewed${link.slug}` }; server.links.set(section, link); return json(route, 200, { link: linkJson(link) }); }
+      if (sh[2] === '/renew') { server.renewals.push(body); link = { ...link, slug: `renewed${link.slug}` }; server.links.set(section, link); return json(route, 200, { link: linkJson(link) }); }
       if (sh[2] === '/show') { server.published.set(p.id, p.version); link = { ...link, pinned: p.id }; server.links.set(section, link); return json(route, 200, { link: linkJson(link) }); }
       if (!link && !server.published.has(p.id)) server.published.set(p.id, p.version);   // turning it on publishes this one
       link = { slug: link?.slug || 'abcdefghijklmnopqrstuvwx', showPhones: body?.showPhones ?? link?.showPhones ?? false, pinned: link?.pinned ?? null };

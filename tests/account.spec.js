@@ -643,8 +643,16 @@ test.describe("Premium's history and live link", () => {
     expect(server.links.get('cubs').showPhones).toBe(true);
 
     await page.click('.modal button:has-text("Make a new link")');
+    await expect(page.locator('.modal-body')).toContainText("Families who put this link together with their other children's");
     await page.click('.modal .btn-primary:has-text("Make a new link")');
     await expect(page.locator('#shareUrl')).toHaveValue(/renewed/);
+    expect(server.renewals.at(-1)).toEqual({ cutOff: false });
+    // Renewing again, this time taking it off families' combined pages too
+    await page.click('.modal button:has-text("Make a new link")');
+    await page.check('#renewCutOff');
+    await page.click('.modal .btn-primary:has-text("Make a new link")');
+    await expect(page.locator('#shareUrl')).toHaveValue(/renewedrenewed/);
+    expect(server.renewals.at(-1)).toEqual({ cutOff: true });
 
     await page.click('.modal button:has-text("Turn off")');
     await page.click('.modal .btn-primary:has-text("Turn off")');

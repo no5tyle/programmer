@@ -1222,11 +1222,14 @@ async function openShareBox() {
     if (choice === 'renew') {
       const sure = await modal({
         title: 'Make a new link?',
-        body: `<p>The current link for your ${esc(section)} programs, and the calendar families added with it, stop working straight away. Share the new one with families.</p>`,
+        body: `<p>The current link for your ${esc(section)} programs, and the calendar families added with it, stop working straight away. Share the new one with families.</p>
+          <p class="hint">Families who put this link together with their other children's (one page for all their programs) keep seeing it there, unless you stop that too: for when the link has been shared too widely.</p>
+          <label class="check-line"><input type="checkbox" id="renewCutOff"> Also take it off families' combined pages</label>`,
         buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' }, { label: 'Make a new link', value: 'yes', cls: 'btn-primary' }],
       });
       if (sure) {
-        const renewed = await tryApi('POST', `/programs/${id}/share/renew`);
+        const cutOff = !!$('#renewCutOff')?.checked;
+        const renewed = await tryApi('POST', `/programs/${id}/share/renew`, { body: { cutOff } });
         if (renewed?.ok) { link = renewed.json.link; toast('New link made. The old one no longer works.'); } else if (renewed) toast(errorText(renewed), 'error');
       }
       continue;
