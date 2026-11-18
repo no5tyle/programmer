@@ -198,17 +198,17 @@ function sessionEnded() {
 /* ---------------------------------------------------------------- the API */
 
 /** Calls the API. Answers { status, ok, json, res }; throws an `offline` error when it can't be reached. */
-async function api(method, path, { body, headers = {}, keepalive = false } = {}) {
+async function api(method, path, { body, headers = {}, keepalive = false, signal } = {}) {
   for (let attempt = 0; ; attempt++) {
     const token = await idToken(attempt > 0);
     let res;
     try {
       res = await fetch(`${ACCOUNT.apiBase.replace(/\/$/, '')}/api/v1${path}`, {
-        method, keepalive,
+        method, keepalive, signal,
         headers: { Authorization: `Bearer ${token}`, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...headers },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
-    } catch { throw offlineError(); }
+    } catch (err) { if (signal?.aborted) throw err; throw offlineError(); }
     if (res.status === 401 && attempt === 0) continue;
     if (res.status === 401) { sessionEnded(); throw authError(); }
     if (res.status >= 500) throw offlineError();
@@ -343,18 +343,23 @@ async function pushProgram(id) {
   const body = { name: item.name, data: JSON.parse(json) };
   const r = fresh
     ? await api('POST', '/programs', { body: { id, owner: item.owner || 'me', ...body } })
-    : await api('PUT', `/programs/${id}`, { body, headers: { 'If-Match': `"${item.version}"` } });
+    : await api('PUT', `/programs/${id}?tab=${LIVE_TAB}`, { body, headers: { 'If-Match': `"${item.version}"` } });
   item = libItem(id);
   if (!item) return false;   // deleted here while it was being sent
   const code = errorCode(r);
 
   if (r.ok) {
     item.version = r.json.version;
+    keepBase(id, json);   // what both now have: the starting point for putting changes together
     if (localStorage.getItem(key) === json) delete item.dirty;   // still dirty if it changed while sending
     saveLibrary();
     return fresh;
   }
-  if (code === 'version_conflict') { await resolveConflict(id, json, r.json.program); return false; }
+  if (code === 'version_conflict') {
+    // Saved somewhere else first: both sets of changes put together, if this device knows where they started
+    if (!(await takeTheirs(id, r.json.program))) await resolveConflict(id, json, r.json.program);
+    return false;
+  }
   if (code === 'program_exists') {
     // It reached the account before (a save sent as the page closed, say). Compare with what's there.
     const got = await api('GET', `/programs/${id}`);
@@ -439,6 +444,83 @@ function rowsDiffering(mine, theirs) {
 
 const activityCount = (data) => (data.rows || []).filter((r) => !r.noMeeting && (r.activity || r.description)).length;
 
+/* ---------------------------------------------------------------- putting changes together */
+
+/*
+ * Each program's base: the account's copy as this device last had it (saved from here, or opened). When the account
+ * has a newer version, from another leader or another device, the changes made here since the base and those made
+ * there are put together (js/merge.js), and only the same cell changed on both is a clash.
+ */
+const BASE_PREFIX = 'scoutProgramBuilder.base.';
+const keepBase = (id, json) => { try { localStorage.setItem(BASE_PREFIX + id, json); } catch { /* the next clash asks instead */ } };
+const readBase = (id) => { try { return localStorage.getItem(BASE_PREFIX + id); } catch { return null; } };
+/** Drops the bases of programs `gone` says aren't here any more. */
+function forgetBases(gone = (id) => !libItem(id)) {
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k?.startsWith(BASE_PREFIX) && gone(k.slice(BASE_PREFIX.length))) localStorage.removeItem(k);
+    }
+  } catch { /* ignore */ }
+}
+
+/** True while someone's typing or choosing in a field: a newer version waits until they're done. */
+function busyEditing() {
+  const a = document.activeElement;
+  return !!a && a !== document.body && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))
+    && !a.closest('.modal, #signInBox');
+}
+
+/** "the activity on Mon 2 Feb", for a clash's path. */
+function clashText(path, data) {
+  if (path[0] === 'rows') {
+    const row = (data.rows || []).find((r) => r.id === path[1]);
+    const what = { activity: 'activity', description: 'description', date: 'date', time: 'time', uniform: 'uniform' }[path[2]] || 'details';
+    return row?.date ? `the ${what} on ${new Date(`${row.date}T12:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}` : `a row's ${what}`;
+  }
+  return { branding: 'the styling', term: 'the term settings', extras: 'the dates and notes', options: 'the layout' }[path[0]] || 'the settings';
+}
+
+/**
+ * Takes the account's newer copy (`theirs`, as the API answers it) with this device's changes put on top. Answers
+ * false when it can't (no base to start from), for the caller to ask instead. While someone's typing in the open
+ * program it waits, and answers true: the next save, or the next look, tries again.
+ */
+async function takeTheirs(id, theirs, by = theirs.updatedBy) {
+  const item = libItem(id);
+  if (!item) return true;
+  const baseJson = readBase(id);
+  if (!baseJson) return false;
+  const open = id === library.current;
+  if (open && busyEditing()) { liveWaiting = true; return true; }
+  const theirData = normalise(theirs.data);
+  const mine = open ? clone(state) : readJSON(programKey(id));
+  const { data, clashes } = mergeProgram(JSON.parse(baseJson), mine, theirData);
+  const merged = normalise(data);
+  const json = JSON.stringify(merged);
+  localStorage.setItem(programKey(id), json);
+  keepBase(id, JSON.stringify(theirData));
+  item.version = theirs.version;
+  item.updated = Date.parse(theirs.updatedAt) || Date.now();
+  // Still to save, if anything of mine is in it
+  if (sameData(merged, theirData)) delete item.dirty; else { item.dirty = true; delete item.hold; }
+  saveLibrary();
+  if (open) {
+    // Undo still undoes only my own changes: each earlier state, with theirs put in
+    undoStack = undoStack.map((s) => JSON.stringify(normalise(mergeProgram(mine, JSON.parse(s), merged).data)));
+    state = merged;
+    renderAll();
+  }
+  if (item.dirty) syncSoon();
+  const who = by?.id === session?.uid ? 'you, on another device' : by?.name || 'another leader';
+  if (clashes.length) {
+    const what = [...new Set(clashes.map((c) => clashText(c, merged)))];
+    toast(`You and ${who} both changed ${what.slice(0, 2).join(' and ')}${what.length > 2 ? ', and more' : ''}. Yours is kept${me?.premium || item.owner ? "; theirs is in this program's version history" : ''}.`);
+  } else if (open) toast(`Updated with the changes from ${who}.`);
+  return true;
+}
+let liveWaiting = false;   // a newer version waits for typing to stop (js/live.js picks it up)
+
 /** Puts the account's copy of a program on this device, and on screen if it's the one that's open. */
 function storeRemote(p) {
   let item = libItem(p.id);
@@ -446,6 +528,7 @@ function storeRemote(p) {
   // Kept in the builder's current shape, so that opening an older program doesn't count as changing it
   const data = normalise(p.data);
   localStorage.setItem(programKey(p.id), JSON.stringify(data));
+  keepBase(p.id, JSON.stringify(data));
   Object.assign(item, {
     name: p.name, group: p.groupName || '', updated: Date.parse(p.updatedAt) || Date.now(), version: p.version,
     section: data.branding.section, sectionName: data.branding.sectionName, year: data.term.year, term: data.term.term,
@@ -495,6 +578,7 @@ async function resolveConflict(id, mineJson, theirs) {
   if (!now) return;
   if (choice === 'mine') {
     now.version = theirs.version;   // the next pass saves mine on top of theirs
+    keepBase(id, JSON.stringify(normalise(theirs.data)));
     now.dirty = true;
   } else if (choice === 'theirs') {
     storeRemote(theirs);
@@ -553,6 +637,7 @@ async function refreshPrograms() {
     else if (!item.dirty && item.cached === false) Object.assign(item, summary, { version: p.version });
   }
   saveLibrary();
+  forgetBases();   // bases of programs no longer here
   await ensureCurrent();
 }
 
@@ -989,6 +1074,7 @@ function clearDevice() {
   clearTimeout(syncTimer);
   try {
     library.items.forEach((x) => localStorage.removeItem(programKey(x.id)));
+    forgetBases(() => true);
     // An empty library, not none: this isn't a first visit, so the welcome wizard stays away
     localStorage.setItem(LIB_KEY, JSON.stringify({ current: null, items: [] }));
     localStorage.removeItem(ME_KEY);

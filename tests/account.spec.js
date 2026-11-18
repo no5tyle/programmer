@@ -334,9 +334,11 @@ test.describe('signed in', () => {
     expect(p.data.branding.groupName).toBe('Changed elsewhere');
   });
 
-  test.describe('when the same program was changed in two places', () => {
+  test.describe('when the same program was changed in two places, with no starting copy here to put them together', () => {
     const clash = async (page) => {
       const server = await open(page);
+      // Its starting copy (kept since it was opened) is gone, as on a device the builder's older version left
+      await page.evaluate(() => localStorage.removeItem('scoutProgramBuilder.base.prog1111'));
       const p = server.programs.get('prog1111');
       const theirs = JSON.parse(JSON.stringify(p.data));
       theirs.rows[0].activity = 'Theirs';
@@ -380,6 +382,7 @@ test.describe('signed in', () => {
       await page.keyboard.press('Escape');
       await expect(saveState(page)).toHaveText('Saved on this device only');
       expect(p.data.rows[0].activity).toBe('Theirs');
+      await page.evaluate(() => localStorage.removeItem('scoutProgramBuilder.base.prog1111'));
       await edit(page, 'Mine again');
       await expect(page.locator('.modal h2')).toHaveText('This program was changed somewhere else');
       await page.click('.modal button:has-text("Keep mine")');

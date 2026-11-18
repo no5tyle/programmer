@@ -38,10 +38,33 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
     // Groups the person is in ({ id, name, role, plan }), and each one's library: { units, styling }, set on the group site
     groups, libraries: new Map(),
     renewals: [],   // what each renewal of a link asked for
+    // Working on a program together: who's here in each, who saved each version, and long polls waiting for news
+    here: new Map(), savedBy: new Map(), waiters: [],
+    nudge() { const w = server.waiters.splice(0); w.forEach((f) => f()); },
+    /** Another leader saves the program: `change` changes its data. */
+    otherSaves(id, change, by = { id: 'u2', name: 'Baloo', tab: 'baloosTab1' }) {
+      const p = server.programs.get(id);
+      const data = JSON.parse(JSON.stringify(p.data));
+      change(data);
+      Object.assign(p, { data, version: p.version + 1, updatedAt: new Date().toISOString(), updatedBy: { id: by.id, name: by.name } });
+      server.savedBy.set(id, { version: p.version, by });
+      server.nudge();
+    },
+    /** Someone else has the program open (in `cell`). */
+    otherHere(id, person = { id: 'u2', name: 'Baloo', tab: 'baloosTab1' }, cell = null) {
+      server.here.set(id, [...(server.here.get(id) || []).filter((x) => x.tab !== person.tab), { ...person, cell }]);
+      server.nudge();
+    },
+    /** ...and closes it. */
+    otherLeaves(id, tab = 'baloosTab1') {
+      server.here.set(id, (server.here.get(id) || []).filter((x) => x.tab !== tab));
+      server.nudge();
+    },
     // How their own programs work (one, units, group), and their own units with an Individual plan
     mode: 'one', own: { units: [], region: null },
     live() { return [...this.programs.values()].filter((p) => !p.deletedAt && (p.owner || 'me') === 'me'); },
-    called(prefix) { return this.calls.filter((c) => c.startsWith(prefix)); },
+    // Working together's own calls (/live, /here) are left out, unless asked for
+    called(prefix) { return this.calls.filter((c) => c.startsWith(prefix) && (!/\/(live|here)\b/.test(c) || /\/(live|here)\b/.test(prefix))); },
   };
 
   await page.addInitScript(([api, email, microsoft]) => {
@@ -107,6 +130,30 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
     const body = req.postData() ? JSON.parse(req.postData()) : null;
     const summary = ({ data, ...rest }) => ({ ...rest, publishedVersion: server.published.get(rest.id) ?? null });
     const full = () => server.limit !== null && server.live().length >= server.limit;
+
+    // Working on it together: the long poll (answering at once with news, else at the next change or after a
+    // moment), and who's here
+    const together = /^\/programs\/([^/]+)\/(live|here)$/.exec(path);
+    if (together) {
+      const [, id, what] = together;
+      const p = server.programs.get(id);
+      if (!p) return error(route, 404, 'not_found');
+      if (what === 'here') {
+        const others = (server.here.get(id) || []).filter((x) => !(x.id === SESSION.uid && x.tab === (body?.tab || url.searchParams.get('tab'))));
+        if (method === 'POST') others.push({ id: SESSION.uid, tab: body.tab, name: server.name, cell: body.cell });
+        server.here.set(id, others);
+        server.nudge();
+        return route.fulfill({ status: 204, headers: CORS });
+      }
+      const answer = () => {
+        const people = server.here.get(id) || [];
+        const by = server.savedBy.get(id) || null;
+        return { version: p.version, by: by && by.version === p.version ? by.by : null, people, seen: people.map((x) => `${x.id}:${x.tab}:${x.cell ?? ''}`).join('|') };
+      };
+      const news = () => { const a = answer(); return a.version !== Number(url.searchParams.get('version')) || a.seen !== (url.searchParams.get('seen') || ''); };
+      if (!news()) await new Promise((res) => { const t = setTimeout(res, 1500); server.waiters.push(() => { clearTimeout(t); res(); }); });
+      try { return await json(route, 200, answer()); } catch { return undefined; }   // the page went meanwhile
+    }
 
     if (path === '/me' && method === 'GET') {
       return json(route, 200, {
@@ -243,6 +290,8 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
         server.history.set(p.id, kept);
       }
       Object.assign(p, { name: body.name, data: body.data, version: p.version + 1, updatedAt: new Date().toISOString(), groupName: body.data?.branding?.groupName || '', unit: body.data?.unit ?? null });
+      server.savedBy.set(p.id, { version: p.version, by: { id: SESSION.uid, name: server.name, tab: url.searchParams.get('tab') } });
+      server.nudge();
       return json(route, 200, summary(p), { ETag: `"${p.version}"` });
     }
     return error(route, 404, 'not_found');

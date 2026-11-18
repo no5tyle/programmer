@@ -95,6 +95,16 @@ async function fonts(page) {
     await page.waitForTimeout(300);
     await page.locator('#sheet').screenshot({ path: path.join(OUT, 'printout.png') });
     console.log('printout');
+    // Working on it together: another leader in the program, in the cell they're changing
+    const row = await page.evaluate(() => state.rows.filter((r) => document.querySelector(`#sheet tr[data-id="${r.id}"] td.c-activity .ed`))[3].id);
+    server2.otherHere('prog1111', { id: 'u2', name: 'Baloo', tab: 'baloosTab1' }, `${row}:activity`);
+    server2.otherHere('prog1111', { id: 'u3', name: 'Raksha', tab: 'rakshaTab1' }, null);
+    await page.waitForSelector('#livePeople .live-avatar:nth-child(2)');
+    await page.waitForSelector('#sheet td.live-cell .live-tag');
+    await shot(page, 'together', { clip: { x: 260, y: 0, width: 1180, height: 640 } });
+    server2.otherLeaves('prog1111');
+    server2.otherLeaves('prog1111', 'rakshaTab1');
+    await page.waitForSelector('#livePeople', { state: 'hidden' });
     await page.click('#btnExport');
     await shot(page, 'export');
     await page.keyboard.press('Escape');

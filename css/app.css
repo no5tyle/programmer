@@ -938,3 +938,16 @@ body.no-program #btnSave, body.no-program #btnExport, body.no-program #btnUndo {
 /* The person's own units, above the rest of the list */
 .dir-own { justify-content: space-between; }
 .dir-units { font-size: 12px; font-weight: 600; text-transform: none; letter-spacing: 0; }
+
+/* Working on a program together: who else has it open, and the cell each is in (js/live.js) */
+.live-people { display: inline-flex; align-items: center; margin-right: 6px; }
+.live-people[hidden] { display: none; }
+.live-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--c); color: #fff; display: inline-grid; place-items: center;
+  font-size: 13px; font-weight: 700; border: 2px solid var(--bg, #fff); margin-left: -6px; cursor: default; }
+.live-avatar:first-child { margin-left: 0; }
+#sheet td.live-cell { outline: 2px solid var(--c); outline-offset: -2px; position: relative; }
+.live-tag { position: absolute; top: 0; right: 0; padding: 0 4px; border-radius: 0 0 0 3px; background: var(--c); color: #fff;
+  font: 600 10px/14px system-ui, sans-serif; white-space: nowrap; pointer-events: none; z-index: 3; }
+@media print { .live-people, .live-tag { display: none !important; } #sheet td.live-cell { outline: none; } }
+.sheet.capture .live-tag { display: none !important; }
+.sheet.capture td.live-cell { outline: none !important; }

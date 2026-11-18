@@ -1392,6 +1392,8 @@ function renderSheet() {
     </table>
     ${extrasHTML()}
     ${b.footerText ? `<div class="doc-footer"${fs('branding.footerText')}>${esc(b.footerText)}</div>` : ''}`;
+  // Where others working on it are (js/live.js)
+  if (typeof liveMarkCells === 'function') liveMarkCells();
 }
 
 /* ---------------------------------------------------------------- page size / fit */
@@ -1888,6 +1890,8 @@ function renderAll() {
   renderSheet();
   fit();
   if (typeof renderMobile === 'function') renderMobile();
+  // Working on it together: follow the program that's open (js/live.js)
+  if (typeof liveFollow === 'function') liveFollow();
 }
 function renderDoc() {
   sortRows(); applyPageSize(); renderSheet(); fit();
