@@ -34,7 +34,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .appbar-brand { display: flex; align-items: center; gap: 12px; }
 .brand-mark {
   width: var(--n5-bar-icon); height: var(--n5-bar-icon); border-radius: 10px;
-  background: var(--brand); color: #fff;
+  background: #0E7490; color: #fff;   /* the Program Builder's own colour (qStored's navy is qstored.org's) */
   display: grid; place-items: center;
 }
 .brand-mark svg { width: 20px; height: 20px; stroke-width: 2.4; }
