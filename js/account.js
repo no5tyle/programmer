@@ -1335,13 +1335,22 @@ function lockStyling(keys) {
   }
 }
 
-/** Where a new program can be kept: the person's own, or a unit of a group's library (with the Group plan). */
+/** The units of a group whose programs this person looks after: all of them, or the ones they're given. */
+function myUnitsOf(gid) {
+  const mine = libraries.get(gid)?.myUnits ?? 'all';
+  return unitsOf(gid).filter((u) => mine === 'all' || mine.includes(u.id));
+}
+
+/**
+ * Where a new program can be kept: the person's own, or one of their units in a group's library (with the Group
+ * plan). A group with no units yet takes programs with no unit, from those who look after every unit.
+ */
 function placesForPrograms() {
   const places = [{ value: 'me', label: 'My programs' }];
   for (const g of myGroups().filter((x) => x.plan)) {
-    const units = unitsOf(g.id);
+    const units = myUnitsOf(g.id);
     if (units.length) for (const u of units) places.push({ value: `group:${g.id}|${u.id}`, label: `${g.name} · ${u.name}` });
-    else places.push({ value: `group:${g.id}|`, label: `${g.name}'s library` });
+    else if (!unitsOf(g.id).length && (libraries.get(g.id)?.myUnits ?? 'all') === 'all') places.push({ value: `group:${g.id}|`, label: `${g.name}'s library` });
   }
   return places;
 }

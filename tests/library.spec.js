@@ -137,3 +137,14 @@ test('not in a group: the menu has no Group library, and New program asks nothin
   await expect(page.locator('.modal h2')).toHaveText('Start a new program');
   await expect(page.locator('#newPlace')).toHaveCount(0);
 });
+
+test('a leader given some units is offered only those, for new programs and for moving one in', async ({ page }) => {
+  await open(page, { groups: [{ ...GROUP, role: 'leader' }] }, (server) => {
+    server.libraries.set('g1', { units: UNITS, styling: STYLING, myUnits: ['banksia'] });
+  });
+  await page.click('#btnDirNew');
+  await expect(page.locator('#newPlace option')).toHaveText(['My programs', '1st Example · Banksia Cubs']);
+  await page.keyboard.press('Escape');
+  await libraryBox(page);
+  await expect(page.locator('#moveTo option')).toHaveText(['1st Example · Banksia Cubs']);
+});

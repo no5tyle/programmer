@@ -198,7 +198,7 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
       const g = server.groups.find((x) => x.id === lib[1]);
       if (!g) return error(route, 404, 'not_found');
       const l = server.libraries.get(g.id) || {};
-      return json(route, 200, { plan: !!g.plan, canManage: g.role !== 'leader', units: l.units || [], styling: l.styling || null });
+      return json(route, 200, { plan: !!g.plan, canManage: g.role !== 'leader', units: l.units || [], styling: l.styling || null, myUnits: l.myUnits ?? 'all' });
     }
     const mv = /^\/programs\/([^/]+)\/move$/.exec(path);
     if (mv) {
