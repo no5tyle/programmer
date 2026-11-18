@@ -372,6 +372,28 @@ async function pushProgram(id) {
     renameProgram(item);
   } else if (code === 'program_limit') {
     holdForLimit(item);
+  } else if (code === 'term_taken' && item.owner && fresh) {
+    // Another leader started this unit's term first: theirs is the one, so this device opens it instead
+    const theirs = r.json?.program?.id;
+    library.items = library.items.filter((x) => x.id !== id);
+    try { localStorage.removeItem(key); } catch { /* ignore */ }
+    saveLibrary();
+    toast(errorText(r));
+    const wasOpen = library.current === id;
+    if (wasOpen && theirs) library.current = theirs;   // so nothing saves the discarded copy back
+    await refreshPrograms();
+    if (wasOpen && theirs && (await fetchForOpen(theirs))) {
+      state = normalise(readJSON(programKey(theirs)));
+      undoStack = []; $('#btnUndo').disabled = true;
+      renderAll();
+    } else renderDirectory();
+    return false;
+  } else if (code === 'term_over' && item.owner) {
+    // The term ended: the program is kept as it was, so the account's copy comes back
+    const got = await api('GET', `/programs/${id}`);
+    if (got.ok) storeRemote(got.json);
+    toast(errorText(r));
+    return false;
   } else if (code === 'premium_required' && item.owner) {
     // The group's library, without the Group plan: kept here until the plan's back, or it's moved out
     item.hold = 'error';
@@ -1424,6 +1446,147 @@ async function openLibraryBox() {
   } else if (choice === 'out') {
     if (await moveProgram(id, 'me')) toast('Moved to your programs.');
   }
+}
+
+/* ---------------------------------------------------------------- a group's terms: one program a term for each unit */
+
+/** Today, as the program's dates are written (2026-11-18), on this device's clock. */
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** The state a group's terms follow: the group's, else the open program's, else South Australia. */
+const regionOf = (gid) => libraries.get(gid)?.region || state?.term?.region || 'SA';
+
+/**
+ * Every term the builder knows for a state, in order: { year, term, start, end }. Past the years it knows the
+ * dates of, terms carry on without dates (the leader enters them), so there are always terms ahead.
+ */
+function termsFor(region) {
+  const known = TERM_DATES[region] || {};
+  const out = Object.keys(known).map(Number).sort((a, b) => a - b)
+    .flatMap((year) => known[year].map(([start, end], i) => ({ year, term: i + 1, start, end })));
+  const last = out.at(-1) || { year: new Date().getFullYear() - 1, term: 4 };
+  for (let year = last.year + 1; year <= last.year + 2; year++) {
+    for (let term = 1; term <= 4; term++) out.push({ year, term, start: '', end: '' });
+  }
+  return out;
+}
+
+/** A term is over once its last day has passed. A term with no dates isn't. */
+const termOver = (t) => !!t?.end && t.end < todayISO();
+
+/** The terms a unit's tabs show: the four from the one that's on (or next), and what's before and after them. */
+function termTabs(region) {
+  const all = termsFor(region);
+  let from = all.findIndex((t) => !termOver(t));
+  if (from < 0) from = all.length;
+  return { past: all.slice(0, from), shown: all.slice(from, from + 4), later: all.slice(from + 4, from + 8) };
+}
+
+/** The open program, if it's a group library's and its term has ended: kept as it was. */
+function libraryReadOnly() {
+  const item = typeof libItem === 'function' ? libItem(library.current) : null;
+  return !!item?.owner && termOver(state?.term);
+}
+
+/** A unit's program for a term, from the programs list. */
+const programFor = (owner, unit, year, term) =>
+  library.items.find((x) => x.owner === owner && x.unit === unit && +x.year === year && +x.term === term && !x.hold);
+
+/**
+ * The programs list's part for a group's library: each of the person's units, with a tab for each of its next four
+ * terms (a program, or one to start), and More for earlier and later terms. Programs outside those (no unit, or no
+ * term) are listed after, as before.
+ */
+function libraryTermsHTML(g, items, itemHTML) {
+  const owner = `group:${g.id}`;
+  const units = myUnitsOf(g.id);
+  const { shown } = termTabs(regionOf(g.id));
+  const label = (t) => `T${t.term} ${String(t.year).slice(2)}`;
+  const tab = (u, t) => {
+    const p = programFor(owner, u.id, t.year, t.term);
+    const open = p && p.id === library.current;
+    return p
+      ? `<button type="button" class="term-tab has" data-open="${esc(p.id)}"${open ? ' aria-current="true"' : ''} title="${esc(`${u.name}, Term ${t.term} ${t.year}`)}">${label(t)}</button>`
+      : `<button type="button" class="term-tab" data-term="${esc(`${owner}|${u.id}|${t.year}|${t.term}`)}"${g.plan ? '' : ' disabled'} title="${esc(`Start ${u.name}'s Term ${t.term} ${t.year} program`)}">${label(t)}</button>`;
+  };
+  const unitHTML = units.map((u) => `
+    <div class="dir-unit" data-unit="${esc(u.id)}">
+      <div class="dir-unit-head"><span class="dir-dot" style="background:${esc(SECTIONS[u.section]?.color || '#999')}"></span>${esc(u.name)}</div>
+      <div class="term-tabs" role="group" aria-label="${esc(u.name)}'s terms">${shown.map((t) => tab(u, t)).join('')}
+        <button type="button" class="term-tab more" data-terms-more="${esc(`${g.id}|${u.id}`)}" aria-label="${esc(u.name)}: earlier and later terms" title="Earlier and later terms">…</button>
+      </div>
+    </div>`).join('');
+  const inTabs = (x) => units.some((u) => u.id === x.unit) && x.year && x.term;
+  const others = items.filter((x) => !inTabs(x));
+  return unitHTML + (others.length ? `<div class="dir-unit"><div class="dir-unit-head">${units.length ? 'Other programs' : ''}</div>${others.map(itemHTML).join('')}</div>` : '')
+    + (units.length ? '' : `<p class="dir-empty">${esc(g.name)}'s units are set on the group site.</p>`);
+}
+
+/** More, for a unit: its earlier terms' programs (kept as they were) and the terms after the four shown. */
+function openTermsMenu(anchor, gid, unitId) {
+  const owner = `group:${gid}`;
+  const u = unitsOf(gid).find((x) => x.id === unitId);
+  if (!u) return;
+  const { past, later } = termTabs(regionOf(gid));
+  const plan = !!groupFor(owner)?.plan;
+  const row = (t, pastTerm) => {
+    const p = programFor(owner, unitId, t.year, t.term);
+    if (p) return `<button class="prog-open" data-open="${esc(p.id)}"><b>Term ${t.term} ${t.year}</b><span>${pastTerm ? 'Ended: read only' : 'Started'}</span></button>`;
+    if (pastTerm) return '';
+    return `<button class="prog-open" data-term="${esc(`${owner}|${unitId}|${t.year}|${t.term}`)}"${plan ? '' : ' disabled'}><b>Term ${t.term} ${t.year}</b><span>Start this term's program</span></button>`;
+  };
+  const earlier = past.slice().reverse().map((t) => row(t, true)).filter(Boolean);
+  openPopover(anchor, `
+    <div class="pop-title">${esc(u.name)}</div>
+    <div class="prog-list">
+      <div class="pop-sub">Later terms</div>${later.map((t) => row(t, false)).join('')}
+      <div class="pop-sub">Earlier terms</div>${earlier.join('') || '<p class="hint">No earlier programs.</p>'}
+    </div>`, { type: 'terms' });
+  pop.querySelectorAll('[data-open]').forEach((b) => { b.onclick = () => { closePopover(); openProgram(b.dataset.open); }; });
+  pop.querySelectorAll('[data-term]').forEach((b) => { b.onclick = () => { closePopover(); startTermProgram(b.dataset.term); }; });
+}
+
+/**
+ * Starts a unit's program for a term (a tab with none yet), ready to fill in: the unit's last program carried on
+ * (its leaders, columns, patrols and lists), with this term's dates and meeting nights, and the group's styling.
+ */
+async function startTermProgram(key) {
+  const [owner, unitId, y, t] = key.split('|');
+  const year = +y, term = +t;
+  const gid = owner.slice('group:'.length);
+  const unit = unitsOf(gid).find((u) => u.id === unitId);
+  if (!unit) return;
+  const existing = programFor(owner, unitId, year, term);
+  if (existing) { openProgram(existing.id); return; }
+  // The unit's latest program to carry on from: the one before this term, or any of its others
+  const mine = library.items.filter((x) => x.owner === owner && x.unit === unitId && x.year && x.term)
+    .sort((a, b) => (b.year * 10 + b.term) - (a.year * 10 + a.term));
+  const before = mine.find((x) => x.year * 10 + x.term < year * 10 + term) || mine[0];
+  let base = null;
+  if (before && (await fetchForOpen(before.id))) base = readJSON(programKey(before.id));
+  const c = base ? copyOf(normalise(base)) : defaultState();
+  c.branding.versionText = '';
+  c.rows = [];
+  c.extras = { ...c.extras, dates: [], notes: [] };
+  c.unit = unitId;
+  if (!base) { c.branding.section = unit.section; c.branding.sectionName = unit.name; c.branding.color = SECTIONS[unit.section]?.color || c.branding.color; }
+  Object.assign(c.term, { region: regionOf(gid), year, term });
+  applyLibrary(c, owner);
+  save();
+  const prev = state;
+  state = c;
+  if (!applyTermPreset()) { state.term.start = ''; state.term.end = ''; }
+  state.rows = generateRows();
+  state = prev;
+  addProgram(c);
+  const item = libItem(library.current);
+  if (item) { item.owner = owner; item.unit = unitId; item.year = year; item.term = term; }
+  save();
+  applyLibrary();
+  toast(c.rows.length ? `${unit.name}'s Term ${term} ${year} program is ready to fill in.` : 'Enter the term dates, then use Generate meeting dates.');
 }
 
 /** As the page closes: send the open program's last changes without waiting for the timer. */

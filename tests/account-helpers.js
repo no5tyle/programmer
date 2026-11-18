@@ -133,6 +133,10 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
       const library = body.owner && body.owner !== 'me';
       if (library && !server.groups.some((g) => body.owner === `group:${g.id}` && g.plan)) return error(route, 402, 'premium_required');
       if (!library && full()) return error(route, 403, 'program_limit', { limit: server.limit });
+      // A group library has one program a term for each unit
+      const t = body.data?.term || {};
+      const taken = library && body.data?.unit && [...server.programs.values()].find((x) => !x.deletedAt && x.owner === body.owner && x.unit === body.data.unit && x.year === t.year && x.term === t.term);
+      if (taken) return error(route, 409, 'term_taken', { program: { id: taken.id, name: taken.name } });
       const p = program(body.id, body.data, { name: body.name, owner: body.owner || 'me', unit: body.data?.unit ?? null });
       server.programs.set(p.id, p);
       return json(route, 201, p, { ETag: '"1"' });
@@ -198,7 +202,7 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
       const g = server.groups.find((x) => x.id === lib[1]);
       if (!g) return error(route, 404, 'not_found');
       const l = server.libraries.get(g.id) || {};
-      return json(route, 200, { plan: !!g.plan, canManage: g.role !== 'leader', units: l.units || [], styling: l.styling || null, myUnits: l.myUnits ?? 'all' });
+      return json(route, 200, { plan: !!g.plan, canManage: g.role !== 'leader', units: l.units || [], region: l.region ?? null, styling: l.styling || null, myUnits: l.myUnits ?? 'all' });
     }
     const mv = /^\/programs\/([^/]+)\/move$/.exec(path);
     if (mv) {

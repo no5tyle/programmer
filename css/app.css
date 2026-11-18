@@ -900,3 +900,26 @@ body.mobile .prog .col-grip { display: none; }
 .library-note { margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; background: var(--tint-soft, rgba(0, 113, 227, .08)); font-size: 13px; line-height: 1.45; }
 .field.locked > span::after { content: ' · the group\2019s'; font-weight: 400; color: var(--muted); }
 .field.locked input, .field.locked select { opacity: .7; cursor: not-allowed; }
+
+/* A group's units: a tab for each coming term (a program, or one to start), and More for the rest */
+.term-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 4px; padding: 4px 8px 10px 14px; }
+.term-tab { display: inline-flex; align-items: center; gap: 3px; border: 1px dashed var(--line, rgba(60,60,67,.3)); border-radius: 999px; background: transparent;
+  justify-content: center; min-width: 0; padding: 3px 4px; font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; white-space: nowrap; overflow: hidden; }
+.term-tab.more { padding: 3px 8px; }
+.term-tab.has { border-style: solid; background: var(--surface, #fff); color: var(--ink, inherit); }
+.term-tab[aria-current] { background: var(--tint, #0071e3); border-color: var(--tint, #0071e3); color: #fff; }
+.term-tab.more { border-style: solid; }
+.term-tab:disabled { cursor: default; opacity: .5; }
+.term-new { font-weight: 700; }
+.term-tab:hover:not(:disabled):not([aria-current]) { background: var(--hover, rgba(118,118,128,.12)); }
+
+/* A group library's program whose term has ended: kept as it was, so nothing on it can be changed */
+.read-only-note { margin: 0; padding: 10px 20px; background: var(--soon-bg, #fff4d6); color: var(--soon-text, #6b4a00); font-size: 14px; font-weight: 600; }
+body.read-only #sheet .ed, body.read-only .ws-toolbar .btn:not(#btnSettings),
+body.read-only #sidebar .card-body { pointer-events: none; }
+body.read-only #sidebar .card-body { opacity: .6; }
+body.read-only #btnAddRow, body.read-only #btnAddWeek, body.read-only #btnUndo, body.read-only #rowHandle { display: none !important; }
+
+/* The programs menu (a phone's): each group's units and their term tabs, after the person's own programs */
+.pop-library { border-top: 0.5px solid var(--line, rgba(60,60,67,.2)); margin-top: 8px; padding-top: 4px; }
+.pop-library .term-tabs { padding-left: 8px; }

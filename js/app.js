@@ -264,6 +264,17 @@ function setSaveState(kind) {
 }
 
 function save() {
+  // A group library's program whose term has ended is kept as it was: a change is put back, not saved
+  if (typeof libraryReadOnly === 'function' && libraryReadOnly()) {
+    const kept = readJSON(programKey(library.current));
+    if (kept && JSON.stringify(kept) !== JSON.stringify(state)) {
+      state = normalise(kept);
+      renderAll();
+      toast("This term has ended, so its program is kept as it was. You can still print or export it.");
+    }
+    setSaveState('saved');
+    return;
+  }
   try {
     const key = programKey(library.current);
     const json = JSON.stringify(state);
@@ -403,7 +414,9 @@ function relTime(ms) {
 function openProgramsMenu(anchor) {
   save();
   const account = signedIn();
-  const items = [...library.items].sort((a, b) => b.updated - a.updated);
+  // A group library's programs are under its units' term tabs, after the person's own
+  const libGroups = account && typeof myGroups === 'function' ? myGroups().filter((g) => myUnitsOf(g.id).length || library.items.some((x) => x.owner === `group:${g.id}`)) : [];
+  const items = [...library.items].filter((x) => !x.owner || !libGroups.some((g) => x.owner === `group:${g.id}`)).sort((a, b) => b.updated - a.updated);
   const where = !accountsOn() ? 'saved in this browser' : account ? 'in your account' : 'on this device';
   const sub = (x) => {
     const held = x.hold === 'conflict' ? 'changed somewhere else' : x.hold ? 'on this device only' : '';
@@ -422,6 +435,8 @@ function openProgramsMenu(anchor) {
           <button class="icon-btn" data-delprog="${x.id}" title="Delete" aria-label="Delete ${esc(x.name)}"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
         </div>`).join('')}
     </div>
+    ${libGroups.map((g) => `<div class="pop-library"><div class="pop-title">${esc(libraryName(`group:${g.id}`))}</div>
+      ${libraryTermsHTML(g, library.items.filter((x) => x.owner === `group:${g.id}`), (x) => `<div class="prog-item"><button class="prog-open" data-open="${x.id}"><b>${esc(x.name)}</b><span>${esc(termLabel(x))}</span></button></div>`)}</div>`).join('')}
     ${accountsOn() && !account ? `<div class="prog-signin"><span>Sign in to keep more than one, and use them on any device.</span><button class="btn btn-outline btn-sm" id="pSignIn">Sign in</button></div>` : ''}
     <div class="pop-actions">
       <button class="btn btn-text btn-sm" id="pDupProg" title="Make a copy of this program, to change without touching this one">Duplicate this one</button>
@@ -430,6 +445,8 @@ function openProgramsMenu(anchor) {
   pop.querySelectorAll('[data-open]').forEach((b) => { b.onclick = () => { closePopover(); openProgram(b.dataset.open); }; });
   pop.querySelectorAll('[data-delprog]').forEach((b) => { b.onclick = () => { closePopover(); deleteProgram(b.dataset.delprog); }; });
   pop.querySelectorAll('[data-addprog]').forEach((b) => { b.onclick = () => { closePopover(); addHeldToAccount(b.dataset.addprog); }; });
+  pop.querySelectorAll('[data-term]').forEach((b) => { b.onclick = () => { closePopover(); startTermProgram(b.dataset.term); }; });
+  pop.querySelectorAll('[data-terms-more]').forEach((b) => { b.onclick = () => { const [gid, u] = b.dataset.termsMore.split('|'); openTermsMenu(anchor, gid, u); }; });
   if ($('#pSignIn')) $('#pSignIn').onclick = openSignIn;
   $('#pDupProg').onclick = () => { closePopover(); duplicateProgram(); };
   $('#pNewProg').onclick = () => { closePopover(); newProgram(); };
@@ -486,15 +503,11 @@ function renderDirectory() {
   }
   const order = (k) => { const i = Object.keys(SECTIONS).indexOf(k); return i < 0 ? 99 : i; };
   const keys = [...groups.keys()].sort((a, b) => order(a) - order(b) || groups.get(a).name.localeCompare(groups.get(b).name));
-  // Each library: its units, in the Scouts order of their sections, each with its programs; then any with no unit
-  for (const [owner, items] of [...inLibraries].sort((a, b) => libraryName(a[0]).localeCompare(libraryName(b[0])))) {
-    const units = unitsOf(owner.slice('group:'.length));
-    const known = new Set(units.map((u) => u.id));
-    const parts = units.map((u) => ({ name: u.name, color: SECTIONS[u.section]?.color, items: items.filter((x) => x.unit === u.id) }))
-      .filter((u) => u.items.length);
-    const loose = items.filter((x) => !known.has(x.unit));
-    if (loose.length) parts.push({ name: units.length ? 'No unit' : '', items: loose });
-    groups.set(owner, { name: libraryName(owner), library: true, items, parts });
+  // Each group's library: its units (those the person looks after), each with a tab for each of its coming terms
+  const libGroups = account && typeof myGroups === 'function' ? myGroups().filter((g) => inLibraries.has(`group:${g.id}`) || myUnitsOf(g.id).length) : [];
+  for (const g of libGroups.sort((a, b) => a.name.localeCompare(b.name))) {
+    const owner = `group:${g.id}`;
+    groups.set(owner, { name: libraryName(owner), library: true, group: g, items: inLibraries.get(owner) || [] });
     keys.push(owner);
   }
   if (onDevice.length) groups.set('held', { name: 'On this device only', items: onDevice }), keys.push('held');
@@ -514,12 +527,7 @@ function renderDirectory() {
   const head = (g) => `<div class="dir-head${g.library ? ' dir-library' : ''}">${g.library ? '<svg class="dir-lib-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M8 19V5M12 19l3-14 4 1-3 14z"/></svg>' : `<span class="dir-dot"${g.color ? ` style="background:${esc(g.color)}"` : ''}></span>`}${esc(g.name)}<span class="dir-count">${g.items.length}</span></div>`;
   box.innerHTML = keys.map((k) => {
     const g = groups.get(k);
-    if (g.parts) {
-      return `<div class="dir-group">${head(g)}
-        ${g.parts.map((u) => `<div class="dir-unit">${u.name ? `<div class="dir-unit-head"><span class="dir-dot"${u.color ? ` style="background:${esc(u.color)}"` : ''}></span>${esc(u.name)}</div>` : ''}
-          ${u.items.sort(byTerm).map(item).join('')}</div>`).join('')}
-      </div>`;
-    }
+    if (g.group) return `<div class="dir-group">${head(g)}${libraryTermsHTML(g.group, g.items.sort(byTerm), item)}</div>`;
     return `<div class="dir-group">
       <div class="dir-head${g.library ? ' dir-library' : ''}">${g.library ? '<svg class="dir-lib-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M8 19V5M12 19l3-14 4 1-3 14z"/></svg>' : `<span class="dir-dot"${g.color ? ` style="background:${esc(g.color)}"` : ''}></span>`}${esc(g.name)}<span class="dir-count">${g.items.length}</span></div>
       ${g.items.sort(byTerm).map(item).join('')}
@@ -1794,6 +1802,14 @@ function challengeIconOnly(c) {
 function renderAll() {
   // A program in a group's library has the group's styling, locked (js/account.js)
   if (typeof applyLibrary === 'function') applyLibrary(state, undefined, false);
+  // ...and once its term has ended, it's kept as it was
+  const readOnly = typeof libraryReadOnly === 'function' && libraryReadOnly();
+  document.body.classList.toggle('read-only', readOnly);
+  const note = $('#readOnlyNote');
+  if (note) {
+    note.hidden = !readOnly;
+    if (readOnly) note.textContent = `Term ${state.term.term} ${state.term.year} has ended, so this program is kept as it was. You can still print it, save a PDF or export it.`;
+  }
   renderDirectory();
   sortRows();
   applyPageSize();
@@ -2821,8 +2837,9 @@ function importJson() {
 
 async function newProgram() {
   // Signed in to a group with the Group plan, it can be kept in one of the group's units, with the group's styling
-  const places = typeof placesForPrograms === 'function' && signedIn() ? placesForPrograms() : [];
-  const choosing = places.length > 1;
+  // A group's programs are started from its units' term tabs, one a term; New program is the person's own
+  const places = [];
+  const choosing = false;
   const owner = libItem(library.current)?.owner;
   const here = owner ? places.find((x) => x.value === `${owner}|${state.unit || ''}`)?.value : 'me';
   let how = choosing ? 'add' : await newProgramGate();
@@ -3140,6 +3157,10 @@ function bindEvents() {
   $('#btnDirDup').onclick = () => duplicateProgram();
   $('#dirList').onclick = (e) => {
     if (e.target.closest('[data-dir-signin]')) { openSignIn(); return; }
+    const term = e.target.closest('[data-term]');
+    if (term) { startTermProgram(term.dataset.term); return; }
+    const more = e.target.closest('[data-terms-more]');
+    if (more) { const [gid, unit] = more.dataset.termsMore.split('|'); openTermsMenu(more, gid, unit); return; }
     const del = e.target.closest('[data-delprog]');
     if (del) { deleteProgram(del.dataset.delprog); return; }
     const add = e.target.closest('[data-addprog]');

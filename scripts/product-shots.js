@@ -36,6 +36,7 @@ function others() {
 const LIBRARY = {
   units: [{ id: 'banksia', name: 'Banksia Cubs', section: 'cubs' }, { id: 'kingfisher', name: 'Kingfisher Troop', section: 'scouts' }],
   styling: { shared: { groupName: '1st Wattle Creek Scout Group', font: 'Nunito' }, sections: {} },
+  region: 'SA',
 };
 
 /** The group, with the Group plan, whose library is in the list. */
