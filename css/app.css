@@ -887,3 +887,8 @@ body.mobile .prog .col-grip { display: none; }
 .or { display: flex; align-items: center; gap: 10px; margin: 12px 0 2px; color: var(--muted); font-size: 12.5px; }
 .or::before, .or::after { content: ''; flex: 1; height: .5px; background: var(--border); }
 @media (max-width: 520px) { .conflict { grid-template-columns: 1fr; } }
+
+/* A group's library in the programs list, and the new program box's choice of the group's styling */
+.dir-library { color: var(--ink, inherit); }
+.dir-lib-icon { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; color: var(--muted); }
+.check-line { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 14px; cursor: pointer; }

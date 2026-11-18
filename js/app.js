@@ -338,8 +338,9 @@ function replaceProgram(next) {
  * Add a program, after checking there's room for it (js/account.js): signed out it replaces the one
  * on this device, after asking, and a full free account is told so. Answers 'add', 'replace' or null.
  */
-async function addProgramChecked(makeNext) {
-  const how = await newProgramGate();
+async function addProgramChecked(makeNext, { library: toLibrary = false } = {}) {
+  // A program going into a group's library doesn't count towards the person's cap
+  const how = toLibrary ? 'add' : await newProgramGate();
   if (!how) return null;
   const next = await makeNext(how);
   if (!next) return null;
@@ -406,7 +407,7 @@ function openProgramsMenu(anchor) {
   const where = !accountsOn() ? 'saved in this browser' : account ? 'in your account' : 'on this device';
   const sub = (x) => {
     const held = x.hold === 'conflict' ? 'changed somewhere else' : x.hold ? 'on this device only' : '';
-    return `${esc([x.group, `edited ${relTime(x.updated)}`, held].filter(Boolean).join(' · '))}${x.id === library.current ? ' · <em>open</em>' : ''}`;
+    return `${esc([x.owner ? libraryName(x.owner) : x.group, `edited ${relTime(x.updated)}`, held].filter(Boolean).join(' · '))}${x.id === library.current ? ' · <em>open</em>' : ''}`;
   };
   openPopover(anchor, `
     <div class="pop-title">${account ? 'My programs' : 'Programs'} <span class="pop-sub">${where}</span></div>
@@ -471,14 +472,24 @@ function renderDirectory() {
   const onDevice = account ? items.filter((x) => x.hold) : [];
   $('#dirWhere').textContent = !accountsOn() ? 'In this browser' : account ? 'In your account' : 'On this device';
 
+  // A group library's programs are listed under the group, after the person's own
+  const libraries = new Map();
+  for (const x of shown.filter((x) => x.owner)) {
+    if (!libraries.has(x.owner)) libraries.set(x.owner, []);
+    libraries.get(x.owner).push(x);
+  }
   const groups = new Map();
-  for (const x of shown) {
+  for (const x of shown.filter((x) => !x.owner)) {
     const key = SECTIONS[x.section] ? x.section : `other:${(x.sectionName || '').trim().toLowerCase()}`;
     if (!groups.has(key)) groups.set(key, { name: SECTIONS[x.section]?.name || (x.sectionName || '').trim() || 'Other', color: SECTIONS[x.section]?.color, items: [] });
     groups.get(key).items.push(x);
   }
   const order = (k) => { const i = Object.keys(SECTIONS).indexOf(k); return i < 0 ? 99 : i; };
   const keys = [...groups.keys()].sort((a, b) => order(a) - order(b) || groups.get(a).name.localeCompare(groups.get(b).name));
+  for (const [owner, items] of [...libraries].sort((a, b) => libraryName(a[0]).localeCompare(libraryName(b[0])))) {
+    groups.set(owner, { name: libraryName(owner), library: true, items });
+    keys.push(owner);
+  }
   if (onDevice.length) groups.set('held', { name: 'On this device only', items: onDevice }), keys.push('held');
 
   const held = (x) => (x.hold === 'conflict' ? 'changed somewhere else' : x.hold ? 'on this device only' : '');
@@ -486,7 +497,7 @@ function renderDirectory() {
     <div class="dir-row">
       <button class="dir-item" type="button" data-open="${esc(x.id)}" ${x.id === library.current ? 'aria-current="true"' : ''}>
         <b>${esc(x.name)}</b>
-        <span>${esc([termLabel(x), x.group, held(x)].filter(Boolean).join(' · '))}</span>
+        <span>${esc([termLabel(x), x.owner ? (SECTIONS[x.section]?.name || x.sectionName) : x.group, held(x)].filter(Boolean).join(' · '))}</span>
       </button>
       <span class="dir-actions">
         ${account && x.hold && x.hold !== 'conflict' ? `<button class="icon-btn" type="button" data-addprog="${esc(x.id)}" title="Add to my account" aria-label="Add ${esc(x.name)} to my account"><svg viewBox="0 0 24 24"><path d="M12 16V5M7 10l5-5 5 5M5 19h14"/></svg></button>` : ''}
@@ -496,7 +507,7 @@ function renderDirectory() {
   box.innerHTML = keys.map((k) => {
     const g = groups.get(k);
     return `<div class="dir-group">
-      <div class="dir-head"><span class="dir-dot"${g.color ? ` style="background:${esc(g.color)}"` : ''}></span>${esc(g.name)}<span class="dir-count">${g.items.length}</span></div>
+      <div class="dir-head${g.library ? ' dir-library' : ''}">${g.library ? '<svg class="dir-lib-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M8 19V5M12 19l3-14 4 1-3 14z"/></svg>' : `<span class="dir-dot"${g.color ? ` style="background:${esc(g.color)}"` : ''}></span>`}${esc(g.name)}<span class="dir-count">${g.items.length}</span></div>
       ${g.items.sort(byTerm).map(item).join('')}
     </div>`;
   }).join('') || '<p class="dir-empty">No programs yet.</p>';
@@ -2794,20 +2805,27 @@ function importJson() {
 
 async function newProgram() {
   let empty = false;
-  await addProgramChecked(async (how) => {
+  let styled = false;
+  // In a group's library, the next program goes there too; with the Group plan, it can start with the group's styling
+  const owner = typeof libItem === 'function' ? libItem(library.current)?.owner : undefined;
+  const group = typeof stylingForNew === 'function' ? await stylingForNew() : null;
+  const how = await addProgramChecked(async (how) => {
     const t = state.term;
     const next = t.term >= 4 ? { year: t.year + 1, term: 1 } : { year: t.year, term: t.term + 1 };
+    const where = owner ? `It's kept in ${esc(libraryName(owner))}, like this one.` : how === 'replace' ? '' : 'This program stays saved with your others.';
     const choice = await modal({
       title: 'Start a new program',
-      body: how === 'replace'
+      body: (how === 'replace'
         ? `<p>The new program takes this one's place on this device. It keeps your branding, leaders, columns and lists, with fresh meeting dates.</p>`
-        : `<p>This program stays saved with your others. The new one keeps your branding, leaders, columns and lists, with fresh meeting dates.</p>`,
+        : `<p>${where} The new one keeps your branding, leaders, columns and lists, with fresh meeting dates.</p>`)
+        + (group ? `<label class="check-line"><input type="checkbox" id="newStyled" checked> Start with ${esc(group.group.name)}'s styling, leaders and patrols</label>` : ''),
       buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' },
         { label: `Same term (T${t.term} ${t.year})`, value: 'same', cls: 'btn-outline' },
         { label: `Next term (T${next.term} ${next.year})`, value: 'next', cls: 'btn-primary' }],
     });
     if (!choice) return null;
     const c = copyOf(state);
+    if (group && $('#newStyled')?.checked) styled = applyStyling(c, group.defaults);
     c.branding.versionText = '';
     c.rows = [];
     c.extras = { ...c.extras, dates: [], notes: [] };
@@ -2818,9 +2836,14 @@ async function newProgram() {
     state.rows = generateRows();
     state = prev;
     empty = !c.rows.length;
-    return c;
-  });
+    return styled ? normalise(c) : c;
+  }, { library: !!owner && !!groupFor(owner)?.plan });
+  if (how === 'add' && owner) {
+    const item = libItem(library.current);
+    if (item) { item.owner = owner; saveLibrary(); renderDirectory(); }
+  }
   if (empty) toast('Enter the term dates, then use Generate meeting dates.');
+  else if (styled) toast(`Started with ${group.group.name}'s styling.`);
 }
 
 async function resetAll() {

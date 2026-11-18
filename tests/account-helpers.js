@@ -24,7 +24,7 @@ function program(id, data, patch = {}) {
  * Routes the page's calls to the API and Firebase to a fake account.
  * Options: signedIn (the test then opens SIGN_IN_LINK to arrive signed in), limit (the cap; null for none), programs.
  */
-async function mockAccount(page, { signedIn = false, limit = 3, programs = [], microsoft = false } = {}) {
+async function mockAccount(page, { signedIn = false, limit = 3, programs = [], microsoft = false, groups = [] } = {}) {
   const server = {
     // Sign in with Microsoft: 'new' (a new account), 'existing' (its email already has an account), 'cancel', 'noemail'
     microsoft: 'new', linked: false,
@@ -35,7 +35,9 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
     // Premium's history and live links: each program's earlier versions, and its link if turned on
     history: new Map(), links: new Map(), billing: null,
     published: new Map(),   // program id → the version families see
-    live() { return [...this.programs.values()].filter((p) => !p.deletedAt); },
+    // Groups the person is in ({ id, name, role, plan }), and each one's styling for new programs
+    groups, defaults: new Map(),
+    live() { return [...this.programs.values()].filter((p) => !p.deletedAt && (p.owner || 'me') === 'me'); },
     called(prefix) { return this.calls.filter((c) => c.startsWith(prefix)); },
   };
 
@@ -107,7 +109,7 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
       return json(route, 200, {
         user: { id: SESSION.uid, email: SESSION.email, name: server.name, createdAt: '2026-01-01T00:00:00.000Z' },
         premium: { active: server.limit === null, via: server.limit === null ? 'individual' : null, trial: false, until: null },
-        programs: { count: server.live().length, limit: server.limit }, groups: [],
+        programs: { count: server.live().length, limit: server.limit }, groups: server.groups,
         ...(server.billing ? { billing: server.billing } : {}),
         roles: server.sysadmin ? ['sysadmin'] : [],
       });
@@ -121,12 +123,16 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
 
     if (path === '/programs' && method === 'GET') {
       const bin = url.searchParams.get('deleted') === 'true';
-      return json(route, 200, { programs: [...server.programs.values()].filter((p) => !!p.deletedAt === bin).map(summary) });
+      const owner = url.searchParams.get('owner') || 'me';
+      if (owner !== 'me' && !server.groups.some((g) => owner === `group:${g.id}`)) return error(route, 404, 'not_found');
+      return json(route, 200, { programs: [...server.programs.values()].filter((p) => !!p.deletedAt === bin && (p.owner || 'me') === owner).map(summary) });
     }
     if (path === '/programs' && method === 'POST') {
       if (server.programs.has(body.id)) return error(route, 409, 'program_exists');
-      if (full()) return error(route, 403, 'program_limit', { limit: server.limit });
-      const p = program(body.id, body.data, { name: body.name });
+      const library = body.owner && body.owner !== 'me';
+      if (library && !server.groups.some((g) => body.owner === `group:${g.id}` && g.plan)) return error(route, 402, 'premium_required');
+      if (!library && full()) return error(route, 403, 'program_limit', { limit: server.limit });
+      const p = program(body.id, body.data, { name: body.name, owner: body.owner || 'me' });
       server.programs.set(p.id, p);
       return json(route, 201, p, { ETag: '"1"' });
     }
@@ -184,6 +190,26 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
       link = { slug: link?.slug || 'abcdefghijklmnopqrstuvwx', showPhones: body?.showPhones ?? link?.showPhones ?? false, pinned: link?.pinned ?? null };
       server.links.set(section, link);
       return json(route, 201, { link: linkJson(link) });
+    }
+    // A group's library: its styling, and moving programs in and out
+    const lib = /^\/groups\/([^/]+)\/library(\/defaults)?$/.exec(path);
+    if (lib) {
+      const g = server.groups.find((x) => x.id === lib[1]);
+      if (!g) return error(route, 404, 'not_found');
+      const manages = g.role !== 'leader';
+      if (method === 'GET') return json(route, 200, { plan: !!g.plan, canManage: manages, defaults: server.defaults.get(g.id) || null });
+      if (!manages) return error(route, 403, 'not_allowed');
+      const d = { data: body.data, updatedAt: new Date().toISOString(), updatedBy: { id: 'u1', name: 'Akela' } };
+      server.defaults.set(g.id, d);
+      return json(route, 200, { defaults: d });
+    }
+    const mv = /^\/programs\/([^/]+)\/move$/.exec(path);
+    if (mv) {
+      const p = server.programs.get(mv[1]);
+      if (!p) return error(route, 404, 'not_found');
+      if (body.to === 'me' && full()) return error(route, 403, 'program_limit', { limit: server.limit });
+      p.owner = body.to;
+      return json(route, 200, summary(p));
     }
     const [, id, action] = /^\/programs\/([^/]+)(?:\/(restore))?$/.exec(path) || [];
     const p = id && server.programs.get(id);

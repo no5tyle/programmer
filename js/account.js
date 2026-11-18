@@ -342,7 +342,7 @@ async function pushProgram(id) {
   const fresh = item.version == null;
   const body = { name: item.name, data: JSON.parse(json) };
   const r = fresh
-    ? await api('POST', '/programs', { body: { id, owner: 'me', ...body } })
+    ? await api('POST', '/programs', { body: { id, owner: item.owner || 'me', ...body } })
     : await api('PUT', `/programs/${id}`, { body, headers: { 'If-Match': `"${item.version}"` } });
   item = libItem(id);
   if (!item) return false;   // deleted here while it was being sent
@@ -372,6 +372,10 @@ async function pushProgram(id) {
     renameProgram(item);
   } else if (code === 'program_limit') {
     holdForLimit(item);
+  } else if (code === 'premium_required' && item.owner) {
+    // The group's library, without the Group plan: kept here until the plan's back, or it's moved out
+    item.hold = 'error';
+    toast(errorText(r), 'error');
   } else {
     item.hold = 'error';
     toast(`This program couldn't be saved to your account. ${errorText(r)}`, 'error');
@@ -424,6 +428,7 @@ function storeRemote(p) {
     name: p.name, group: p.groupName || '', updated: Date.parse(p.updatedAt) || Date.now(), version: p.version,
     section: data.branding.section, sectionName: data.branding.sectionName, year: data.term.year, term: data.term.term,
   });
+  setOwner(item, p.owner);
   delete item.dirty; delete item.cached; delete item.stale; delete item.hold;
   saveLibrary();
   if (p.id === library.current) {
@@ -489,24 +494,37 @@ async function resolveConflict(id, mineJson, theirs) {
 
 /* ---------------------------------------------------------------- the account's programs */
 
-/** Brings the list of programs in step with the account. Programs waiting to upload are left alone. */
+/** A program's owner, as the API says it: 'me' (kept as no `owner`) or 'group:{id}', a group's library. */
+function setOwner(item, owner) {
+  if (owner && owner !== 'me') item.owner = owner; else delete item.owner;
+}
+
+/**
+ * Brings the list of programs in step with the account: the person's own, and the library of each group
+ * they're in. Programs waiting to upload are left alone.
+ */
 async function refreshPrograms() {
-  const r = await api('GET', '/programs?owner=me');
-  if (!r.ok) return;
+  const owners = ['me', ...(me?.groups || []).map((g) => `group:${g.id}`)];
+  const lists = await Promise.all(owners.map((o) => api('GET', `/programs?owner=${encodeURIComponent(o)}`)));
+  if (!lists[0].ok) return;
+  // A group they've left (or that's gone) lists nothing, so its programs leave this device too
+  const listed = new Set(owners.filter((o, i) => lists[i].ok || lists[i].status === 404));
   const gone = new Set(library.deleted || []);
-  const remote = new Map(r.json.programs.filter((p) => !gone.has(p.id)).map((p) => [p.id, p]));
+  const remote = new Map(lists.flatMap((r) => (r.ok ? r.json.programs : [])).filter((p) => !gone.has(p.id)).map((p) => [p.id, p]));
   library.items = library.items.filter((x) => {
     if (x.version == null || x.dirty || x.hold || remote.has(x.id)) return true;
+    if (!listed.has(x.owner || 'me')) return true;   // that list couldn't be read: keep it for now
     try { localStorage.removeItem(programKey(x.id)); } catch { /* ignore */ }   // deleted on another device
     return false;
   });
   for (const p of remote.values()) {
     const item = libItem(p.id);
+    if (item) setOwner(item, p.owner);
     const summary = {
       name: p.name, group: p.groupName || '', updated: Date.parse(p.updatedAt) || Date.now(),
       section: p.section ?? null, year: p.year, term: p.term, publishedVersion: p.publishedVersion ?? null,
     };
-    if (!item) library.items.push({ id: p.id, ...summary, version: p.version, cached: false });
+    if (!item) { const added = { id: p.id, ...summary, version: p.version, cached: false }; setOwner(added, p.owner); library.items.push(added); }
     else if (item.version == null) item.version = 0;   // it's there after all: the next save compares the two
     else if (!item.dirty && p.version > item.version) Object.assign(item, summary, { stale: true });
     else if (!item.dirty && item.cached === false) Object.assign(item, summary, { version: p.version });
@@ -597,7 +615,8 @@ const isBlankProgram = (data) => !data?.branding?.groupName?.trim()
 
 function atLimit() {
   const limit = me?.programs?.limit;
-  return limit != null && library.items.filter((x) => !x.hold).length >= limit;
+  // A group library's programs don't count towards the person's cap
+  return limit != null && library.items.filter((x) => !x.hold && !x.owner).length >= limit;
 }
 
 function showLimitBox(extra = '') {
@@ -993,10 +1012,12 @@ function openAccountMenu(anchor) {
   openPopover(anchor, `
     <div class="pop-title">${esc(me?.user?.name || 'Your account')}<div class="pop-sub pop-email">${esc(session.email)}</div></div>
     <div class="menu">
+      ${myGroups().length ? `<button id="pLibrary" title="Keep this program in your group's library, and use the group's styling"><svg viewBox="0 0 24 24"><path d="M4 19V5M8 19V5M12 19l3-14 4 1-3 14z"/></svg>Group library</button>` : ''}
       <button id="pAccount" title="Your name, plan, billing and data, across qStored's apps (opens account.qstored.org)"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Account</button>
       <button id="pSignOut"><svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 8l-4 4 4 4M6 12h9"/></svg>Sign out</button>
     </div>`, { type: 'account' });
   $('#pAccount').onclick = () => { closePopover(); openQstoredAccount(); };
+  if ($('#pLibrary')) $('#pLibrary').onclick = () => { closePopover(); openLibraryBox(); };
   $('#pSignOut').onclick = signOut;
 }
 
@@ -1107,6 +1128,15 @@ async function openShareBox() {
   if (!r) return;
   if (!r.ok) { toast(errorText(r), 'error'); return; }
   let link = r.json.link;
+  const groupLink = r.json.group;   // a library program's link is the group's
+  if (!link && groupLink && !r.json.premium) {
+    toast(`${libraryName(`group:${groupLink.id}`)} is part of the Group plan, which the group's owner starts on the group site.`, 'error');
+    return;
+  }
+  if (!link && groupLink && !groupLink.canManage) {
+    await modal({ title: "The group's live link", body: `<p>This program is in ${esc(libraryName(`group:${groupLink.id}`))}, so it goes on the group's live link for its section. The group's owner or an admin turns that on; then anyone in the group can publish to it.</p>`, buttons: [{ label: 'OK', value: null, cls: 'btn-primary' }] });
+    return;
+  }
   if (!link && !r.json.premium) {
     premiumBox('A live link for families', 'A page families can bookmark that always shows the latest program, and a calendar they add once that updates itself. No more sending a new PDF after every change.');
     return;
@@ -1211,6 +1241,150 @@ async function openShareBox() {
       else if (off) toast(errorText(off), 'error');
     }
     return;
+  }
+}
+
+
+/* ---------------------------------------------------------------- a group's library (the Group plan) */
+
+const GROUP_SITE_URL = 'https://group.qstored.org/';
+/** The groups the person is in (from /me), each with `plan`: the Group plan, which opens its library. */
+const myGroups = () => (signedIn() && me?.groups) || [];
+const groupFor = (owner) => myGroups().find((g) => owner === `group:${g.id}`) || null;
+const managesGroup = (g) => !!g && (g.role === 'owner' || g.role === 'admin');
+/** "1st Example's library", for a library program's owner. */
+const libraryName = (owner) => `${groupFor(owner)?.name || 'The group'}'s library`;
+
+/*
+ * The group's styling: what a new program of each section starts with. Some is the group's whatever the section
+ * (its name, fonts, title, columns and lists); some is each section's own (its colour, logo, leaders and patrols).
+ *   { v: 1, shared: { branding: {...}, columns, categories, challenges, options, styles }, sections: { cubs: { branding: {...}, patrols } } }
+ */
+const SHARED_BRANDING = ['groupName', 'titleTemplate', 'titleColor', 'headerStyle', 'font', 'footerText', 'leadersLabel', 'showLeaders'];
+const SECTION_BRANDING = ['sectionName', 'color', 'logo', 'logoStyle', 'headerNote', 'leaders'];
+const SHARED_LISTS = ['columns', 'categories', 'challenges', 'options', 'styles'];
+const pick = (o, keys) => Object.fromEntries(keys.filter((k) => o[k] !== undefined).map((k) => [k, clone(o[k])]));
+
+/** The group's styling with this program's put in: the shared part, and this program's section. */
+function withStyling(defaults, s) {
+  const d = defaults ? clone(defaults) : { v: 1, shared: {}, sections: {} };
+  d.shared = { branding: pick(s.branding, SHARED_BRANDING), ...pick(s, SHARED_LISTS) };
+  d.sections = { ...(d.sections || {}), [s.branding.section]: { branding: pick(s.branding, SECTION_BRANDING), patrols: clone(s.patrols) } };
+  return d;
+}
+
+/** Puts the group's styling on a program (in place). False if the group has none. */
+function applyStyling(s, defaults) {
+  if (!defaults?.shared) return false;
+  const section = defaults.sections?.[s.branding.section];
+  Object.assign(s.branding, clone(defaults.shared.branding || {}), clone(section?.branding || {}));
+  for (const k of SHARED_LISTS) if (defaults.shared[k] !== undefined) s[k] = clone(defaults.shared[k]);
+  if (section?.patrols) s.patrols = clone(section.patrols);
+  return true;
+}
+
+/** Each group's library: { plan, canManage, defaults }, or null where it can't be read. */
+async function loadLibraries() {
+  const groups = myGroups();
+  const got = await Promise.all(groups.map((g) => api('GET', `/groups/${g.id}/library`).catch(() => null)));
+  return new Map(groups.map((g, i) => [g.id, got[i]?.ok ? got[i].json : null]));
+}
+
+/** The group whose styling a new program starts with: the open program's library's, or the person's only group with some. */
+async function stylingForNew() {
+  if (!signedIn() || !myGroups().some((g) => g.plan)) return null;
+  try {
+    const libs = await loadLibraries();
+    const here = groupFor(libItem(library.current)?.owner);
+    const withDefaults = myGroups().filter((g) => libs.get(g.id)?.defaults);
+    const g = here && libs.get(here.id)?.defaults ? here : withDefaults.length === 1 ? withDefaults[0] : null;
+    return g ? { group: g, defaults: libs.get(g.id).defaults.data } : null;
+  } catch { return null; }
+}
+
+/** Moves a program into a group's library ('group:{id}') or out to the person's own ('me'). */
+async function moveProgram(id, to) {
+  const item = libItem(id);
+  if (!item) return false;
+  if (item.dirty || item.version == null) await runSync();   // changes here go first
+  const r = await tryApi('POST', `/programs/${id}/move`, { body: { to } });
+  if (!r) return false;
+  if (errorCode(r) === 'program_limit') { showLimitBox(); return false; }
+  if (!r.ok) { toast(errorText(r), 'error'); return false; }
+  const now = libItem(id);
+  if (now) { setOwner(now, r.json.owner); now.version = r.json.version; saveLibrary(); }
+  renderDirectory(); refreshSaveState();
+  await loadMe();
+  return true;
+}
+
+/**
+ * The Group library box: where the open program is kept (moving it into a group's library, or out), and the
+ * group's styling (using it on this program, or saving this program's as the group's).
+ */
+async function openLibraryBox() {
+  if (!signedIn()) { await programInAccount("A group's library"); return; }
+  await loadMe().catch(() => null);
+  const groups = myGroups();
+  if (!groups.length) {
+    const go = await modal({
+      title: "A group's library",
+      body: `<p>With the <b>Group plan</b>, a Scout group keeps its programs in a library every leader can open and change, so they stay with the group when a leader moves on. The group's styling, leaders and patrols are ready for every new program too.</p>
+        <p class="hint">You're not in a group yet. A group is set up, and leaders invited, on the group site.</p>`,
+      buttons: [{ label: 'Close', value: null, cls: 'btn-text' }, { label: 'Open the group site', value: 'go', cls: 'btn-primary' }],
+    });
+    if (go) window.open(GROUP_SITE_URL, '_blank', 'noopener');
+    return;
+  }
+  const id = await programInAccount("A group's library");
+  if (!id) return;
+  let libs;
+  try { libs = await loadLibraries(); } catch { toast("You're offline. Try again when you're back online.", 'error'); return; }
+  const item = libItem(id);
+  const here = groupFor(item?.owner);
+  const sectionName = (state.branding.sectionName || 'this section').trim();
+  const buttons = [{ label: 'Close', value: null, cls: 'btn-text' }];
+  let where;
+  if (here) {
+    where = `<p>This program is in <b>${esc(libraryName(item.owner))}</b>. Every leader in ${esc(here.name)} can open and change it, and it stays with the group when a leader moves on.</p>
+      ${here.plan ? '' : `<p class="hint">${esc(here.name)} doesn't have the Group plan now, so the library's programs can be opened and printed, but not changed.</p>`}`;
+    if (managesGroup(here)) buttons.push({ label: 'Move to my programs', value: 'out', cls: 'btn-outline' });
+  } else {
+    const open = groups.filter((g) => g.plan);
+    where = `<p>This program is <b>yours</b>. Moving it to a group's library lets every leader in the group open and change it, and it stays with the group if you move on. It no longer counts towards your own programs.</p>
+      ${groups.filter((g) => !g.plan).map((g) => `<p class="hint">${esc(g.name)}'s library is part of the Group plan, which the group's owner starts on the group site.</p>`).join('')}`;
+    for (const g of open) buttons.push({ label: open.length > 1 ? `Move to ${g.name}` : "Move to the group's library", value: `in:${g.id}`, cls: 'btn-outline' });
+  }
+  // The group's styling: this program's library's, or each group with the plan
+  const styled = (here ? [here] : groups).filter((g) => g.plan && libs.get(g.id));
+  const styling = styled.map((g) => {
+    const lib = libs.get(g.id);
+    const d = lib.defaults;
+    const forSection = d?.data?.sections?.[state.branding.section];
+    if (d) buttons.push({ label: styled.length > 1 ? `Use ${g.name}'s styling` : "Use the group's styling", value: `use:${g.id}`, cls: 'btn-outline' });
+    if (lib.canManage) buttons.push({ label: styled.length > 1 ? `Save as ${g.name}'s styling` : "Save as the group's styling", value: `save:${g.id}`, cls: 'btn-outline' });
+    return `<p class="hint"><b>${esc(g.name)}'s styling</b>: ${d
+      ? `saved ${esc(relTime(Date.parse(d.updatedAt)))} by ${esc(d.updatedBy.name)}${forSection ? `, with ${esc(sectionName)}'s colours, logo, leaders and patrols` : `, without any for ${esc(sectionName)} yet`}. New programs start with it.`
+      : `not saved yet.${lib.canManage ? " Save this program's title, fonts, columns, colours, logo, leaders and patrols as the group's, and new programs start with them." : " The group's owner or an admin saves it from a program."}`}</p>`;
+  }).join('');
+  const choice = await modal({ title: "The group's library", body: where + styling, buttons });
+  if (!choice) return;
+  const [what, gid] = choice.split(':');
+  if (what === 'in') {
+    if (await moveProgram(id, `group:${gid}`)) toast(`Moved to ${libraryName(`group:${gid}`)}.`);
+  } else if (what === 'out') {
+    if (await moveProgram(id, 'me')) toast('Moved to your programs.');
+  } else if (what === 'use') {
+    pushHistory();
+    applyStyling(state, libs.get(gid).defaults.data);
+    state = normalise(state);
+    save(); renderAll();
+    toast("The group's styling is on this program. Undo takes it off.");
+  } else if (what === 'save') {
+    const r = await tryApi('PUT', `/groups/${gid}/library/defaults`, { body: { data: withStyling(libs.get(gid).defaults?.data, state) } });
+    if (!r) return;
+    if (!r.ok) { toast(errorText(r), 'error'); return; }
+    toast(`Saved as the group's styling for ${sectionName}. New programs start with it.`);
   }
 }
 

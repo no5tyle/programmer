@@ -24,9 +24,14 @@ function others() {
   const make = (id, section, sectionName, color, year, term) => program(id, {
     ...EXAMPLE, branding: { ...EXAMPLE.branding, section, sectionName, color }, term: { ...EXAMPLE.term, year, term },
   }, { name: `${sectionName} Program – Term ${term} ${year}`, section, year, term });
-  return [make('joey1111', 'joeys', 'Joeys', '#A05A2C', 2027, 1), make('scout111', 'scouts', 'Scouts', '#00AE42', 2027, 1),
-    make('cubs2026', 'cubs', 'Cubs', '#FFC82E', 2026, 4)];
+  const library = (p) => ({ ...p, owner: 'group:g1' });
+  return [make('joey1111', 'joeys', 'Joeys', '#A05A2C', 2027, 1), make('cubs2026', 'cubs', 'Cubs', '#FFC82E', 2026, 4),
+    // The group's library: kept by the group, open to every leader in it
+    library(make('scout111', 'scouts', 'Scouts', '#00AE42', 2027, 1)), library(make('vent1111', 'venturers', 'Venturers', '#9E1B32', 2027, 1))];
 }
+
+/** The group, with the Group plan, whose library is in the list. */
+const GROUP = { id: 'g1', name: '1st Wattle Creek', role: 'owner', gearRole: 'quartermaster', plan: true };
 
 async function fonts(page) {
   await page.evaluate(async () => {
@@ -56,7 +61,7 @@ async function fonts(page) {
     // Signed in, with Premium: the example and a few more programs
     const ctx = await browser.newContext(options);
     const page = await ctx.newPage();
-    const server2 = await mockAccount(page, { signedIn: true, limit: null, programs: [program('prog1111', EXAMPLE, { version: 3 }), ...others()] });
+    const server2 = await mockAccount(page, { signedIn: true, limit: null, groups: [GROUP], programs: [program('prog1111', EXAMPLE, { version: 3 }), ...others()] });
     // The Cubs' live link is on, with this program published
     server2.links.set('cubs', { slug: 'Xk3pQ9vL2mTa7Rw4Yh8sZc1N', showPhones: false, pinned: null });
     server2.published.set('prog1111', 3);
@@ -97,8 +102,16 @@ async function fonts(page) {
     await shot(page, 'history');
     await page.keyboard.press('Escape');
 
-    // Programs, by section, on the left
+    // Programs, by section, on the left, with the group's library under them
     await shot(page, 'programs', { clip: { x: 0, y: 0, width: 720, height: 900 } });
+
+    // The group's library: moving this program in, and the group's styling (saved from this program first)
+    await page.evaluate(() => api('PUT', '/groups/g1/library/defaults', { body: { data: withStyling(null, state) } }));
+    await page.click('#btnAccount');
+    await page.click('#pLibrary');
+    await page.waitForSelector('.modal h2:has-text("library")');
+    await shot(page, 'library');
+    await page.keyboard.press('Escape');
     await ctx.close();
 
     // On a phone
