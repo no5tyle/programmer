@@ -892,3 +892,11 @@ body.mobile .prog .col-grip { display: none; }
 .dir-library { color: var(--ink, inherit); }
 .dir-lib-icon { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; color: var(--muted); }
 .check-line { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 14px; cursor: pointer; }
+
+/* A library's units in the programs list, and the Styling the group sets (locked) */
+.dir-unit { margin-top: 2px; }
+.dir-unit-head { display: flex; align-items: center; gap: 8px; padding: 6px 8px 2px 14px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.dir-unit .dir-item { padding-left: 22px; }
+.library-note { margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; background: var(--tint-soft, rgba(0, 113, 227, .08)); font-size: 13px; line-height: 1.45; }
+.field.locked > span::after { content: ' · the group\2019s'; font-weight: 400; color: var(--muted); }
+.field.locked input, .field.locked select { opacity: .7; cursor: not-allowed; }

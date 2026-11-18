@@ -35,8 +35,8 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
     // Premium's history and live links: each program's earlier versions, and its link if turned on
     history: new Map(), links: new Map(), billing: null,
     published: new Map(),   // program id → the version families see
-    // Groups the person is in ({ id, name, role, plan }), and each one's styling for new programs
-    groups, defaults: new Map(),
+    // Groups the person is in ({ id, name, role, plan }), and each one's library: { units, styling }, set on the group site
+    groups, libraries: new Map(),
     live() { return [...this.programs.values()].filter((p) => !p.deletedAt && (p.owner || 'me') === 'me'); },
     called(prefix) { return this.calls.filter((c) => c.startsWith(prefix)); },
   };
@@ -132,7 +132,7 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
       const library = body.owner && body.owner !== 'me';
       if (library && !server.groups.some((g) => body.owner === `group:${g.id}` && g.plan)) return error(route, 402, 'premium_required');
       if (!library && full()) return error(route, 403, 'program_limit', { limit: server.limit });
-      const p = program(body.id, body.data, { name: body.name, owner: body.owner || 'me' });
+      const p = program(body.id, body.data, { name: body.name, owner: body.owner || 'me', unit: body.data?.unit ?? null });
       server.programs.set(p.id, p);
       return json(route, 201, p, { ETag: '"1"' });
     }
@@ -191,17 +191,13 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
       server.links.set(section, link);
       return json(route, 201, { link: linkJson(link) });
     }
-    // A group's library: its styling, and moving programs in and out
-    const lib = /^\/groups\/([^/]+)\/library(\/defaults)?$/.exec(path);
+    // A group's library: its units and styling (changed on the group site), and moving programs in and out
+    const lib = /^\/groups\/([^/]+)\/library$/.exec(path);
     if (lib) {
       const g = server.groups.find((x) => x.id === lib[1]);
       if (!g) return error(route, 404, 'not_found');
-      const manages = g.role !== 'leader';
-      if (method === 'GET') return json(route, 200, { plan: !!g.plan, canManage: manages, defaults: server.defaults.get(g.id) || null });
-      if (!manages) return error(route, 403, 'not_allowed');
-      const d = { data: body.data, updatedAt: new Date().toISOString(), updatedBy: { id: 'u1', name: 'Akela' } };
-      server.defaults.set(g.id, d);
-      return json(route, 200, { defaults: d });
+      const l = server.libraries.get(g.id) || {};
+      return json(route, 200, { plan: !!g.plan, canManage: g.role !== 'leader', units: l.units || [], styling: l.styling || null });
     }
     const mv = /^\/programs\/([^/]+)\/move$/.exec(path);
     if (mv) {
@@ -229,7 +225,7 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
         kept.unshift({ id: `${p.id}_${p.version}`, at: new Date().toISOString(), by: { id: 'u1', name: 'Akela' }, name: p.name, version: p.version, data: p.data });
         server.history.set(p.id, kept);
       }
-      Object.assign(p, { name: body.name, data: body.data, version: p.version + 1, updatedAt: new Date().toISOString(), groupName: body.data?.branding?.groupName || '' });
+      Object.assign(p, { name: body.name, data: body.data, version: p.version + 1, updatedAt: new Date().toISOString(), groupName: body.data?.branding?.groupName || '', unit: body.data?.unit ?? null });
       return json(route, 200, summary(p), { ETag: `"${p.version}"` });
     }
     return error(route, 404, 'not_found');

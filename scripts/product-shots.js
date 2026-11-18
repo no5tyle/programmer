@@ -24,11 +24,19 @@ function others() {
   const make = (id, section, sectionName, color, year, term) => program(id, {
     ...EXAMPLE, branding: { ...EXAMPLE.branding, section, sectionName, color }, term: { ...EXAMPLE.term, year, term },
   }, { name: `${sectionName} Program – Term ${term} ${year}`, section, year, term });
-  const library = (p) => ({ ...p, owner: 'group:g1' });
+  const library = (p, unit) => ({ ...p, owner: 'group:g1', unit, data: { ...p.data, unit } });
   return [make('joey1111', 'joeys', 'Joeys', '#A05A2C', 2027, 1), make('cubs2026', 'cubs', 'Cubs', '#FFC82E', 2026, 4),
-    // The group's library: kept by the group, open to every leader in it
-    library(make('scout111', 'scouts', 'Scouts', '#00AE42', 2027, 1)), library(make('vent1111', 'venturers', 'Venturers', '#9E1B32', 2027, 1))];
+    // The group's library: kept by the group under its units, open to every leader in it
+    library(make('scout111', 'scouts', 'Scouts', '#00AE42', 2027, 1), 'kingfisher'),
+    library(make('scout112', 'scouts', 'Scouts', '#00AE42', 2026, 4), 'kingfisher'),
+    library(make('cubs3333', 'cubs', 'Cubs', '#FFC82E', 2027, 1), 'banksia')];
 }
+
+/** The group's units and styling, set on the group site's Programs page. */
+const LIBRARY = {
+  units: [{ id: 'banksia', name: 'Banksia Cubs', section: 'cubs' }, { id: 'kingfisher', name: 'Kingfisher Troop', section: 'scouts' }],
+  styling: { shared: { groupName: '1st Wattle Creek Scout Group', font: 'Nunito' }, sections: {} },
+};
 
 /** The group, with the Group plan, whose library is in the list. */
 const GROUP = { id: 'g1', name: '1st Wattle Creek', role: 'owner', gearRole: 'quartermaster', plan: true };
@@ -64,6 +72,7 @@ async function fonts(page) {
     const server2 = await mockAccount(page, { signedIn: true, limit: null, groups: [GROUP], programs: [program('prog1111', EXAMPLE, { version: 3 }), ...others()] });
     // The Cubs' live link is on, with this program published
     server2.links.set('cubs', { slug: 'Xk3pQ9vL2mTa7Rw4Yh8sZc1N', showPhones: false, pinned: null });
+    server2.libraries.set('g1', LIBRARY);
     server2.published.set('prog1111', 3);
     await openAccountApp(page, SIGN_IN_LINK);
     await page.waitForSelector('#saveState span:has-text("Saved to your account")');
@@ -105,8 +114,7 @@ async function fonts(page) {
     // Programs, by section, on the left, with the group's library under them
     await shot(page, 'programs', { clip: { x: 0, y: 0, width: 720, height: 900 } });
 
-    // The group's library: moving this program in, and the group's styling (saved from this program first)
-    await page.evaluate(() => api('PUT', '/groups/g1/library/defaults', { body: { data: withStyling(null, state) } }));
+    // The group's library: moving this program into one of the group's units
     await page.click('#btnAccount');
     await page.click('#pLibrary');
     await page.waitForSelector('.modal h2:has-text("library")');

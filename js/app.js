@@ -275,6 +275,7 @@ function save() {
       name: titleText() || 'Untitled program', group: state.branding.groupName.trim(),
       // For the programs directory: grouped by section, then by term
       section: state.branding.section, sectionName: state.branding.sectionName, year: state.term.year, term: state.term.term,
+      unit: state.unit || null,
     });
     if (changed || !item.updated) item.updated = Date.now();
     if (changed) accountChanged(item);   // signed in: it's sent on to the account
@@ -338,9 +339,8 @@ function replaceProgram(next) {
  * Add a program, after checking there's room for it (js/account.js): signed out it replaces the one
  * on this device, after asking, and a full free account is told so. Answers 'add', 'replace' or null.
  */
-async function addProgramChecked(makeNext, { library: toLibrary = false } = {}) {
-  // A program going into a group's library doesn't count towards the person's cap
-  const how = toLibrary ? 'add' : await newProgramGate();
+async function addProgramChecked(makeNext) {
+  const how = await newProgramGate();
   if (!how) return null;
   const next = await makeNext(how);
   if (!next) return null;
@@ -473,10 +473,10 @@ function renderDirectory() {
   $('#dirWhere').textContent = !accountsOn() ? 'In this browser' : account ? 'In your account' : 'On this device';
 
   // A group library's programs are listed under the group, after the person's own
-  const libraries = new Map();
+  const inLibraries = new Map();
   for (const x of shown.filter((x) => x.owner)) {
-    if (!libraries.has(x.owner)) libraries.set(x.owner, []);
-    libraries.get(x.owner).push(x);
+    if (!inLibraries.has(x.owner)) inLibraries.set(x.owner, []);
+    inLibraries.get(x.owner).push(x);
   }
   const groups = new Map();
   for (const x of shown.filter((x) => !x.owner)) {
@@ -486,8 +486,15 @@ function renderDirectory() {
   }
   const order = (k) => { const i = Object.keys(SECTIONS).indexOf(k); return i < 0 ? 99 : i; };
   const keys = [...groups.keys()].sort((a, b) => order(a) - order(b) || groups.get(a).name.localeCompare(groups.get(b).name));
-  for (const [owner, items] of [...libraries].sort((a, b) => libraryName(a[0]).localeCompare(libraryName(b[0])))) {
-    groups.set(owner, { name: libraryName(owner), library: true, items });
+  // Each library: its units, in the Scouts order of their sections, each with its programs; then any with no unit
+  for (const [owner, items] of [...inLibraries].sort((a, b) => libraryName(a[0]).localeCompare(libraryName(b[0])))) {
+    const units = unitsOf(owner.slice('group:'.length));
+    const known = new Set(units.map((u) => u.id));
+    const parts = units.map((u) => ({ name: u.name, color: SECTIONS[u.section]?.color, items: items.filter((x) => x.unit === u.id) }))
+      .filter((u) => u.items.length);
+    const loose = items.filter((x) => !known.has(x.unit));
+    if (loose.length) parts.push({ name: units.length ? 'No unit' : '', items: loose });
+    groups.set(owner, { name: libraryName(owner), library: true, items, parts });
     keys.push(owner);
   }
   if (onDevice.length) groups.set('held', { name: 'On this device only', items: onDevice }), keys.push('held');
@@ -504,8 +511,15 @@ function renderDirectory() {
         <button class="icon-btn" type="button" data-delprog="${esc(x.id)}" title="Delete" aria-label="Delete ${esc(x.name)}"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
       </span>
     </div>`;
+  const head = (g) => `<div class="dir-head${g.library ? ' dir-library' : ''}">${g.library ? '<svg class="dir-lib-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M8 19V5M12 19l3-14 4 1-3 14z"/></svg>' : `<span class="dir-dot"${g.color ? ` style="background:${esc(g.color)}"` : ''}></span>`}${esc(g.name)}<span class="dir-count">${g.items.length}</span></div>`;
   box.innerHTML = keys.map((k) => {
     const g = groups.get(k);
+    if (g.parts) {
+      return `<div class="dir-group">${head(g)}
+        ${g.parts.map((u) => `<div class="dir-unit">${u.name ? `<div class="dir-unit-head"><span class="dir-dot"${u.color ? ` style="background:${esc(u.color)}"` : ''}></span>${esc(u.name)}</div>` : ''}
+          ${u.items.sort(byTerm).map(item).join('')}</div>`).join('')}
+      </div>`;
+    }
     return `<div class="dir-group">
       <div class="dir-head${g.library ? ' dir-library' : ''}">${g.library ? '<svg class="dir-lib-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M8 19V5M12 19l3-14 4 1-3 14z"/></svg>' : `<span class="dir-dot"${g.color ? ` style="background:${esc(g.color)}"` : ''}></span>`}${esc(g.name)}<span class="dir-count">${g.items.length}</span></div>
       ${g.items.sort(byTerm).map(item).join('')}
@@ -1778,6 +1792,8 @@ function challengeIconOnly(c) {
 }
 
 function renderAll() {
+  // A program in a group's library has the group's styling, locked (js/account.js)
+  if (typeof applyLibrary === 'function') applyLibrary(state, undefined, false);
   renderDirectory();
   sortRows();
   applyPageSize();
@@ -2804,46 +2820,50 @@ function importJson() {
 }
 
 async function newProgram() {
-  let empty = false;
-  let styled = false;
-  // In a group's library, the next program goes there too; with the Group plan, it can start with the group's styling
-  const owner = typeof libItem === 'function' ? libItem(library.current)?.owner : undefined;
-  const group = typeof stylingForNew === 'function' ? await stylingForNew() : null;
-  const how = await addProgramChecked(async (how) => {
-    const t = state.term;
-    const next = t.term >= 4 ? { year: t.year + 1, term: 1 } : { year: t.year, term: t.term + 1 };
-    const where = owner ? `It's kept in ${esc(libraryName(owner))}, like this one.` : how === 'replace' ? '' : 'This program stays saved with your others.';
-    const choice = await modal({
-      title: 'Start a new program',
-      body: (how === 'replace'
-        ? `<p>The new program takes this one's place on this device. It keeps your branding, leaders, columns and lists, with fresh meeting dates.</p>`
-        : `<p>${where} The new one keeps your branding, leaders, columns and lists, with fresh meeting dates.</p>`)
-        + (group ? `<label class="check-line"><input type="checkbox" id="newStyled" checked> Start with ${esc(group.group.name)}'s styling, leaders and patrols</label>` : ''),
-      buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' },
-        { label: `Same term (T${t.term} ${t.year})`, value: 'same', cls: 'btn-outline' },
-        { label: `Next term (T${next.term} ${next.year})`, value: 'next', cls: 'btn-primary' }],
-    });
-    if (!choice) return null;
-    const c = copyOf(state);
-    if (group && $('#newStyled')?.checked) styled = applyStyling(c, group.defaults);
-    c.branding.versionText = '';
-    c.rows = [];
-    c.extras = { ...c.extras, dates: [], notes: [] };
-    save();
-    const prev = state;
-    state = c;
-    if (choice === 'next') { Object.assign(state.term, next); if (!applyTermPreset()) { state.term.start = ''; state.term.end = ''; } }
-    state.rows = generateRows();
-    state = prev;
-    empty = !c.rows.length;
-    return styled ? normalise(c) : c;
-  }, { library: !!owner && !!groupFor(owner)?.plan });
-  if (how === 'add' && owner) {
+  // Signed in to a group with the Group plan, it can be kept in one of the group's units, with the group's styling
+  const places = typeof placesForPrograms === 'function' && signedIn() ? placesForPrograms() : [];
+  const choosing = places.length > 1;
+  const owner = libItem(library.current)?.owner;
+  const here = owner ? places.find((x) => x.value === `${owner}|${state.unit || ''}`)?.value : 'me';
+  let how = choosing ? 'add' : await newProgramGate();
+  if (!how) return;
+  const t = state.term;
+  const next = t.term >= 4 ? { year: t.year + 1, term: 1 } : { year: t.year, term: t.term + 1 };
+  const choice = await modal({
+    title: 'Start a new program',
+    body: (how === 'replace'
+      ? "<p>The new program takes this one's place on this device. It keeps your branding, leaders, columns and lists, with fresh meeting dates.</p>"
+      : '<p>The new one keeps your branding, leaders, columns and lists, with fresh meeting dates. A program in a group\'s library has the group\'s styling.</p>')
+      + (choosing ? `<label class="field"><span>Keep it in</span><select id="newPlace">${places.map((x) => `<option value="${esc(x.value)}"${x.value === (here || 'me') ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select></label>` : ''),
+    buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' },
+      { label: `Same term (T${t.term} ${t.year})`, value: 'same', cls: 'btn-outline' },
+      { label: `Next term (T${next.term} ${next.year})`, value: 'next', cls: 'btn-primary' }],
+  });
+  if (!choice) return;
+  const place = choosing ? splitPlace($('#newPlace').value) : { owner: undefined, unit: null };
+  // The person's own counts towards their cap; a group's library doesn't
+  if (choosing && !place.owner) { how = await newProgramGate(); if (!how) return; }
+  const c = copyOf(state);
+  c.branding.versionText = '';
+  c.rows = [];
+  c.extras = { ...c.extras, dates: [], notes: [] };
+  if (place.unit) c.unit = place.unit; else delete c.unit;
+  if (place.owner) applyLibrary(c, place.owner);
+  save();
+  const prev = state;
+  state = c;
+  if (choice === 'next') { Object.assign(state.term, next); if (!applyTermPreset()) { state.term.start = ''; state.term.end = ''; } }
+  state.rows = generateRows();
+  state = prev;
+  if (how === 'replace') replaceProgram(c); else addProgram(c);
+  if (place.owner) {
     const item = libItem(library.current);
-    if (item) { item.owner = owner; saveLibrary(); renderDirectory(); }
+    if (item) { item.owner = place.owner; item.unit = place.unit; }
+    save();
+    applyLibrary();
   }
-  if (empty) toast('Enter the term dates, then use Generate meeting dates.');
-  else if (styled) toast(`Started with ${group.group.name}'s styling.`);
+  if (!c.rows.length) toast('Enter the term dates, then use Generate meeting dates.');
+  else if (place.owner) toast(`Started in ${libraryName(place.owner)}, with the group's styling.`);
 }
 
 async function resetAll() {
