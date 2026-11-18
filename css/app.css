@@ -866,6 +866,15 @@ body.mobile .prog .col-grip { display: none; }
 .conflict-side b { font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
 .modal-body .hint { margin: 0; }
 .modal-body .field { margin-top: 10px; }
+
+/* Version history, and the live link for families */
+.history-list { list-style: none; margin: 10px 0 0; padding: 0; max-height: 50vh; overflow: auto; border-top: 1px solid var(--border); }
+.history-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.share-label { display: block; margin: 10px 0 4px; font-weight: 600; color: var(--text); font-size: 13px; }
+.share-link { display: flex; gap: 6px; }
+.share-link input { flex: 1; min-width: 0; font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--fill, transparent); color: var(--text); }
+.hint-inline { color: var(--faint); }
+.share-check { display: flex; align-items: center; gap: 8px; margin: 12px 0 8px; color: var(--text); }
 .help-support { margin-top: 12px !important; }
 /* Sign in with Microsoft, in Microsoft's own look for the button: its logo, on white with a grey edge */
 .btn-ms { width: 100%; justify-content: center; gap: 10px; height: 44px; margin: 8px 0 2px; border: 1px solid #8c8c8c; border-radius: var(--radius);

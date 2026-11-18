@@ -32,6 +32,8 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
     limit, name: '', deleted: false, offline: false, rejectTokens: false, sysadmin: false,
     calls: [],      // 'METHOD /path' for each API call
     sent: [],       // the bodies of Firebase calls
+    // Premium's history and live links: each program's earlier versions, and its link if turned on
+    history: new Map(), links: new Map(), billing: null,
     live() { return [...this.programs.values()].filter((p) => !p.deletedAt); },
     called(prefix) { return this.calls.filter((c) => c.startsWith(prefix)); },
   };
@@ -127,6 +129,41 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
       server.programs.set(p.id, p);
       return json(route, 201, p, { ETag: '"1"' });
     }
+    // Version history and the live link (Premium: no cap here means Premium)
+    const premium = server.limit === null;
+    const vh = /^\/programs\/([^/]+)\/versions(?:\/([^/]+)\/restore)?$/.exec(path);
+    if (vh) {
+      const p = server.programs.get(vh[1]);
+      if (!p) return error(route, 404, 'not_found');
+      if (!premium) return error(route, 402, 'premium_required');
+      const kept = server.history.get(p.id) || [];
+      if (!vh[2]) {
+        return json(route, 200, {
+          current: { version: p.version, updatedAt: p.updatedAt, updatedBy: p.updatedBy },
+          versions: kept.map(({ data, ...v }) => v),
+        });
+      }
+      const v = kept.find((x) => x.id === decodeURIComponent(vh[2]));
+      if (!v) return error(route, 404, 'not_found');
+      kept.unshift({ id: `${p.id}_${p.version}`, at: new Date().toISOString(), by: { id: 'u1', name: 'Akela' }, name: p.name, version: p.version, data: p.data });
+      server.history.set(p.id, kept);
+      Object.assign(p, { data: v.data, version: p.version + 1, updatedAt: new Date().toISOString() });
+      return json(route, 200, p, { ETag: `"${p.version}"` });
+    }
+    const sh = /^\/programs\/([^/]+)\/share(\/renew)?$/.exec(path);
+    if (sh) {
+      const p = server.programs.get(sh[1]);
+      if (!p) return error(route, 404, 'not_found');
+      const linkJson = (l) => ({ url: `https://api.qstored.org/p/${l.slug}`, calendarUrl: `webcal://api.qstored.org/p/${l.slug}.ics`, calendarFileUrl: `https://api.qstored.org/p/${l.slug}.ics`, showPhones: l.showPhones });
+      let link = server.links.get(p.id);
+      if (method === 'GET') return json(route, 200, { link: link ? linkJson(link) : null, premium });
+      if (method === 'DELETE') { server.links.delete(p.id); return route.fulfill({ status: 204, headers: CORS }); }
+      if (!premium) return error(route, 402, 'premium_required');
+      if (sh[2]) { link = { ...link, slug: `renewed${link.slug}` }; server.links.set(p.id, link); return json(route, 200, { link: linkJson(link) }); }
+      link = { slug: link?.slug || 'abcdefghijklmnopqrstuvwx', showPhones: body?.showPhones ?? link?.showPhones ?? false };
+      server.links.set(p.id, link);
+      return json(route, 201, { link: linkJson(link) });
+    }
     const [, id, action] = /^\/programs\/([^/]+)(?:\/(restore))?$/.exec(path) || [];
     const p = id && server.programs.get(id);
     if (!p) return error(route, 404, 'not_found');
@@ -140,6 +177,11 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
     if (method === 'GET') return json(route, 200, p, { ETag: `"${p.version}"` });
     if (method === 'PUT') {
       if (req.headers()['if-match'] !== `"${p.version}"`) return error(route, 412, 'version_conflict', { program: p });
+      if (premium) {
+        const kept = server.history.get(p.id) || [];
+        kept.unshift({ id: `${p.id}_${p.version}`, at: new Date().toISOString(), by: { id: 'u1', name: 'Akela' }, name: p.name, version: p.version, data: p.data });
+        server.history.set(p.id, kept);
+      }
       Object.assign(p, { name: body.name, data: body.data, version: p.version + 1, updatedAt: new Date().toISOString(), groupName: body.data?.branding?.groupName || '' });
       return json(route, 200, summary(p), { ETag: `"${p.version}"` });
     }

@@ -2754,6 +2754,7 @@ function openExportPopover(anchor) {
       <button data-export="pdf"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Save as PDF</button>
       <button data-export="csv"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>Activities spreadsheet</button>
       <button data-export="ics"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/></svg>Calendar for families</button>
+      ${accountsOn() ? '<button data-export="live"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>Live link for families</button>' : ''}
     </div>
     <p class="hint">The spreadsheet holds the activities, for editing in Excel or Google Sheets. The calendar adds every meeting to Google, Apple or Outlook calendars.</p>`, { type: 'export' });
   pop.querySelectorAll('[data-export]').forEach((b) => {
@@ -2761,6 +2762,7 @@ function openExportPopover(anchor) {
       closePopover();
       const k = b.dataset.export;
       if (k === 'print') printProgram();
+      else if (k === 'live') openShareBox();
       else if (k === 'pdf') downloadPdf();
       else if (k === 'csv') exportCsv();
       else exportCalendar();
@@ -3084,6 +3086,7 @@ function bindEvents() {
   $('#btnAddRow').onclick = addActivity;
   $('#btnAddWeek').onclick = (e) => openAddWeekPopover(e.currentTarget);
   $('#btnUndo').onclick = undo;
+  $('#btnHistory').onclick = () => openHistoryBox();
   $('#btnImport').onclick = importJson;
   $('#btnSettings').onclick = () => setSettingsOpen(!settingsOpen());
   $('#btnSettingsClose').onclick = () => { setSettingsOpen(false); $('#btnSettings').focus(); };

@@ -581,3 +581,88 @@ test.describe('signed in', () => {
     await expect(page.locator('.help-list details[open] p')).toContainText('Sign in');
   });
 });
+
+test.describe("Premium's history and live link", () => {
+  const open = async (page, options = {}) => {
+    const server = await mockAccount(page, { signedIn: true, programs: [program('prog1111', EXAMPLE, { version: 3 })], ...options });
+    errors = await openAccountApp(page, SIGN_IN_LINK);
+    await expect(saveState(page)).toHaveText('Saved to your account');
+    return server;
+  };
+
+  test('History brings back an earlier version, and keeps the one it replaced', async ({ page }) => {
+    const server = await open(page, { limit: null });
+    await expect(page.locator('#btnHistory')).toBeVisible();
+    await edit(page, 'Night hike');
+    await expect.poll(() => server.programs.get('prog1111').version).toBe(4);
+    await page.click('#btnHistory');
+    await expect(page.locator('.modal h2')).toHaveText('Version history');
+    await expect(page.locator('#historyList li')).toHaveCount(1);
+    await page.click('#historyList button:has-text("Restore")');
+    await expect(page.locator('.modal h2')).toHaveText('Restore this version?');
+    await page.click('.modal .btn-primary:has-text("Restore")');
+    await expect(page.locator('.toast', { hasText: 'Restored' })).toBeVisible();
+    expect(server.programs.get('prog1111').data.rows[0].activity).toBe(EXAMPLE.rows[0].activity);
+    // The editor shows it, and the night hike is in the history
+    await expect(page.locator('#sheet')).not.toContainText('Night hike');
+    expect(server.history.get('prog1111').map((v) => v.version)).toEqual([4, 3]);
+    await expect(saveState(page)).toHaveText('Saved to your account');
+  });
+
+  test('without Premium, History explains it and offers the trial once billing is open', async ({ page, context }) => {
+    const server = await mockAccount(page, { signedIn: true, programs: [program('prog1111', EXAMPLE, { version: 3 })] });
+    server.billing = { available: true, trialAvailable: true };
+    errors = await openAccountApp(page, SIGN_IN_LINK);
+    await expect(saveState(page)).toHaveText('Saved to your account');
+    await page.click('#btnHistory');
+    await expect(page.locator('.modal h2')).toHaveText('Version history is part of Premium');
+    await context.route('https://account.qstored.org/**', (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<title>Billing</title>' }));
+    const [billing] = await Promise.all([context.waitForEvent('page'), page.click('.modal button:has-text("Try Premium free")')]);
+    expect(billing.url()).toBe('https://account.qstored.org/#/billing');
+    await billing.close();
+  });
+
+  test('the live link is turned on from Export, shows the page and calendar links, and can be changed or turned off', async ({ page, context }) => {
+    const server = await open(page, { limit: null });
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.click('#btnExport');
+    await page.click('[data-export="live"]');
+    await expect(page.locator('.modal h2')).toHaveText('A live link for families');
+    await page.click('.modal button:has-text("Turn on the link")');
+    await expect(page.locator('#shareUrl')).toHaveValue('https://api.qstored.org/p/abcdefghijklmnopqrstuvwx');
+    await expect(page.locator('#shareCal')).toHaveValue('webcal://api.qstored.org/p/abcdefghijklmnopqrstuvwx.ics');
+    await page.click('[data-copy="shareUrl"]');
+    await expect(page.locator('[data-copy="shareUrl"]')).toHaveText('Copied');
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('https://api.qstored.org/p/abcdefghijklmnopqrstuvwx');
+
+    await page.check('#sharePhones');
+    await expect(page.locator('.toast', { hasText: 'Phone numbers now show' })).toBeVisible();
+    expect(server.links.get('prog1111').showPhones).toBe(true);
+
+    await page.click('.modal button:has-text("Make a new link")');
+    await page.click('.modal .btn-primary:has-text("Make a new link")');
+    await expect(page.locator('#shareUrl')).toHaveValue(/renewed/);
+
+    await page.click('.modal button:has-text("Turn off")');
+    await page.click('.modal .btn-primary:has-text("Turn off")');
+    await expect(page.locator('.toast', { hasText: 'The link is off' })).toBeVisible();
+    expect(server.links.has('prog1111')).toBe(false);
+  });
+
+  test('without Premium, the live link explains it', async ({ page }) => {
+    await open(page);
+    await page.click('#btnExport');
+    await page.click('[data-export="live"]');
+    await expect(page.locator('.modal h2')).toHaveText('A live link for families is part of Premium');
+    await expect(page.locator('.modal-body')).toContainText('Paid plans are on their way');
+  });
+
+  test('signed out, History is hidden and the live link asks to sign in', async ({ page }) => {
+    await mockAccount(page);
+    errors = await openAccountApp(page);
+    await expect(page.locator('#btnHistory')).toBeHidden();
+    await page.click('#btnExport');
+    await page.click('[data-export="live"]');
+    await expect(page.locator('.modal h2')).toHaveText('Sign in first');
+  });
+});

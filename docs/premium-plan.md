@@ -356,6 +356,10 @@ Still open:
   - finish, review and publish the privacy policy and terms (drafts in `policies/`).
 - **Before phase 2:** a Stripe account in the business name.
 
+**Phase 4** (18 Nov 2026): version history (*History* in the top bar), and the live family link with its
+calendar feed (*Export* → *Live link for families*) are built. The family page and feed are served by the API at
+`api.qstored.org/p/{slug}`.
+
 Phases 1 to 4 are the first paid release. The group program (phase 5) is the second.
 
 **Testing.**

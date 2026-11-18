@@ -936,6 +936,9 @@ function renderAccountButton() {
       : 'Your program saves on this device. <strong>Sign in</strong> to save your programs to your account and use them on any device.';
   }
   renderDirectory();
+  // Version history is for programs in the account
+  const history = $('#btnHistory');
+  if (history) history.hidden = !(accountsOn() && signedIn());
   const btn = $('#btnAccount');
   if (!btn) return;
   btn.hidden = !accountsOn();
@@ -974,6 +977,181 @@ const QSTORED_ACCOUNT_URL = 'https://account.qstored.org/';
 function openQstoredAccount() { window.open(QSTORED_ACCOUNT_URL, '_blank', 'noopener'); }
 
 /* ---------------------------------------------------------------- start */
+
+/* ---------------------------------------------------------------- Premium: version history and the family link */
+
+const ACCOUNT_BILLING_URL = 'https://account.qstored.org/#/billing';
+
+/** A Premium feature they don't have yet: what it does, and where to get it. */
+async function premiumBox(feature, what) {
+  const billing = me?.billing;
+  const choice = await modal({
+    title: `${feature} is part of Premium`,
+    body: `<p>${what}</p>
+      <p class="hint">${billing?.available
+    ? `Premium is A$4 a month or A$36 a year${billing.trialAvailable ? ', with a 14-day free trial' : ''}, and works in every qStored app. A group's Group plan includes it for every leader.`
+    : 'Paid plans are on their way.'}</p>`,
+    buttons: billing?.available
+      ? [{ label: 'Not now', value: null, cls: 'btn-text' }, { label: billing.trialAvailable ? 'Try Premium free' : 'Get Premium', value: 'premium', cls: 'btn-primary' }]
+      : [{ label: 'OK', value: null, cls: 'btn-primary' }],
+  });
+  if (choice === 'premium') window.open(ACCOUNT_BILLING_URL, '_blank', 'noopener');
+}
+
+/** The open program, once it's in the account; null (having said why) if it isn't yet. */
+async function programInAccount(why) {
+  if (!signedIn()) {
+    const go = await modal({
+      title: 'Sign in first',
+      body: `<p>${why} works with programs saved to your qStored account. Signing in is free.</p>`,
+      buttons: [{ label: 'Not now', value: null, cls: 'btn-text' }, { label: 'Sign in', value: 'signin', cls: 'btn-primary' }],
+    });
+    if (go) openSignIn();
+    return null;
+  }
+  const item = libItem(library.current);
+  if (!item || item.hold) { toast("This program isn't in your account, so it can't be shared or have a history.", 'error'); return null; }
+  if (item.version == null || item.dirty) {
+    // Changes here not in the account yet: send them first
+    await runSync();
+    if (libItem(library.current)?.version == null) { toast("This program hasn't reached your account yet. Try again when you're online.", 'error'); return null; }
+  }
+  return library.current;
+}
+
+/** Calls the API, saying so if it can't be reached. Null if it couldn't. */
+async function tryApi(method, path, options) {
+  try {
+    return await api(method, path, options);
+  } catch (err) {
+    if (!err.auth) toast('You\'re offline. Try again when you\'re back online.', 'error');
+    return null;
+  }
+}
+
+async function openHistoryBox() {
+  const id = await programInAccount('Version history');
+  if (!id) return;
+  const r = await tryApi('GET', `/programs/${id}/versions`);
+  if (!r) return;
+  if (errorCode(r) === 'premium_required') {
+    premiumBox('Version history', 'Your program is kept as it changes, for 90 days, and any earlier version can be brought back: for when a week was deleted by mistake, or you liked it better before.');
+    return;
+  }
+  if (!r.ok) { toast(errorText(r), 'error'); return; }
+  const { versions, current } = r.json;
+  const buttons = [{ label: 'Close', value: null, cls: 'btn-primary' }];
+  const rows = versions.map((v) => {
+    buttons.push({ label: 'Restore', value: v.id, inBody: true });
+    const who = v.by?.id === session?.uid ? 'you' : (v.by?.name || 'another leader');
+    return `<li><span><b>${esc(relTime(Date.parse(v.at)))}</b> <span class="hint-inline">· before a change by ${esc(who)}</span></span>
+      <button class="btn btn-outline btn-sm" data-i="${buttons.length - 1}">Restore</button></li>`;
+  }).join('');
+  const choice = await modal({
+    title: 'Version history',
+    body: `<p>Before this program changes, what it was is kept (at most every 10 minutes) for 90 days. Restore one to bring it back: what the program is now is kept too, so you can change your mind.</p>
+      <p class="hint">Now: saved ${esc(relTime(Date.parse(current.updatedAt)))}${current.updatedBy?.name ? ` by ${esc(current.updatedBy.id === session?.uid ? 'you' : current.updatedBy.name)}` : ''}.</p>
+      ${rows ? `<ul class="history-list" id="historyList">${rows}</ul>` : '<p class="hint" id="historyEmpty">Nothing kept yet. Earlier versions appear here once the program changes.</p>'}`,
+    buttons,
+  });
+  if (!choice) return;
+  const v = versions.find((x) => x.id === choice);
+  const sure = await modal({
+    title: 'Restore this version?',
+    body: `<p>The program goes back to how it was ${esc(relTime(Date.parse(v.at)))}. What it is now is kept in the history.</p>`,
+    buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' }, { label: 'Restore', value: 'yes', cls: 'btn-primary' }],
+  });
+  if (!sure) return;
+  const back = await tryApi('POST', `/programs/${id}/versions/${encodeURIComponent(choice)}/restore`);
+  if (!back) return;
+  if (!back.ok) { toast(errorText(back), 'error'); return; }
+  storeRemote(back.json);
+  toast('Restored. The version you replaced is in the history.');
+}
+
+async function openShareBox() {
+  const id = await programInAccount('A live link for families');
+  if (!id) return;
+  const r = await tryApi('GET', `/programs/${id}/share`);
+  if (!r) return;
+  if (!r.ok) { toast(errorText(r), 'error'); return; }
+  let link = r.json.link;
+  if (!link && !r.json.premium) {
+    premiumBox('A live link for families', 'A page families can bookmark that always shows the latest program, and a calendar they add once that updates itself. No more sending a new PDF after every change.');
+    return;
+  }
+  for (;;) {
+    if (!link) {
+      const on = await modal({
+        title: 'A live link for families',
+        body: `<p>Turn on a link to a page that always shows the latest version of this program, and a calendar families add once that updates itself when you change the program.</p>
+          <p class="hint">Anyone with the link can see the program, so share it with families only (the group's Facebook page or newsletter is fine). It isn't listed by search engines, leaders' phone numbers stay hidden unless you choose to show them, and you can turn it off or make a new link at any time.</p>`,
+        buttons: [{ label: 'Not now', value: null, cls: 'btn-text' }, { label: 'Turn on the link', value: 'on', cls: 'btn-primary' }],
+      });
+      if (!on) return;
+      const made = await tryApi('PUT', `/programs/${id}/share`, { body: {} });
+      if (!made) return;
+      if (errorCode(made) === 'premium_required') { premiumBox('A live link for families', 'A page families can bookmark that always shows the latest program.'); return; }
+      if (!made.ok) { toast(errorText(made), 'error'); return; }
+      link = made.json.link;
+    }
+    const pending = modal({
+      title: 'A live link for families',
+      body: `<label class="share-label" for="shareUrl">The family page</label>
+        <div class="share-link"><input id="shareUrl" type="text" readonly value="${esc(link.url)}"><button class="btn btn-outline btn-sm" type="button" data-copy="shareUrl">Copy</button></div>
+        <label class="share-label" for="shareCal">A calendar that updates itself</label>
+        <div class="share-link"><input id="shareCal" type="text" readonly value="${esc(link.calendarUrl)}"><button class="btn btn-outline btn-sm" type="button" data-copy="shareCal">Copy</button></div>
+        <label class="share-check"><input type="checkbox" id="sharePhones"${link.showPhones ? ' checked' : ''}> Show leaders' phone numbers</label>
+        <p class="hint">The page always shows the latest save. Families add the calendar once (the page has a button for it), and their calendar updates when you change the program. If the link has gone further than you meant, make a new link: the old one stops working.</p>`,
+      buttons: [{ label: 'Turn off', value: 'off', cls: 'btn-text' }, { label: 'Make a new link', value: 'renew', cls: 'btn-outline' },
+        { label: 'Open the page', value: 'open', cls: 'btn-outline' }, { label: 'Done', value: null, cls: 'btn-primary' }],
+    });
+    const box = $('#modal .modal');
+    box.querySelectorAll('[data-copy]').forEach((b) => {
+      b.onclick = async (e) => {
+        e.stopPropagation();
+        const input = $(`#${b.dataset.copy}`);
+        try { await navigator.clipboard.writeText(input.value); } catch { input.select(); document.execCommand?.('copy'); }
+        b.textContent = 'Copied';
+        setTimeout(() => { b.textContent = 'Copy'; }, 1500);
+      };
+    });
+    $('#sharePhones').onchange = async (e) => {
+      const want = e.target.checked;
+      const changed = await tryApi('PUT', `/programs/${id}/share`, { body: { showPhones: want } });
+      if (changed?.ok) { link = changed.json.link; toast(want ? 'Phone numbers now show on the page.' : 'Phone numbers are now hidden.'); } else {
+        e.target.checked = !want;
+        if (changed) toast(errorText(changed), 'error');
+      }
+    };
+    const choice = await pending;
+    if (choice === 'open') { window.open(link.url, '_blank', 'noopener'); return; }
+    if (choice === 'renew') {
+      const sure = await modal({
+        title: 'Make a new link?',
+        body: '<p>The current link, and the calendar families added with it, stop working straight away. Share the new one with families.</p>',
+        buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' }, { label: 'Make a new link', value: 'yes', cls: 'btn-primary' }],
+      });
+      if (sure) {
+        const renewed = await tryApi('POST', `/programs/${id}/share/renew`);
+        if (renewed?.ok) { link = renewed.json.link; toast('New link made. The old one no longer works.'); } else if (renewed) toast(errorText(renewed), 'error');
+      }
+      continue;
+    }
+    if (choice === 'off') {
+      const sure = await modal({
+        title: 'Turn the link off?',
+        body: '<p>The page and the calendar stop working for families. You can turn on a new link later.</p>',
+        buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' }, { label: 'Turn off', value: 'yes', cls: 'btn-primary' }],
+      });
+      if (!sure) continue;
+      const off = await tryApi('DELETE', `/programs/${id}/share`);
+      if (off?.ok) toast('The link is off.');
+      else if (off) toast(errorText(off), 'error');
+    }
+    return;
+  }
+}
 
 /** As the page closes: send the open program's last changes without waiting for the timer. */
 function flushOnLeave() {

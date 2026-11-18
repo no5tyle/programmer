@@ -147,6 +147,7 @@ function openMenu() {
           ${item('data-m="new"', '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>', 'New program')}
           ${item('data-m="open"', '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>', 'Open a file', 'A program file you saved, or a spreadsheet of activities')}
           ${item('data-m="generate"', '<svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>', 'Generate meeting dates')}
+          ${accountsOn() && signedIn() ? item('data-m="history"', '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>', 'History', 'Earlier versions of this program') : ''}
           ${undoStack.length ? item('data-m="undo"', '<svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>', 'Undo last change') : ''}
         </div>
         <div class="m-group-label">Settings</div>
@@ -181,6 +182,7 @@ function openMenu() {
         if (m === 'open') { closeAllPanels(); importJson(); }
         if (m === 'generate') { closeAllPanels(); generateDates(); }
         if (m === 'undo') { undo(); closeAllPanels(); }
+        if (m === 'history') { closeAllPanels(); openHistoryBox(); }
         if (m === 'tour') { closeAllPanels(); startTour(); }
         if (m === 'help') { closeAllPanels(); openHelp(); }
         if (m === 'signin') { closeAllPanels(); openSignIn(); }
@@ -572,6 +574,7 @@ function openShare() {
         </div>
         <div class="m-group-label">${canShare ? 'Send a file' : 'Download a file'}</div>
         <div class="m-group">
+          ${accountsOn() ? item('live', '<svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>', 'Live link for families', 'A page and calendar that always show the latest program') : ''}
           ${item('ics', '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>', 'Calendar for families', 'Adds every meeting to Google, Apple or Outlook calendars')}
           ${item('csv', '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>', 'Activities spreadsheet', 'For other leaders to edit in Excel or Google Sheets')}
           ${item('json', '<svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>', 'Full program file', 'Everything, including branding and settings')}
@@ -581,6 +584,7 @@ function openShare() {
         if (!b) return;
         const kind = b.dataset.share;
         if (kind === 'print') { closeAllPanels(); printProgram(); return; }
+        if (kind === 'live') { closeAllPanels(); openShareBox(); return; }
         if (kind === 'pdf') { preparePdf(body); return; }
         shareFiles = true;   // send through the device's share menu where it has one
         try {
