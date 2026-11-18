@@ -629,6 +629,9 @@ test.describe("Premium's history and live link", () => {
     await page.click('[data-export="live"]');
     await expect(page.locator('.modal h2')).toHaveText('A live link for families');
     await page.click('.modal button:has-text("Turn on the link")');
+    await expect(page.locator('.modal h2')).toHaveText('A live link for your Cubs');
+    await expect(page.locator('#shareShowing')).toContainText('Showing this program');
+    await expect(page.locator('.modal button:has-text("Show this program now")')).toHaveCount(0);
     await expect(page.locator('#shareUrl')).toHaveValue('https://api.qstored.org/p/abcdefghijklmnopqrstuvwx');
     await expect(page.locator('#shareCal')).toHaveValue('webcal://api.qstored.org/p/abcdefghijklmnopqrstuvwx.ics');
     await page.click('[data-copy="shareUrl"]');
@@ -637,7 +640,7 @@ test.describe("Premium's history and live link", () => {
 
     await page.check('#sharePhones');
     await expect(page.locator('.toast', { hasText: 'Phone numbers now show' })).toBeVisible();
-    expect(server.links.get('prog1111').showPhones).toBe(true);
+    expect(server.links.get('cubs').showPhones).toBe(true);
 
     await page.click('.modal button:has-text("Make a new link")');
     await page.click('.modal .btn-primary:has-text("Make a new link")');
@@ -646,7 +649,23 @@ test.describe("Premium's history and live link", () => {
     await page.click('.modal button:has-text("Turn off")');
     await page.click('.modal .btn-primary:has-text("Turn off")');
     await expect(page.locator('.toast', { hasText: 'The link is off' })).toBeVisible();
-    expect(server.links.has('prog1111')).toBe(false);
+    expect(server.links.has('cubs')).toBe(false);
+  });
+
+  test("one link for a section's programs: next term's program can be shown on it early", async ({ page }) => {
+    const term2 = { ...EXAMPLE, term: { ...EXAMPLE.term, term: 2 } };
+    const server = await open(page, { limit: null, programs: [program('prog1111', EXAMPLE, { version: 3 }), program('prog2222', term2, { name: 'Cubs Term 2', term: 2 })] });
+    server.links.set('cubs', { slug: 'abcdefghijklmnopqrstuvwx', showPhones: false, pinned: null });
+    await page.evaluate(() => openProgram('prog2222'));
+    await expect.poll(() => page.evaluate(() => library.current)).toBe('prog2222');
+    await page.click('#btnExport');
+    await page.click('[data-export="live"]');
+    await expect(page.locator('#shareShowing')).toContainText('Showing Cubs Program now');
+    await expect(page.locator('#shareShowing')).toContainText('moves on to this program');
+    await page.click('.modal button:has-text("Show this program now")');
+    await expect(page.locator('.toast', { hasText: 'now shows this program' })).toBeVisible();
+    await expect(page.locator('#shareShowing')).toContainText('Showing this program, by your choice');
+    expect(server.links.get('cubs').pinned).toBe('prog2222');
   });
 
   test('without Premium, the live link explains it', async ({ page }) => {

@@ -150,18 +150,27 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
       Object.assign(p, { data: v.data, version: p.version + 1, updatedAt: new Date().toISOString() });
       return json(route, 200, p, { ETag: `"${p.version}"` });
     }
-    const sh = /^\/programs\/([^/]+)\/share(\/renew)?$/.exec(path);
+    const sh = /^\/programs\/([^/]+)\/share(\/renew|\/show)?$/.exec(path);
     if (sh) {
       const p = server.programs.get(sh[1]);
       if (!p) return error(route, 404, 'not_found');
-      const linkJson = (l) => ({ url: `https://api.qstored.org/p/${l.slug}`, calendarUrl: `webcal://api.qstored.org/p/${l.slug}.ics`, calendarFileUrl: `https://api.qstored.org/p/${l.slug}.ics`, showPhones: l.showPhones });
-      let link = server.links.get(p.id);
+      const section = p.data?.branding?.section || 'program';
+      const linkJson = (l) => {
+        const shown = server.programs.get(l.pinned) || [...server.programs.values()].find((x) => (x.data?.branding?.section || 'program') === section && !x.deletedAt);
+        return {
+          url: `https://api.qstored.org/p/${l.slug}`, calendarUrl: `webcal://api.qstored.org/p/${l.slug}.ics`, calendarFileUrl: `https://api.qstored.org/p/${l.slug}.ics`,
+          showPhones: l.showPhones, section, showing: shown ? { id: shown.id, name: shown.name, term: shown.term } : null,
+          showingThis: shown?.id === p.id, chosen: !!l.pinned && shown?.id === l.pinned,
+        };
+      };
+      let link = server.links.get(section);
       if (method === 'GET') return json(route, 200, { link: link ? linkJson(link) : null, premium });
-      if (method === 'DELETE') { server.links.delete(p.id); return route.fulfill({ status: 204, headers: CORS }); }
+      if (method === 'DELETE') { server.links.delete(section); return route.fulfill({ status: 204, headers: CORS }); }
       if (!premium) return error(route, 402, 'premium_required');
-      if (sh[2]) { link = { ...link, slug: `renewed${link.slug}` }; server.links.set(p.id, link); return json(route, 200, { link: linkJson(link) }); }
-      link = { slug: link?.slug || 'abcdefghijklmnopqrstuvwx', showPhones: body?.showPhones ?? link?.showPhones ?? false };
-      server.links.set(p.id, link);
+      if (sh[2] === '/renew') { link = { ...link, slug: `renewed${link.slug}` }; server.links.set(section, link); return json(route, 200, { link: linkJson(link) }); }
+      if (sh[2] === '/show') { link = { ...link, pinned: p.id }; server.links.set(section, link); return json(route, 200, { link: linkJson(link) }); }
+      link = { slug: link?.slug || 'abcdefghijklmnopqrstuvwx', showPhones: body?.showPhones ?? link?.showPhones ?? false, pinned: link?.pinned ?? null };
+      server.links.set(section, link);
       return json(route, 201, { link: linkJson(link) });
     }
     const [, id, action] = /^\/programs\/([^/]+)(?:\/(restore))?$/.exec(path) || [];

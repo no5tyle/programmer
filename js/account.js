@@ -1080,11 +1080,12 @@ async function openShareBox() {
     premiumBox('A live link for families', 'A page families can bookmark that always shows the latest program, and a calendar they add once that updates itself. No more sending a new PDF after every change.');
     return;
   }
+  const section = (state.branding.sectionName || 'section').trim();
   for (;;) {
     if (!link) {
       const on = await modal({
         title: 'A live link for families',
-        body: `<p>Turn on a link to a page that always shows the latest version of this program, and a calendar families add once that updates itself when you change the program.</p>
+        body: `<p>Turn on one link for your ${esc(section)} programs: a page families add to their home screen once, and a calendar they add once. Both always show the latest program, and move on to each new term's program by themselves.</p>
           <p class="hint">Anyone with the link can see the program, so share it with families only (the group's Facebook page or newsletter is fine). It isn't listed by search engines, leaders' phone numbers stay hidden unless you choose to show them, and you can turn it off or make a new link at any time.</p>`,
         buttons: [{ label: 'Not now', value: null, cls: 'btn-text' }, { label: 'Turn on the link', value: 'on', cls: 'btn-primary' }],
       });
@@ -1095,15 +1096,22 @@ async function openShareBox() {
       if (!made.ok) { toast(errorText(made), 'error'); return; }
       link = made.json.link;
     }
+    const showing = link.showing
+      ? (link.showingThis
+        ? `<p class="share-showing" id="shareShowing">Showing <b>this program</b>${link.chosen ? ', by your choice, until its term ends' : ''}.</p>`
+        : `<p class="share-showing" id="shareShowing">Showing <b>${esc(link.showing.name)}</b> now. It moves on to this program ${esc(link.showing.term ? `when Term ${link.showing.term} ends` : 'when that term ends')}, or you can show it now.</p>`)
+      : '';
     const pending = modal({
-      title: 'A live link for families',
-      body: `<label class="share-label" for="shareUrl">The family page</label>
+      title: `A live link for your ${section}`,
+      body: `${showing}
+        <label class="share-label" for="shareUrl">The family page</label>
         <div class="share-link"><input id="shareUrl" type="text" readonly value="${esc(link.url)}"><button class="btn btn-outline btn-sm" type="button" data-copy="shareUrl">Copy</button></div>
         <label class="share-label" for="shareCal">A calendar that updates itself</label>
         <div class="share-link"><input id="shareCal" type="text" readonly value="${esc(link.calendarUrl)}"><button class="btn btn-outline btn-sm" type="button" data-copy="shareCal">Copy</button></div>
         <label class="share-check"><input type="checkbox" id="sharePhones"${link.showPhones ? ' checked' : ''}> Show leaders' phone numbers</label>
-        <p class="hint">The page always shows the latest save. Families add the calendar once (the page has a button for it), and their calendar updates when you change the program. If the link has gone further than you meant, make a new link: the old one stops working.</p>`,
+        <p class="hint">One link for all your ${esc(section)} programs: it shows the term that's on (or next), and moves on by itself when a term ends. Families add the page to their home screen and the calendar once, and keep them. If the link has gone further than you meant, make a new link: the old one stops working.</p>`,
       buttons: [{ label: 'Turn off', value: 'off', cls: 'btn-text' }, { label: 'Make a new link', value: 'renew', cls: 'btn-outline' },
+        ...(link.showingThis ? [] : [{ label: 'Show this program now', value: 'show', cls: 'btn-outline' }]),
         { label: 'Open the page', value: 'open', cls: 'btn-outline' }, { label: 'Done', value: null, cls: 'btn-primary' }],
     });
     const box = $('#modal .modal');
@@ -1126,10 +1134,15 @@ async function openShareBox() {
     };
     const choice = await pending;
     if (choice === 'open') { window.open(link.url, '_blank', 'noopener'); return; }
+    if (choice === 'show') {
+      const shown = await tryApi('POST', `/programs/${id}/share/show`);
+      if (shown?.ok) { link = shown.json.link; toast('The link now shows this program.'); } else if (shown) toast(errorText(shown), 'error');
+      continue;
+    }
     if (choice === 'renew') {
       const sure = await modal({
         title: 'Make a new link?',
-        body: '<p>The current link, and the calendar families added with it, stop working straight away. Share the new one with families.</p>',
+        body: `<p>The current link for your ${esc(section)} programs, and the calendar families added with it, stop working straight away. Share the new one with families.</p>`,
         buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' }, { label: 'Make a new link', value: 'yes', cls: 'btn-primary' }],
       });
       if (sure) {
