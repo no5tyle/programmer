@@ -42,6 +42,10 @@
       <button class="btn btn-ghost" id="btnUndo" title="Undo (Ctrl+Z)" disabled>
         <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>Undo
       </button>
+      <!-- Families see the published program: this shows while there are changes they can't see yet (js/account.js) -->
+      <button class="btn btn-outline btn-publish" id="btnPublish" title="Families see the program as last published. Publish your changes to update their page and calendar." hidden>
+        <svg viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5"/><path d="M5 20h14"/></svg>Publish
+      </button>
       <!-- Earlier versions of the program (Premium), once signed in: js/account.js -->
       <button class="btn btn-ghost" id="btnHistory" title="Earlier versions of this program, from the last 90 days" hidden>
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>History

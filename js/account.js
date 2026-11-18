@@ -255,6 +255,37 @@ function saveStateInfo() {
 function refreshSaveState() {
   const el = $('#saveState');
   if (el && accountsOn() && el.dataset.state !== 'failed') setSaveState('saved');
+  refreshPublishButton();
+}
+
+/** True when the open program is on a live link and has changes families can't see yet. */
+function unpublishedChanges() {
+  if (!accountsOn() || !signedIn()) return false;
+  const item = libItem(library.current);
+  if (!item || item.publishedVersion == null) return false;
+  return !!item.dirty || (item.version ?? 0) > item.publishedVersion;
+}
+
+/** The top bar's Publish button: there only while families see an older version of this program. */
+function refreshPublishButton() {
+  const b = $('#btnPublish');
+  if (b) b.hidden = !unpublishedChanges();
+}
+
+/** Publishes the open program: families' page and calendar show it as it is now. */
+async function publishCurrent() {
+  const id = await programInAccount('Publishing');
+  if (!id) return;
+  const r = await tryApi('POST', `/programs/${id}/publish`);
+  if (!r) return;
+  if (errorCode(r) === 'premium_required') { premiumBox('A live link for families', 'A page and calendar for families that show the program you publish.'); return; }
+  if (!r.ok) { toast(errorText(r), 'error'); return; }
+  const item = libItem(id);
+  if (item) { item.publishedVersion = r.json.published.version; saveLibrary(); }
+  refreshPublishButton();
+  if (typeof renderMobile === 'function' && onPhone()) renderMobile();
+  toast('Published. Families see these changes now.');
+  return r.json.link ?? null;
 }
 
 /* ---------------------------------------------------------------- sending saves */
@@ -473,7 +504,7 @@ async function refreshPrograms() {
     const item = libItem(p.id);
     const summary = {
       name: p.name, group: p.groupName || '', updated: Date.parse(p.updatedAt) || Date.now(),
-      section: p.section ?? null, year: p.year, term: p.term,
+      section: p.section ?? null, year: p.year, term: p.term, publishedVersion: p.publishedVersion ?? null,
     };
     if (!item) library.items.push({ id: p.id, ...summary, version: p.version, cached: false });
     else if (item.version == null) item.version = 0;   // it's there after all: the next save compares the two
@@ -1085,7 +1116,7 @@ async function openShareBox() {
     if (!link) {
       const on = await modal({
         title: 'A live link for families',
-        body: `<p>Turn on one link for your ${esc(section)} programs: a page families add to their home screen once, and a calendar they add once. Both always show the latest program, and move on to each new term's program by themselves.</p>
+        body: `<p>Turn on one link for your ${esc(section)} programs: a page families add to their home screen once, and a calendar they add once. They show the program as you <b>publish</b> it (this one is published as it is now), so small changes don't reach families until you're ready. They move on to each new term's published program by themselves.</p>
           <p class="hint">Anyone with the link can see the program, so share it with families only (the group's Facebook page or newsletter is fine). It isn't listed by search engines, leaders' phone numbers stay hidden unless you choose to show them, and you can turn it off or make a new link at any time.</p>`,
         buttons: [{ label: 'Not now', value: null, cls: 'btn-text' }, { label: 'Turn on the link', value: 'on', cls: 'btn-primary' }],
       });
@@ -1096,6 +1127,14 @@ async function openShareBox() {
       if (!made.ok) { toast(errorText(made), 'error'); return; }
       link = made.json.link;
     }
+    // Keep the list's record of what's published in step with the API's
+    const here = libItem(id);
+    if (here) { here.publishedVersion = link.published?.version ?? null; saveLibrary(); refreshPublishButton(); }
+    const status = !link.published
+      ? `<p class="share-status" id="shareStatus">This program isn't published, so families can't see it. <b>Publish</b> it when it's ready.</p>`
+      : link.changed
+        ? `<p class="share-status changes" id="shareStatus">You've changed this program since it was published ${esc(relTime(Date.parse(link.published.at)))}. Families see those changes when you <b>publish</b> them.</p>`
+        : `<p class="share-status" id="shareStatus">Families see this program as published ${esc(relTime(Date.parse(link.published.at)))}. Changes you make reach them when you publish again.</p>`;
     const showing = link.showing
       ? (link.showingThis
         ? `<p class="share-showing" id="shareShowing">Showing <b>this program</b>${link.chosen ? ', by your choice, until its term ends' : ''}.</p>`
@@ -1103,16 +1142,18 @@ async function openShareBox() {
       : '';
     const pending = modal({
       title: `A live link for your ${section}`,
-      body: `${showing}
+      body: `${status}${showing}
         <label class="share-label" for="shareUrl">The family page</label>
         <div class="share-link"><input id="shareUrl" type="text" readonly value="${esc(link.url)}"><button class="btn btn-outline btn-sm" type="button" data-copy="shareUrl">Copy</button></div>
         <label class="share-label" for="shareCal">A calendar that updates itself</label>
         <div class="share-link"><input id="shareCal" type="text" readonly value="${esc(link.calendarUrl)}"><button class="btn btn-outline btn-sm" type="button" data-copy="shareCal">Copy</button></div>
         <label class="share-check"><input type="checkbox" id="sharePhones"${link.showPhones ? ' checked' : ''}> Show leaders' phone numbers</label>
-        <p class="hint">One link for all your ${esc(section)} programs: it shows the term that's on (or next), and moves on by itself when a term ends. Families add the page to their home screen and the calendar once, and keep them. If the link has gone further than you meant, make a new link: the old one stops working.</p>`,
+        <p class="hint">One link for all your ${esc(section)} programs: it shows the published term that's on (or next), and moves on by itself when a term ends. Families add the page to their home screen and the calendar once, and keep them. If the link has gone further than you meant, make a new link: the old one stops working.</p>`,
       buttons: [{ label: 'Turn off', value: 'off', cls: 'btn-text' }, { label: 'Make a new link', value: 'renew', cls: 'btn-outline' },
         ...(link.showingThis ? [] : [{ label: 'Show this program now', value: 'show', cls: 'btn-outline' }]),
-        { label: 'Open the page', value: 'open', cls: 'btn-outline' }, { label: 'Done', value: null, cls: 'btn-primary' }],
+        { label: 'Open the page', value: 'open', cls: 'btn-outline' },
+        ...(link.changed ? [{ label: link.published ? 'Publish changes' : 'Publish', value: 'publish', cls: 'btn-primary' }, { label: 'Done', value: null, cls: 'btn-outline' }]
+          : [{ label: 'Done', value: null, cls: 'btn-primary' }])],
     });
     const box = $('#modal .modal');
     box.querySelectorAll('[data-copy]').forEach((b) => {
@@ -1134,9 +1175,16 @@ async function openShareBox() {
     };
     const choice = await pending;
     if (choice === 'open') { window.open(link.url, '_blank', 'noopener'); return; }
+    if (choice === 'publish') {
+      if ((await publishCurrent()) !== undefined) {
+        const again = await tryApi('GET', `/programs/${id}/share`);
+        if (again?.ok && again.json.link) link = again.json.link;
+      }
+      continue;
+    }
     if (choice === 'show') {
       const shown = await tryApi('POST', `/programs/${id}/share/show`);
-      if (shown?.ok) { link = shown.json.link; toast('The link now shows this program.'); } else if (shown) toast(errorText(shown), 'error');
+      if (shown?.ok) { link = shown.json.link; toast('Published, and the link now shows this program.'); } else if (shown) toast(errorText(shown), 'error');
       continue;
     }
     if (choice === 'renew') {

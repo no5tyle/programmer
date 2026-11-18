@@ -147,6 +147,7 @@ function openMenu() {
           ${item('data-m="new"', '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>', 'New program')}
           ${item('data-m="open"', '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>', 'Open a file', 'A program file you saved, or a spreadsheet of activities')}
           ${item('data-m="generate"', '<svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>', 'Generate meeting dates')}
+          ${typeof unpublishedChanges === 'function' && unpublishedChanges() ? item('data-m="publish"', '<svg viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5"/><path d="M5 20h14"/></svg>', 'Publish changes', 'Families see the program as last published') : ''}
           ${accountsOn() && signedIn() ? item('data-m="history"', '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>', 'History', 'Earlier versions of this program') : ''}
           ${undoStack.length ? item('data-m="undo"', '<svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>', 'Undo last change') : ''}
         </div>
@@ -183,6 +184,7 @@ function openMenu() {
         if (m === 'generate') { closeAllPanels(); generateDates(); }
         if (m === 'undo') { undo(); closeAllPanels(); }
         if (m === 'history') { closeAllPanels(); openHistoryBox(); }
+        if (m === 'publish') { closeAllPanels(); publishCurrent(); }
         if (m === 'tour') { closeAllPanels(); startTour(); }
         if (m === 'help') { closeAllPanels(); openHelp(); }
         if (m === 'signin') { closeAllPanels(); openSignIn(); }

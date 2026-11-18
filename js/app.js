@@ -253,6 +253,7 @@ function readJSON(key) { try { return JSON.parse(localStorage.getItem(key)); } c
 
 /** The 'All changes saved' message by Undo: saving, saved, or not saved. */
 function setSaveState(kind) {
+  if (typeof refreshPublishButton === 'function') refreshPublishButton();
   const el = $('#saveState');
   if (!el) return;
   // With accounts on, a saved change says where it's saved: on this device, or in the account (js/account.js)
@@ -3087,6 +3088,7 @@ function bindEvents() {
   $('#btnAddWeek').onclick = (e) => openAddWeekPopover(e.currentTarget);
   $('#btnUndo').onclick = undo;
   $('#btnHistory').onclick = () => openHistoryBox();
+  $('#btnPublish').onclick = () => publishCurrent();
   $('#btnImport').onclick = importJson;
   $('#btnSettings').onclick = () => setSettingsOpen(!settingsOpen());
   $('#btnSettingsClose').onclick = () => { setSettingsOpen(false); $('#btnSettings').focus(); };

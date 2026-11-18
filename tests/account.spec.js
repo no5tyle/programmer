@@ -668,6 +668,56 @@ test.describe("Premium's history and live link", () => {
     expect(server.links.get('cubs').pinned).toBe('prog2222');
   });
 
+  test("families see what's published: changes show a Publish button until they're published", async ({ page }) => {
+    const server = await open(page, { limit: null });
+    await expect(page.locator('#btnPublish')).toBeHidden();
+    // Turning the link on publishes the program as it is
+    await page.click('#btnExport');
+    await page.click('[data-export="live"]');
+    await page.click('.modal button:has-text("Turn on the link")');
+    await expect(page.locator('#shareStatus')).toContainText('Families see this program as published');
+    expect(server.published.get('prog1111')).toBe(3);
+    await page.click('.modal button:has-text("Done")');
+    await expect(page.locator('#btnPublish')).toBeHidden();
+
+    // A change: saved to the account, but families don't see it until it's published
+    await edit(page, 'Night hike');
+    await expect.poll(() => server.programs.get('prog1111').version).toBe(4);
+    await expect(page.locator('#btnPublish')).toBeVisible();
+    expect(server.published.get('prog1111')).toBe(3);
+    await page.click('#btnExport');
+    await page.click('[data-export="live"]');
+    await expect(page.locator('#shareStatus')).toContainText("You've changed this program since it was published");
+    await page.click('.modal button:has-text("Done")');
+
+    await page.click('#btnPublish');
+    await expect(page.locator('.toast', { hasText: 'Published. Families see these changes now.' })).toBeVisible();
+    expect(server.published.get('prog1111')).toBe(4);
+    await expect(page.locator('#btnPublish')).toBeHidden();
+
+    // After a reload, the account's list says what's published
+    await page.reload();
+    await expect(saveState(page)).toHaveText('Saved to your account');
+    await expect(page.locator('#btnPublish')).toBeHidden();
+    await edit(page, 'Campfire');
+    await expect(page.locator('#btnPublish')).toBeVisible();
+  });
+
+  test('a program not published says so, and Publish puts it on the link', async ({ page }) => {
+    const term2 = { ...EXAMPLE, term: { ...EXAMPLE.term, term: 2 } };
+    const server = await open(page, { limit: null, programs: [program('prog1111', EXAMPLE, { version: 3 }), program('prog2222', term2, { name: 'Cubs Term 2', term: 2 })] });
+    server.links.set('cubs', { slug: 'abcdefghijklmnopqrstuvwx', showPhones: false, pinned: null });
+    server.published.set('prog1111', 3);
+    await page.evaluate(() => openProgram('prog2222'));
+    await expect.poll(() => page.evaluate(() => library.current)).toBe('prog2222');
+    await page.click('#btnExport');
+    await page.click('[data-export="live"]');
+    await expect(page.locator('#shareStatus')).toContainText("isn't published, so families can't see it");
+    await page.click('.modal .btn-primary:has-text("Publish")');
+    await expect(page.locator('#shareStatus')).toContainText('Families see this program as published');
+    expect(server.published.get('prog2222')).toBe(1);
+  });
+
   test('without Premium, the live link explains it', async ({ page }) => {
     await open(page);
     await page.click('#btnExport');

@@ -34,6 +34,7 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
     sent: [],       // the bodies of Firebase calls
     // Premium's history and live links: each program's earlier versions, and its link if turned on
     history: new Map(), links: new Map(), billing: null,
+    published: new Map(),   // program id → the version families see
     live() { return [...this.programs.values()].filter((p) => !p.deletedAt); },
     called(prefix) { return this.calls.filter((c) => c.startsWith(prefix)); },
   };
@@ -99,7 +100,7 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
     server.calls.push(`${method} ${path}${url.search}`);
     if (server.rejectTokens || !/^Bearer token-/.test(req.headers().authorization || '')) return error(route, 401, 'not_signed_in');
     const body = req.postData() ? JSON.parse(req.postData()) : null;
-    const summary = ({ data, ...rest }) => rest;
+    const summary = ({ data, ...rest }) => ({ ...rest, publishedVersion: server.published.get(rest.id) ?? null });
     const full = () => server.limit !== null && server.live().length >= server.limit;
 
     if (path === '/me' && method === 'GET') {
@@ -150,6 +151,14 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
       Object.assign(p, { data: v.data, version: p.version + 1, updatedAt: new Date().toISOString() });
       return json(route, 200, p, { ETag: `"${p.version}"` });
     }
+    const pub = /^\/programs\/([^/]+)\/publish$/.exec(path);
+    if (pub) {
+      const p = server.programs.get(pub[1]);
+      if (!p) return error(route, 404, 'not_found');
+      if (!premium) return error(route, 402, 'premium_required');
+      server.published.set(p.id, p.version);
+      return json(route, 200, { link: null, published: { at: new Date().toISOString(), version: p.version } });
+    }
     const sh = /^\/programs\/([^/]+)\/share(\/renew|\/show)?$/.exec(path);
     if (sh) {
       const p = server.programs.get(sh[1]);
@@ -161,6 +170,8 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
           url: `https://api.qstored.org/p/${l.slug}`, calendarUrl: `webcal://api.qstored.org/p/${l.slug}.ics`, calendarFileUrl: `https://api.qstored.org/p/${l.slug}.ics`,
           showPhones: l.showPhones, section, showing: shown ? { id: shown.id, name: shown.name, term: shown.term } : null,
           showingThis: shown?.id === p.id, chosen: !!l.pinned && shown?.id === l.pinned,
+          published: server.published.has(p.id) ? { at: new Date().toISOString(), version: server.published.get(p.id) } : null,
+          changed: !server.published.has(p.id) || p.version > server.published.get(p.id),
         };
       };
       let link = server.links.get(section);
@@ -168,7 +179,8 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
       if (method === 'DELETE') { server.links.delete(section); return route.fulfill({ status: 204, headers: CORS }); }
       if (!premium) return error(route, 402, 'premium_required');
       if (sh[2] === '/renew') { link = { ...link, slug: `renewed${link.slug}` }; server.links.set(section, link); return json(route, 200, { link: linkJson(link) }); }
-      if (sh[2] === '/show') { link = { ...link, pinned: p.id }; server.links.set(section, link); return json(route, 200, { link: linkJson(link) }); }
+      if (sh[2] === '/show') { server.published.set(p.id, p.version); link = { ...link, pinned: p.id }; server.links.set(section, link); return json(route, 200, { link: linkJson(link) }); }
+      if (!link && !server.published.has(p.id)) server.published.set(p.id, p.version);   // turning it on publishes this one
       link = { slug: link?.slug || 'abcdefghijklmnopqrstuvwx', showPhones: body?.showPhones ?? link?.showPhones ?? false, pinned: link?.pinned ?? null };
       server.links.set(section, link);
       return json(route, 201, { link: linkJson(link) });
