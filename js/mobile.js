@@ -70,6 +70,13 @@ function rowItem(r) {
 
 function renderMobile() {
   if (!document.body.classList.contains('mobile')) return;
+  if (!library.current) {
+    // No program open: the list offers to start one, as the computer's page does
+    $('#mTitleMain').textContent = 'Programs';
+    $('#mTitleSub').textContent = 'Tap to open one';
+    $('#mList').innerHTML = `<section class="empty-state m-empty">${emptyStateHTML()}</section>`;
+    return;
+  }
   $('#mTitleMain').textContent = titleText() || 'Untitled program';
   $('#mTitleSub').textContent = state.branding.groupName.trim() || 'Tap to switch program';
   const groups = weekGroups();
@@ -644,6 +651,14 @@ function initMobile() {
   $('#mBack').onclick = () => showPreview(false);
   $('#mShare2').onclick = openShare;
   $('#mList').addEventListener('click', (e) => {
+    const empty = e.target.closest('[data-empty]');
+    if (empty) {
+      if (empty.dataset.empty === 'start') startFirstProgram();
+      if (empty.dataset.empty === 'units') openUnitsBox();
+      if (empty.dataset.empty === 'open') importJson();
+      if (empty.dataset.empty === 'signin') openSignIn();
+      return;
+    }
     const week = e.target.closest('[data-week]');
     if (week) { openAddToWeek(parseDate(week.dataset.week)); return; }
     const row = e.target.closest('.m-row');

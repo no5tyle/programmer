@@ -264,13 +264,17 @@ function setSaveState(kind) {
 }
 
 function save() {
+  // No program open (the last was deleted, or there are none yet): there's nothing to save
+  if (!library.current) { setSaveState('saved'); renderDirectory(); return; }
   // A group library's program whose term has ended is kept as it was: a change is put back, not saved
   if (typeof libraryReadOnly === 'function' && libraryReadOnly()) {
     const kept = readJSON(programKey(library.current));
     if (kept && JSON.stringify(kept) !== JSON.stringify(state)) {
       state = normalise(kept);
       renderAll();
-      toast("This term has ended, so its program is kept as it was. You can still print or export it.");
+      toast(libraryReadOnly() === 'group'
+        ? "This program of your own is kept as it was: your group's plan covers your programs in its library. Move it into one of your units there to carry on."
+        : "This term has ended, so its program is kept as it was. You can still print or export it.");
     }
     setSaveState('saved');
     return;
@@ -317,6 +321,9 @@ function load() {
     if (raw) return normalise(raw);
     const other = library.items.find((x) => readJSON(programKey(x.id)));
     if (other) { library.current = other.id; return normalise(readJSON(programKey(other.id))); }
+    // Been here before, and none left: none is open, and the page offers to start one
+    library.current = null;
+    return freshState();
   }
   library = { current: uid(), items: [] };
   const old = readJSON(STORE_KEY);
@@ -390,7 +397,7 @@ async function deleteProgram(id) {
     if (signedIn()) { await ensureCurrent(); toast('Program deleted.'); return; }
     const next = [...library.items].sort((a, b) => b.updated - a.updated)[0];
     if (next) { library.current = next.id; state = normalise(readJSON(programKey(next.id))); }
-    else { library.current = uid(); freshState(); }
+    else { library.current = null; freshState(); }   // none: the page offers to start one
     undoStack = []; $('#btnUndo').disabled = true;
   }
   save(); renderAll();
@@ -496,13 +503,23 @@ function renderDirectory() {
     inLibraries.get(x.owner).push(x);
   }
   const groups = new Map();
-  for (const x of shown.filter((x) => !x.owner)) {
+  // An Individual plan: their own units, with term tabs, like a group's; then any of their own in no unit's term
+  const mode = account && typeof ownMode === 'function' ? ownMode() : 'one';
+  const ownTabs = mode === 'units';
+  for (const x of shown.filter((x) => !x.owner && !ownTabs)) {
     const key = SECTIONS[x.section] ? x.section : `other:${(x.sectionName || '').trim().toLowerCase()}`;
     if (!groups.has(key)) groups.set(key, { name: SECTIONS[x.section]?.name || (x.sectionName || '').trim() || 'Other', color: SECTIONS[x.section]?.color, items: [] });
     groups.get(key).items.push(x);
   }
   const order = (k) => { const i = Object.keys(SECTIONS).indexOf(k); return i < 0 ? 99 : i; };
   const keys = [...groups.keys()].sort((a, b) => order(a) - order(b) || groups.get(a).name.localeCompare(groups.get(b).name));
+  if (ownTabs) {
+    groups.set('me', { name: 'Your units', own: true, group: { id: 'me', name: 'Your units', plan: true }, items: shown.filter((x) => !x.owner) });
+    keys.unshift('me');
+  } else if (mode === 'group' && keys.length) {
+    // Covered by a Group plan alone: their own programs are kept, read only
+    for (const k of keys) groups.get(k).name = `${groups.get(k).name} · read only`;
+  }
   // Each group's library: its units (those the person looks after), each with a tab for each of its coming terms
   const libGroups = account && typeof myGroups === 'function' ? myGroups().filter((g) => inLibraries.has(`group:${g.id}`) || myUnitsOf(g.id).length) : [];
   for (const g of libGroups.sort((a, b) => a.name.localeCompare(b.name))) {
@@ -524,7 +541,12 @@ function renderDirectory() {
         <button class="icon-btn" type="button" data-delprog="${esc(x.id)}" title="Delete" aria-label="Delete ${esc(x.name)}"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
       </span>
     </div>`;
-  const head = (g) => `<div class="dir-head${g.library ? ' dir-library' : ''}">${g.library ? '<svg class="dir-lib-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M8 19V5M12 19l3-14 4 1-3 14z"/></svg>' : `<span class="dir-dot"${g.color ? ` style="background:${esc(g.color)}"` : ''}></span>`}${esc(g.name)}<span class="dir-count">${g.items.length}</span></div>`;
+  const head = (g) => {
+    if (g.own) return `<div class="dir-head dir-own">${esc(g.name)}<button type="button" class="btn-link dir-units" data-own-units>Units</button></div>`;
+    const mark = g.library ? '<svg class="dir-lib-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M8 19V5M12 19l3-14 4 1-3 14z"/></svg>'
+      : `<span class="dir-dot"${g.color ? ` style="background:${esc(g.color)}"` : ''}></span>`;
+    return `<div class="dir-head${g.library ? ' dir-library' : ''}">${mark}${esc(g.name)}<span class="dir-count">${g.items.length}</span></div>`;
+  };
   box.innerHTML = keys.map((k) => {
     const g = groups.get(k);
     if (g.group) return `<div class="dir-group">${head(g)}${libraryTermsHTML(g.group, g.items.sort(byTerm), item)}</div>`;
@@ -537,6 +559,40 @@ function renderDirectory() {
     box.insertAdjacentHTML('beforeend', `<div class="dir-signin"><span>Sign in to keep more than one program, and use them on any device.</span>
       <button class="btn btn-outline btn-sm" type="button" data-dir-signin>Sign in</button></div>`);
   }
+}
+
+/** What's shown when no program is open: by the person's plan, how to start one. */
+function emptyStateHTML() {
+  const account = typeof signedIn === 'function' && accountsOn() && signedIn();
+  const mode = account && typeof ownMode === 'function' ? ownMode() : 'one';
+  const group = account && typeof myGroups === 'function' ? myGroups().find((g) => g.plan && myUnitsOf(g.id).length) : null;
+  const icon = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>';
+  if (mode === 'group') {
+    return `${icon}<h2>Your programs are in ${esc(group?.name || "your group")}'s library</h2>
+      <p>Each of your units there has a program ready for every term. Choose a term on the left to open or start it.</p>`;
+  }
+  if (mode === 'units') {
+    const has = typeof unitsOf === 'function' && unitsOf('me').length;
+    return `${icon}<h2>${has ? 'Choose a term to start' : 'Add your units'}</h2>
+      <p>${has ? 'Each of your units has a program ready for every term: choose one on the left to start it, with its dates and meeting nights filled in.' : 'Add the sections you run, such as your Cubs and your Scouts. Each then has a program ready for every term.'}</p>
+      <div class="empty-actions"><button class="btn btn-primary" type="button" data-empty="units">${has ? 'Your units' : 'Add a unit'}</button>
+      <button class="btn btn-outline" type="button" data-empty="open">Open a file</button></div>`;
+  }
+  return `${icon}<h2>No program yet</h2>
+    <p>Start a term's program: a few questions, and every meeting night of the term is filled in for you.</p>
+    <div class="empty-actions"><button class="btn btn-primary" type="button" data-empty="start">Start a program</button>
+    <button class="btn btn-outline" type="button" data-empty="open">Open a file</button></div>
+    ${accountsOn() && !account ? '<p class="hint">Or <button class="btn-link" type="button" data-empty="signin">sign in</button> to open the programs in your account.</p>' : ''}`;
+}
+
+/** Starts a program from nothing: a fresh one, and the few set-up questions (js/welcome.js). */
+async function startFirstProgram() {
+  if (accountsOn() && !(await newProgramGate())) return;
+  library.current = uid();
+  state = freshState();
+  undoStack = []; $('#btnUndo').disabled = true;
+  save(); renderAll();
+  if (typeof openWelcome === 'function') openWelcome();
 }
 
 /** A copy of the open program, to change without touching this one. */
@@ -1808,7 +1864,20 @@ function renderAll() {
   const note = $('#readOnlyNote');
   if (note) {
     note.hidden = !readOnly;
-    if (readOnly) note.textContent = `Term ${state.term.term} ${state.term.year} has ended, so this program is kept as it was. You can still print it, save a PDF or export it.`;
+    if (readOnly === 'group') note.textContent = "Your group's Group plan covers your programs in its library, so this one of your own is kept as it was. Move it into one of your units there (Group library, in your account menu) to carry on with it.";
+    else if (readOnly) note.textContent = `Term ${state.term.term} ${state.term.year} has ended, so this program is kept as it was. You can still print it, save a PDF or export it.`;
+  }
+  // No program open: a way to start one, in place of the program
+  const none = !library.current;
+  document.body.classList.toggle('no-program', none);
+  const empty = $('#emptyState');
+  if (empty) { empty.hidden = !none; if (none) empty.innerHTML = emptyStateHTML(); }
+  const dirNew = $('#btnDirNew');
+  if (dirNew) {
+    const mode = typeof ownMode === 'function' && signedIn() ? ownMode() : 'one';
+    dirNew.hidden = mode === 'group';
+    dirNew.lastChild.textContent = mode === 'units' ? ' Units' : ' New';
+    dirNew.title = mode === 'units' ? 'Your units: add the sections you run, each with a program a term' : dirNew.dataset.title || dirNew.title;
   }
   renderDirectory();
   sortRows();
@@ -2836,6 +2905,8 @@ function importJson() {
 }
 
 async function newProgram() {
+  if (signedIn() && typeof ownMode === 'function' && ownMode() === 'units') { openUnitsBox(); return; }
+  if (!library.current) { startFirstProgram(); return; }
   // Signed in to a group with the Group plan, it can be kept in one of the group's units, with the group's styling
   // A group's programs are started from its units' term tabs, one a term; New program is the person's own
   const places = [];
@@ -3153,12 +3224,22 @@ function bindEvents() {
   $('#btnSettings').onclick = () => setSettingsOpen(!settingsOpen());
   $('#btnSettingsClose').onclick = () => { setSettingsOpen(false); $('#btnSettings').focus(); };
   $('#btnDirNew').onclick = () => newProgram();
+  $('#btnDirNew').dataset.title = $('#btnDirNew').title;
+  $('#emptyState').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-empty]');
+    if (!b) return;
+    if (b.dataset.empty === 'start') startFirstProgram();
+    if (b.dataset.empty === 'units') openUnitsBox();
+    if (b.dataset.empty === 'open') importJson();
+    if (b.dataset.empty === 'signin') openSignIn();
+  });
   $('#btnDirToggle').onclick = () => setDirectoryOpen(!directoryOpen());
   $('#btnDirDup').onclick = () => duplicateProgram();
   $('#dirList').onclick = (e) => {
     if (e.target.closest('[data-dir-signin]')) { openSignIn(); return; }
     const term = e.target.closest('[data-term]');
     if (term) { startTermProgram(term.dataset.term); return; }
+    if (e.target.closest('[data-own-units]')) { openUnitsBox(); return; }
     const more = e.target.closest('[data-terms-more]');
     if (more) { const [gid, unit] = more.dataset.termsMore.split('|'); openTermsMenu(more, gid, unit); return; }
     const del = e.target.closest('[data-delprog]');

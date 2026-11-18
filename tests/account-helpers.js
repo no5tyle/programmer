@@ -38,6 +38,8 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
     // Groups the person is in ({ id, name, role, plan }), and each one's library: { units, styling }, set on the group site
     groups, libraries: new Map(),
     renewals: [],   // what each renewal of a link asked for
+    // How their own programs work (one, units, group), and their own units with an Individual plan
+    mode: 'one', own: { units: [], region: null },
     live() { return [...this.programs.values()].filter((p) => !p.deletedAt && (p.owner || 'me') === 'me'); },
     called(prefix) { return this.calls.filter((c) => c.startsWith(prefix)); },
   };
@@ -110,7 +112,7 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
       return json(route, 200, {
         user: { id: SESSION.uid, email: SESSION.email, name: server.name, createdAt: '2026-01-01T00:00:00.000Z' },
         premium: { active: server.limit === null, via: server.limit === null ? 'individual' : null, trial: false, until: null },
-        programs: { count: server.live().length, limit: server.limit }, groups: server.groups,
+        programs: { count: server.live().length, limit: server.limit, mode: server.mode }, groups: server.groups,
         ...(server.billing ? { billing: server.billing } : {}),
         roles: server.sysadmin ? ['sysadmin'] : [],
       });
@@ -196,6 +198,13 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
       server.links.set(section, link);
       return json(route, 201, { link: linkJson(link) });
     }
+    if (path === '/me/units') {
+      if (method === 'PUT') {
+        if (server.mode !== 'units') return error(route, 402, 'premium_required');
+        server.own = { units: body.units.map((u, i) => ({ id: u.id || `own${i + 1}`, name: u.name, section: u.section })), region: body.region ?? server.own.region };
+      }
+      return json(route, 200, { mode: server.mode, ...server.own });
+    }
     // A group's library: its units and styling (changed on the group site), and moving programs in and out
     const lib = /^\/groups\/([^/]+)\/library$/.exec(path);
     if (lib) {
@@ -210,6 +219,9 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
       if (!p) return error(route, 404, 'not_found');
       if (body.to === 'me' && full()) return error(route, 403, 'program_limit', { limit: server.limit });
       p.owner = body.to;
+      // The unit it goes into (a group's), or none, out of a library
+      const unit = body.to === 'me' ? null : body.unit;
+      if (unit !== undefined) { p.unit = unit; p.data = { ...p.data }; if (unit) p.data.unit = unit; else delete p.data.unit; }
       return json(route, 200, summary(p));
     }
     const [, id, action] = /^\/programs\/([^/]+)(?:\/(restore))?$/.exec(path) || [];

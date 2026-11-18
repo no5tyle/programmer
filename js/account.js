@@ -581,7 +581,7 @@ async function fetchForOpen(id) {
   }
 }
 
-/** If the open program has gone (deleted elsewhere, or left out at sign-in), open the newest, or start one. */
+/** If the open program has gone (deleted elsewhere, or left out at sign-in), open the newest; with none, none is open. */
 async function ensureCurrent() {
   if (libItem(library.current)) return;
   for (const x of [...library.items].sort((a, b) => b.updated - a.updated)) {
@@ -592,10 +592,11 @@ async function ensureCurrent() {
     save(); renderAll();
     return;
   }
-  library.current = uid();
+  // None at all: none is open, and the page offers to start one (nothing is made until then)
+  library.current = null;
   freshState();
   undoStack = []; $('#btnUndo').disabled = true;
-  save(); renderAll();
+  saveLibrary(); renderAll();
 }
 
 /** Takes the newer copy of the open program, unless there are changes here. */
@@ -672,6 +673,7 @@ function showLimitBox(extra = '') {
  */
 async function newProgramGate() {
   if (!accountsOn()) return 'add';
+  if (signedIn() && ownMode() === 'group') { await groupOnlyBox(); return null; }
   if (signedIn()) {
     if (!atLimit()) return 'add';
     await showLimitBox();
@@ -1289,14 +1291,39 @@ const libraryName = (owner) => `${groupFor(owner)?.name || 'The group'}'s librar
  * can't be changed here (the API puts it on too, so it's the same everywhere).
  */
 let libraries = new Map(Object.entries(stored(LIBRARIES_KEY) || {}));
-const libraryOf = (owner) => { const g = groupFor(owner); return g ? libraries.get(g.id) || null : null; };
+
+/*
+ * The person's own programs, by their plan (/me's programs.mode, and /me/units):
+ *   one    no plan: one program of their own
+ *   units  their own Individual plan: their own units (added here), each with a program a term, as a group's are
+ *   group  only a group's Group plan: they work in its library; their own programs are read only, to move in
+ * Their own units are kept as a library with the key 'me', so the term tabs work the same for both.
+ */
+const OWN_KEY = 'qstored.ownUnits';
+let ownSpace = stored(OWN_KEY) || { mode: 'one', units: [], region: null };
+const ownMode = () => (signedIn() ? me?.programs?.mode || ownSpace.mode || 'one' : 'one');
+async function loadOwnUnits() {
+  const r = await api('GET', '/me/units').catch(() => null);
+  if (!r?.ok) return;
+  ownSpace = r.json;
+  try { localStorage.setItem(OWN_KEY, JSON.stringify(ownSpace)); } catch { /* not needed to carry on */ }
+}
+
+/** A library by its owner: a group's ('group:{id}'), or the person's own units ('me'). */
+const libraryOf = (owner) => {
+  if (!owner || owner === 'me') return ownMode() === 'units' ? { units: ownSpace.units, region: ownSpace.region, styling: null, myUnits: 'all', plan: true } : null;
+  const g = groupFor(owner);
+  return g ? libraries.get(g.id) || null : null;
+};
 /** A group's units, in the Scouts order of their sections, then by name. */
 function unitsOf(gid) {
   const order = Object.keys(SECTIONS);
-  return [...(libraries.get(gid)?.units || [])].sort((a, b) => order.indexOf(a.section) - order.indexOf(b.section) || a.name.localeCompare(b.name));
+  const units = gid === 'me' ? (ownMode() === 'units' ? ownSpace.units : []) : libraries.get(gid)?.units;
+  return [...(units || [])].sort((a, b) => order.indexOf(a.section) - order.indexOf(b.section) || a.name.localeCompare(b.name));
 }
 
 async function loadLibraries() {
+  await loadOwnUnits();
   const groups = myGroups();
   const got = await Promise.all(groups.map((g) => api('GET', `/groups/${g.id}/library`).catch(() => null)));
   groups.forEach((g, i) => { if (got[i]?.ok) libraries.set(g.id, got[i].json); });
@@ -1327,13 +1354,13 @@ function libraryBranding(s, owner) {
  */
 function applyLibrary(s = state, owner = libItem(library.current)?.owner, rerender = true) {
   if (!s) return false;
-  const set = owner ? libraryBranding(s, owner) : {};
+  const set = owner ? libraryBranding(s, owner) : s.unit ? libraryBranding(s, 'me') : {};
   let changed = false;
   for (const [k, v] of Object.entries(set)) {
     if (JSON.stringify(s.branding[k]) !== JSON.stringify(v)) { s.branding[k] = v; changed = true; }
   }
   if (s === state) {
-    lockStyling(owner ? Object.keys(set) : []);
+    lockStyling(Object.keys(set));
     if (changed && rerender) renderAll();
   }
   return changed;
@@ -1359,7 +1386,7 @@ function lockStyling(keys) {
 
 /** The units of a group whose programs this person looks after: all of them, or the ones they're given. */
 function myUnitsOf(gid) {
-  const mine = libraries.get(gid)?.myUnits ?? 'all';
+  const mine = gid === 'me' ? 'all' : libraries.get(gid)?.myUnits ?? 'all';
   return unitsOf(gid).filter((u) => mine === 'all' || mine.includes(u.id));
 }
 
@@ -1385,19 +1412,18 @@ function splitPlace(v) {
 async function moveProgram(id, to, unit = null) {
   const item = libItem(id);
   if (!item) return false;
-  // The unit goes with it, saved first, so it's listed under its unit straight away
-  if (to !== 'me' && id === library.current) { state.unit = unit; save(); }
   if (item.dirty || item.version == null) await runSync();
-  const r = await tryApi('POST', `/programs/${id}/move`, { body: { to } });
+  // Into a group's unit: the unit goes with the move
+  const r = await tryApi('POST', `/programs/${id}/move`, { body: to === 'me' ? { to } : { to, unit } });
   if (!r) return false;
   if (errorCode(r) === 'program_limit') { showLimitBox(); return false; }
   if (!r.ok) { toast(errorText(r), 'error'); return false; }
   const now = libItem(id);
-  if (now) { setOwner(now, r.json.owner); now.version = r.json.version; now.unit = r.json.unit ?? unit; saveLibrary(); }
-  if (id === library.current) {
-    if (to === 'me') { delete state.unit; save(); }
-    applyLibrary();
-  }
+  if (now) { setOwner(now, r.json.owner); now.version = r.json.version; now.unit = r.json.unit ?? null; saveLibrary(); }
+  // The account's copy has the unit (or none): take it, so this device matches
+  const got = await tryApi('GET', `/programs/${id}`);
+  if (got?.ok) storeRemote(got.json);
+  if (id === library.current) applyLibrary();
   renderDirectory(); refreshSaveState();
   await loadMe();
   return true;
@@ -1457,7 +1483,7 @@ function todayISO() {
 }
 
 /** The state a group's terms follow: the group's, else the open program's, else South Australia. */
-const regionOf = (gid) => libraries.get(gid)?.region || state?.term?.region || 'SA';
+const regionOf = (gid) => (gid === 'me' ? ownSpace.region : libraries.get(gid)?.region) || state?.term?.region || 'SA';
 
 /**
  * Every term the builder knows for a state, in order: { year, term, start, end }. Past the years it knows the
@@ -1488,12 +1514,14 @@ function termTabs(region) {
 /** The open program, if it's a group library's and its term has ended: kept as it was. */
 function libraryReadOnly() {
   const item = typeof libItem === 'function' ? libItem(library.current) : null;
-  return !!item?.owner && termOver(state?.term);
+  if (!item) return false;
+  if (!item.owner && signedIn() && ownMode() === 'group') return 'group';   // their own, while a Group plan covers them
+  return (item.owner || state?.unit) && termOver(state?.term) ? 'past' : false;
 }
 
 /** A unit's program for a term, from the programs list. */
 const programFor = (owner, unit, year, term) =>
-  library.items.find((x) => x.owner === owner && x.unit === unit && +x.year === year && +x.term === term && !x.hold);
+  library.items.find((x) => (x.owner || 'me') === owner && x.unit === unit && +x.year === year && +x.term === term && !x.hold);
 
 /**
  * The programs list's part for a group's library: each of the person's units, with a tab for each of its next four
@@ -1501,7 +1529,7 @@ const programFor = (owner, unit, year, term) =>
  * term) are listed after, as before.
  */
 function libraryTermsHTML(g, items, itemHTML) {
-  const owner = `group:${g.id}`;
+  const owner = g.id === 'me' ? 'me' : `group:${g.id}`;
   const units = myUnitsOf(g.id);
   const { shown } = termTabs(regionOf(g.id));
   const label = (t) => `T${t.term} ${String(t.year).slice(2)}`;
@@ -1527,11 +1555,11 @@ function libraryTermsHTML(g, items, itemHTML) {
 
 /** More, for a unit: its earlier terms' programs (kept as they were) and the terms after the four shown. */
 function openTermsMenu(anchor, gid, unitId) {
-  const owner = `group:${gid}`;
+  const owner = gid === 'me' ? 'me' : `group:${gid}`;
   const u = unitsOf(gid).find((x) => x.id === unitId);
   if (!u) return;
   const { past, later } = termTabs(regionOf(gid));
-  const plan = !!groupFor(owner)?.plan;
+  const plan = owner === 'me' || !!groupFor(owner)?.plan;
   const row = (t, pastTerm) => {
     const p = programFor(owner, unitId, t.year, t.term);
     if (p) return `<button class="prog-open" data-open="${esc(p.id)}"><b>Term ${t.term} ${t.year}</b><span>${pastTerm ? 'Ended: read only' : 'Started'}</span></button>`;
@@ -1556,13 +1584,13 @@ function openTermsMenu(anchor, gid, unitId) {
 async function startTermProgram(key) {
   const [owner, unitId, y, t] = key.split('|');
   const year = +y, term = +t;
-  const gid = owner.slice('group:'.length);
+  const gid = owner === 'me' ? 'me' : owner.slice('group:'.length);
   const unit = unitsOf(gid).find((u) => u.id === unitId);
   if (!unit) return;
   const existing = programFor(owner, unitId, year, term);
   if (existing) { openProgram(existing.id); return; }
   // The unit's latest program to carry on from: the one before this term, or any of its others
-  const mine = library.items.filter((x) => x.owner === owner && x.unit === unitId && x.year && x.term)
+  const mine = library.items.filter((x) => (x.owner || 'me') === owner && x.unit === unitId && x.year && x.term)
     .sort((a, b) => (b.year * 10 + b.term) - (a.year * 10 + a.term));
   const before = mine.find((x) => x.year * 10 + x.term < year * 10 + term) || mine[0];
   let base = null;
@@ -1583,10 +1611,83 @@ async function startTermProgram(key) {
   state = prev;
   addProgram(c);
   const item = libItem(library.current);
-  if (item) { item.owner = owner; item.unit = unitId; item.year = year; item.term = term; }
+  if (item) { if (owner !== 'me') item.owner = owner; item.unit = unitId; item.year = year; item.term = term; }
   save();
   applyLibrary();
   toast(c.rows.length ? `${unit.name}'s Term ${term} ${year} program is ready to fill in.` : 'Enter the term dates, then use Generate meeting dates.');
+}
+
+/* ---------------------------------------------------------------- the person's own units (an Individual plan) */
+
+const STATES = [['SA', 'South Australia'], ['NSW', 'New South Wales'], ['VIC', 'Victoria'], ['QLD', 'Queensland'],
+  ['WA', 'Western Australia'], ['TAS', 'Tasmania'], ['ACT', 'Australian Capital Territory'], ['NT', 'Northern Territory']];
+const UNIT_SECTIONS = ['joeys', 'cubs', 'scouts', 'venturers', 'rovers'];
+
+/**
+ * Your units: the sections you run (your Cubs, your Scouts), each with a program a term. Add one, rename or remove
+ * them, and choose the state whose school terms they follow. A unit removed keeps its programs, with no unit.
+ */
+async function openUnitsBox() {
+  if (ownMode() !== 'units') { premiumBox('Units of your own', 'With an Individual plan, add the sections you run as units, and each has a program ready for every term.'); return; }
+  let units = ownSpace.units.map((u) => ({ ...u }));
+  const rows = () => units.map((u, i) => `
+    <div class="unit-line" data-i="${i}">
+      <input type="text" data-name value="${esc(u.name)}" maxlength="60" placeholder="e.g. Banksia Cubs" aria-label="Unit name">
+      <select data-section aria-label="Section">${UNIT_SECTIONS.map((s) => `<option value="${s}"${s === u.section ? ' selected' : ''}>${esc(SECTIONS[s].name)}</option>`).join('')}</select>
+      <button type="button" class="icon-btn" data-remove-unit aria-label="Remove ${esc(u.name || 'this unit')}" title="Remove"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
+    </div>`).join('') || '<p class="hint">No units yet.</p>';
+  const read = () => {
+    $$('.modal .unit-line').forEach((row) => {
+      const u = units[+row.dataset.i];
+      u.name = $('[data-name]', row).value.trim();
+      u.section = $('[data-section]', row).value;
+    });
+  };
+  const choice = await new Promise((resolve) => {
+    modal({
+      title: 'Your units',
+      body: `<p>The sections you run, such as your Cubs and your Scouts. Each has a program ready for every term, in the list on the left; the unit's name is its programs' section name.</p>
+        <label class="field"><span>State, for the school terms</span><select id="unitsState"><option value="">Choose…</option>${STATES.map(([v, n]) => `<option value="${v}"${(ownSpace.region || state.term.region) === v ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
+        <div id="unitLines">${rows()}</div>
+        <button type="button" class="btn btn-outline btn-sm" id="btnAddUnit">Add a unit</button>
+        <p class="hint">Removing a unit keeps its programs, with no unit.</p>`,
+      buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' }, { label: 'Save', value: 'save', cls: 'btn-primary' }],
+    }).then((v) => { box.removeEventListener('click', onClick); resolve(v); });
+    const box = $('#modal .modal');
+    const onClick = (e) => {
+      if (e.target.closest('#btnAddUnit')) {
+        read();
+        units.push({ name: '', section: state.branding.section in SECTIONS && UNIT_SECTIONS.includes(state.branding.section) ? state.branding.section : 'cubs' });
+        $('#unitLines').innerHTML = rows();
+        $$('.modal [data-name]').at(-1)?.focus();
+      }
+      const remove = e.target.closest('[data-remove-unit]');
+      if (remove) { read(); units.splice(+remove.closest('.unit-line').dataset.i, 1); $('#unitLines').innerHTML = rows(); }
+    };
+    box.addEventListener('click', onClick);
+  });
+  if (choice !== 'save') return;
+  read();
+  units = units.filter((u) => u.name);
+  const region = $('#unitsState')?.value || null;
+  const r = await tryApi('PUT', '/me/units', { body: { units, region } });
+  if (!r) return;
+  if (!r.ok) { toast(errorText(r), 'error'); return; }
+  ownSpace = r.json;
+  try { localStorage.setItem(OWN_KEY, JSON.stringify(ownSpace)); } catch { /* not needed to carry on */ }
+  renderDirectory();
+  toast('Your units are saved. Each has a program ready for every term, on the left.');
+}
+
+/** Why there's no new program of their own to start, when a Group plan alone covers them. */
+function groupOnlyBox() {
+  const g = myGroups().find((x) => x.plan);
+  return modal({
+    title: "Your programs are in your group's library",
+    body: `<p>${esc(g?.name || 'Your group')}'s Group plan covers your programs: they're in its library, under your units there, with a program ready for every term on the left.</p>
+      <p class="hint">Programs of your own are kept as they were, to open, print or export. Move one into one of your units in the group to carry on with it.</p>`,
+    buttons: [{ label: 'OK', value: null, cls: 'btn-primary' }],
+  });
 }
 
 /** As the page closes: send the open program's last changes without waiting for the timer. */

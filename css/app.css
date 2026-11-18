@@ -923,3 +923,18 @@ body.read-only #btnAddRow, body.read-only #btnAddWeek, body.read-only #btnUndo, 
 /* The programs menu (a phone's): each group's units and their term tabs, after the person's own programs */
 .pop-library { border-top: 0.5px solid var(--line, rgba(60,60,67,.2)); margin-top: 8px; padding-top: 4px; }
 .pop-library .term-tabs { padding-left: 8px; }
+
+/* No program open: what to do, in place of the program */
+.empty-state { max-width: 460px; margin: 12vh auto 0; padding: 0 24px; text-align: center; }
+.empty-state > svg { width: 48px; height: 48px; fill: none; stroke: var(--muted); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.empty-state h2 { margin: 12px 0 6px; font-size: 22px; }
+.empty-state p { margin: 0 0 18px; color: var(--muted); }
+.empty-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.empty-state .hint { margin-top: 14px; font-size: 14px; }
+.btn-link { border: 0; background: none; padding: 0; color: var(--tint, #0071e3); font: inherit; cursor: pointer; }
+body.no-program .ws-toolbar, body.no-program .ws-body, body.no-program #btnPublish, body.no-program #btnHistory,
+body.no-program #btnSave, body.no-program #btnExport, body.no-program #btnUndo { display: none !important; }
+.m-empty { margin-top: 8vh; }
+/* The person's own units, above the rest of the list */
+.dir-own { justify-content: space-between; }
+.dir-units { font-size: 12px; font-weight: 600; text-transform: none; letter-spacing: 0; }

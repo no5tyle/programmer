@@ -521,16 +521,17 @@ test.describe('signed in', () => {
     await expect(page.locator('.help-support a[href="mailto:help@example.com"]')).toBeVisible();
   });
 
-  test('Sign out clears this device and starts again with one program', async ({ page }) => {
+  test('Sign out clears this device, leaving none open and a way to start one', async ({ page }) => {
     await open(page);
     await page.click('#btnAccount');
     await page.click('#pSignOut');
     await expect(page.locator('#btnAccount')).toHaveText('Sign in');
     await page.waitForFunction(() => typeof state === 'object' && typeof library === 'object');
-    expect(await page.evaluate(() => [library.items.length, state.branding.groupName, localStorage.getItem('qstored.session'),
-      localStorage.getItem('scoutProgramBuilder.program.prog1111')])).toEqual([1, '', null, null]);
+    expect(await page.evaluate(() => [library.items.length, library.current, localStorage.getItem('qstored.session'),
+      localStorage.getItem('scoutProgramBuilder.program.prog1111')])).toEqual([0, null, null, null]);
     await expect(page.locator('.wizard, .welcome')).toHaveCount(0);
-    await expect(saveState(page)).toHaveText('Saved on this device');
+    await expect(page.locator('#emptyState h2')).toHaveText('No program yet');
+    await expect(page.locator('#emptyState [data-empty="signin"]')).toBeVisible();
   });
 
   test('Sign out warns about a program that is not in the account yet', async ({ page }) => {
