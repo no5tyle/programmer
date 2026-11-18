@@ -25,7 +25,9 @@ function others() {
     ...EXAMPLE, branding: { ...EXAMPLE.branding, section, sectionName, color }, term: { ...EXAMPLE.term, year, term },
   }, { name: `${sectionName} Program – Term ${term} ${year}`, section, year, term });
   const library = (p, unit) => ({ ...p, owner: 'group:g1', unit, data: { ...p.data, unit } });
-  return [make('joey1111', 'joeys', 'Joeys', '#A05A2C', 2027, 1), make('cubs2026', 'cubs', 'Cubs', '#FFC82E', 2026, 4),
+  // Their own units (an Individual plan): each with a program a term
+  const own = (p, unit) => ({ ...p, unit, data: { ...p.data, unit } });
+  return [own(make('joey1111', 'joeys', 'Joeys', '#A05A2C', 2027, 1), 'myjoeys'), own(make('cubs2026', 'cubs', 'Cubs', '#FFC82E', 2026, 4), 'mycubs'),
     // The group's library: kept by the group under its units, open to every leader in it
     library(make('scout111', 'scouts', 'Scouts', '#00AE42', 2027, 1), 'kingfisher'),
     library(make('scout112', 'scouts', 'Scouts', '#00AE42', 2026, 4), 'kingfisher'),
@@ -70,7 +72,9 @@ async function fonts(page) {
     // Signed in, with Premium: the example and a few more programs
     const ctx = await browser.newContext(options);
     const page = await ctx.newPage();
-    const server2 = await mockAccount(page, { signedIn: true, limit: null, groups: [GROUP], programs: [program('prog1111', EXAMPLE, { version: 3 }), ...others()] });
+    const server2 = await mockAccount(page, { signedIn: true, limit: null, groups: [GROUP], programs: [program('prog1111', { ...EXAMPLE, unit: 'mycubs' }, { version: 3, unit: 'mycubs' }), ...others()] });
+    server2.mode = 'units';
+    server2.own = { units: [{ id: 'myjoeys', name: 'Joeys', section: 'joeys' }, { id: 'mycubs', name: 'Cubs', section: 'cubs' }], region: 'SA' };
     // The Cubs' live link is on, with this program published
     server2.links.set('cubs', { slug: 'Xk3pQ9vL2mTa7Rw4Yh8sZc1N', showPhones: false, pinned: null });
     server2.libraries.set('g1', LIBRARY);

@@ -645,21 +645,22 @@ function atLimit() {
 }
 
 function showLimitBox(extra = '') {
-  const limit = me?.programs?.limit ?? 3;
+  const limit = me?.programs?.limit ?? 1;
+  const n = limit === 1 ? 'one program' : `${limit} programs`;
   // Once paid plans can be bought (the API has Stripe), Premium is offered beside deleting one
   const billing = me?.billing;
   const canBuy = !!billing?.available;
   const premium = canBuy
-    ? `<p>Or get <strong>Premium</strong>, for as many programs as you like: A$4 a month or A$36 a year${billing.trialAvailable ? ', with a 14-day free trial' : ''}. It works in every qStored app.</p>`
-    : '<p class="hint">Premium, with as many programs as you like, is on its way.</p>';
+    ? `<p>Or get <strong>Premium</strong>: add the sections you run as your units, each with a program ready for every term. A$4 a month or A$36 a year${billing.trialAvailable ? ', with a 14-day free trial' : ''}. It works in every qStored app.</p>`
+    : '<p class="hint">Premium, with a program every term for each section you run, is on its way.</p>';
   return modal({
-    title: `A free account keeps ${limit} programs`,
-    body: `${extra}<p>Your account has ${limit} programs already. To keep another, delete one you no longer need. Deleted programs can be brought back for 30 days, under <strong>Data</strong> in your qStored account.</p>
+    title: `A free account keeps ${n}`,
+    body: `${extra}<p>Your account has ${n} already. To start another, delete the one you have. Deleted programs can be brought back for 30 days, under <strong>Data</strong> in your qStored account.</p>
       ${premium}`,
     buttons: canBuy
-      ? [{ label: 'Not now', value: null, cls: 'btn-text' }, { label: 'Delete an old program', value: 'delete', cls: 'btn-outline' },
+      ? [{ label: 'Not now', value: null, cls: 'btn-text' }, { label: 'Delete it', value: 'delete', cls: 'btn-outline' },
         { label: billing.trialAvailable ? 'Try Premium free' : 'Get Premium', value: 'premium', cls: 'btn-primary' }]
-      : [{ label: 'Not now', value: null, cls: 'btn-text' }, { label: 'Delete an old program', value: 'delete', cls: 'btn-primary' }],
+      : [{ label: 'Not now', value: null, cls: 'btn-text' }, { label: 'Delete it', value: 'delete', cls: 'btn-primary' }],
   }).then((choice) => {
     if (choice === 'delete') showDirectoryToDelete();
     // Billing, in the account site in a new tab; coming back here picks the new limit up (see start)
@@ -682,7 +683,7 @@ async function newProgramGate() {
   for (;;) {
     const choice = await modal({
       title: 'Sign in to keep more than one',
-      body: `<p>Without an account, the builder keeps one program on this device. <strong>Sign in</strong> (it's free) to keep up to 3, and use them on any device.</p>
+      body: `<p>Without an account, the builder keeps one program on this device. <strong>Sign in</strong> (it's free) to keep it in your account, and use it on any device.</p>
         <p>Or replace the program on this device. Use <strong>Save file</strong> first to keep a copy of it.</p>`,
       buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' }, { label: 'Save file', value: 'file', cls: 'btn-outline' },
         { label: 'Replace it', value: 'replace', cls: 'btn-outline' }, { label: 'Sign in', value: 'signin', cls: 'btn-primary' }],

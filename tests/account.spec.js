@@ -396,7 +396,7 @@ test.describe('signed in', () => {
     await page.click('#btnImport');
     await page.setInputFiles('#fileJson', exampleFile);
     await expect(page.locator('.modal h2')).toHaveText('A free account keeps 3 programs');
-    await page.click('.modal button:has-text("Delete an old program")');
+    await page.click('.modal button:has-text("Delete it")');
     // It points at the list on the left, ready to delete one
     await expect(page.locator('.toast', { hasText: 'Delete one with the bin' })).toBeVisible();
     await expect(page.locator('#directory [data-delprog]').first()).toBeFocused();

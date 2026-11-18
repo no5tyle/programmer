@@ -2843,7 +2843,7 @@ async function openHelp() {
       ? ['How do I use it on another computer or phone?', '<b>Sign in</b> on both, with the same email address. Your programs save to your account, so they\'re there on any device you sign in on. There\'s no password: we email you a link.']
       : ['How do I use it on another computer or phone?', 'Your programs are saved in this browser only. Save a file here (<b>Save file</b>), then use <b>Open</b> on the other one.'],
     ...(accountsOn() ? [
-      ['Where are my programs saved?', 'Signed in, they\'re saved to your account as you work, and the message by <b>Undo</b> says so. A free account keeps 3. Without signing in, one program is kept on this device. With no connection, changes are kept on the device and sent when you\'re back online.'],
+      ['Where are my programs saved?', 'Signed in, they\'re saved to your account as you work, and the message by <b>Undo</b> says so. A free account keeps one; an Individual plan keeps a program a term for each of your units. Without signing in, one program is kept on this device. With no connection, changes are kept on the device and sent when you\'re back online.'],
       ['What if I change a program on two devices?', 'Nothing is lost. If both were changed, you\'re shown the two versions and choose which to keep, or keep both.'],
     ] : []),
     ['I made a mistake', '<b>Undo</b> (at the top; in the menu on a phone) takes back the last change, and the one before that.'],
