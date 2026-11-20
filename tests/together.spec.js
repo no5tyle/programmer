@@ -59,55 +59,112 @@ test.describe('changes in two places', () => {
   });
 });
 
+// Live: a group library's program (a Group plan feature)
+const GROUP = { id: 'g1', name: '1st Example', role: 'leader', gearRole: 'leader', plan: true };
+async function openLibrary(page) {
+  const data = { ...EXAMPLE, unit: 'banksia' };
+  const server = await mockAccount(page, { signedIn: true, groups: [GROUP], programs: [program('prog1111', data, { version: 3, owner: 'group:g1', unit: 'banksia' })] });
+  server.libraries.set('g1', { units: [{ id: 'banksia', name: 'Banksia Cubs', section: 'cubs' }], styling: null, region: 'SA', myUnits: 'all' });
+  errors = await openAccountApp(page, SIGN_IN_LINK);
+  await expect.poll(() => page.evaluate(() => !!libItem('prog1111'))).toBe(true);
+  await page.evaluate(() => openProgram('prog1111'));
+  await expect.poll(() => page.evaluate(() => library.current)).toBe('prog1111');
+  await expect(saveState(page)).toHaveText('Saved to your account');
+  await expect.poll(() => server.called('POST /programs/prog1111/live').length).toBeGreaterThan(0);
+  return { server, p: server.programs.get('prog1111') };
+}
+/** The next look, without waiting for it. */
+const lookNow = (page) => page.evaluate(() => liveLook());
+
 test.describe('live', () => {
-  test("another leader's save shows up here, without a word from anyone", async ({ page }) => {
-    const { server } = await open(page);
+  test("another leader's save shows up here at the next look", async ({ page }) => {
+    const { server } = await openLibrary(page);
     server.otherSaves('prog1111', (d) => { d.rows[1].activity = 'Baloo was here'; });
+    await lookNow(page);
     await expect.poll(() => activities(page).then((a) => a[1])).toBe('Baloo was here');
     await expect(page.locator('.toast').last()).toContainText('Updated with the changes from Baloo');
-    expect(server.called('PUT')).toEqual([]);   // nothing of mine to send
-    await expect(saveState(page)).toHaveText('Saved to your account');
+    await page.waitForTimeout(600);
+    expect(server.programs.get('prog1111').data.rows[1].activity).toBe('Baloo was here');   // still theirs in the account
   });
 
   test('with a change of mine on the way, both are kept, and Undo undoes only mine', async ({ page }) => {
-    const { server, p } = await open(page);
+    const { server, p } = await openLibrary(page);
     server.offline = true;
     await page.evaluate(() => pushHistory());   // as a change made by hand is
     await edit(page, 'Mine');
     server.offline = false;
     server.otherSaves('prog1111', (d) => { d.rows[1].activity = 'Theirs'; });
+    await lookNow(page);
     await expect.poll(() => [p.data.rows[0].activity, p.data.rows[1].activity]).toEqual(['Mine', 'Theirs']);
     await page.evaluate(() => undo());
     expect((await activities(page)).slice(0, 2)).toEqual([EXAMPLE.rows[0].activity, 'Theirs']);
   });
 
   test('while typing, their change waits until the typing stops', async ({ page }) => {
-    const { server } = await open(page);
+    const { server } = await openLibrary(page);
     const row = await page.evaluate(() => state.rows.find((r) => !r.noMeeting && document.querySelector(`#sheet tr[data-id="${r.id}"] td.c-description .ed`)).id);
     await page.click(`#sheet tr[data-id="${row}"] td.c-description .ed`);
     server.otherSaves('prog1111', (d) => { d.rows.at(-1).activity = 'Waited'; });
-    await page.waitForTimeout(800);
+    await lookNow(page);
+    await page.waitForTimeout(500);
     expect((await activities(page)).at(-1)).not.toBe('Waited');
     await page.evaluate(() => document.activeElement.blur());
     await expect.poll(() => activities(page).then((a) => a.at(-1))).toBe('Waited');
   });
 
-  test("who else is here, and the cell they're in; and this tab says where it is", async ({ page }) => {
-    const { server } = await open(page);
+  test("who else is here, and the cell they're in; and a move to a cell is said straight away", async ({ page }) => {
+    const { server } = await openLibrary(page);
     const row = await page.evaluate(() => state.rows.find((r) => document.querySelector(`#sheet tr[data-id="${r.id}"] td.c-activity .ed`)).id);
     server.otherHere('prog1111', { id: 'u2', name: 'Baloo', tab: 'baloosTab1' }, `${row}:activity`);
+    await lookNow(page);
     await expect(page.locator('#livePeople .live-avatar')).toHaveText(['B']);
     await expect(page.locator('#livePeople .live-avatar')).toHaveAttribute('title', 'Baloo: has this program open');
     const cell = page.locator(`#sheet tr[data-id="${row}"] td.c-activity`);
     await expect(cell).toHaveClass(/live-cell/);
     await expect(cell).toHaveAttribute('data-who', 'Baloo');
-    // Into the same cell: told, once
+    // Into the same cell: told, once; and said at once
+    const looks = server.called('POST /programs/prog1111/live').length;
     await cell.locator('.ed').click();
     await expect(page.locator('.toast').last()).toContainText('Baloo has this cell open too');
-    await expect.poll(() => server.called('POST /programs/prog1111/here').length).toBeGreaterThan(1);
+    await expect.poll(() => server.called('POST /programs/prog1111/live').length).toBeGreaterThan(looks);
     // Baloo closes it
     server.otherLeaves('prog1111');
+    await lookNow(page);
     await expect(page.locator('#livePeople')).toBeHidden();
     await expect(cell).not.toHaveClass(/live-cell/);
+  });
+
+  test('looks every 10 seconds with someone else here, every minute alone, and stops after 10 idle minutes', async ({ page }) => {
+    await page.clock.install();
+    const { server } = await openLibrary(page);
+    const looks = () => server.called('POST /programs/prog1111/live').length;
+    // Time moves on a second at a time, so each look's answer arrives before the next is due
+    const pass = async (seconds) => { for (let s = 0; s < seconds; s++) { await page.clock.runFor(1000); await page.waitForTimeout(5); } };
+    await pass(2);
+    let n = looks();
+    await pass(50);
+    expect(looks()).toBe(n);   // alone: not yet
+    await pass(10);
+    expect(looks()).toBe(n + 1);
+    server.otherHere('prog1111');
+    await pass(60);   // the next look finds Baloo; from then on, every 10 seconds
+    n = looks();
+    await pass(31);
+    expect(looks()).toBe(n + 3);
+    // Ten minutes with no typing or clicking: it stops, saying it's closed
+    await pass(10 * 60);
+    expect(server.calls.some((c) => c.startsWith('DELETE /programs/prog1111/live'))).toBe(true);
+    n = looks();
+    await pass(120);
+    expect(looks()).toBe(n);
+    // Used again: straight back
+    await page.mouse.click(5, 300);
+    await expect.poll(looks).toBe(n + 1);
+  });
+
+  test("a program of one's own isn't watched at all", async ({ page }) => {
+    const { server } = await open(page);
+    await page.waitForTimeout(800);
+    expect(server.called('POST /programs/prog1111/live')).toEqual([]);
   });
 });

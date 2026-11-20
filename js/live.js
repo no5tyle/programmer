@@ -1,13 +1,14 @@
 /*
- * Working on a program together, live (the API's /programs/{id}/live and /here).
+ * Working on a program together, live (the API's POST and DELETE /programs/{id}/live): a Group plan feature, for the
+ * programs in a group's library.
  *
- * While a program from the account is open, the builder keeps one long poll going: it answers as soon as another
- * leader (or another device) saves a new version, or someone opens, moves about in or closes the program. A new
- * version is put together with any changes here (js/account.js: takeTheirs) and shown; while someone's typing it
- * waits until they stop. Every 30 seconds, and as they move from cell to cell, the builder says the person is here
- * and where, so others see them in the bar and an outline on the cell they're in.
+ * While one is open, the builder takes a quick look now and then: every 10 seconds while someone else has it open,
+ * every minute otherwise, and straight away on a move from cell to cell. Each look says the person is here (and in
+ * which cell), and answers with the newest version and who else is here. A newer version is put together with any
+ * changes here (js/account.js: takeTheirs) and shown; while someone's typing it waits until they stop.
  *
- * It stops when the tab has been out of sight for 3 minutes, and starts again when it's back.
+ * Looks, not a held-open request: Cloud Run bills for every second a request is open. And they stop when the tab has
+ * had no typing or clicking for 10 minutes, or been out of sight for 2, starting again as soon as it's used.
  */
 const LIVE_TAB = (() => {
   const a = new Uint8Array(12);
@@ -15,16 +16,18 @@ const LIVE_TAB = (() => {
   return [...a].map((b) => 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[b % 62]).join('');
 })();
 const LIVE_COLOURS = ['#0E7490', '#B45309', '#6D28D9', '#BE123C', '#15803D', '#1D4ED8', '#A21CAF', '#9A3412'];
-const HERE_EVERY_MS = 30_000;
-const AWAY_AFTER_MS = 3 * 60_000;
+const LOOK_TOGETHER_MS = 10_000;   // someone else has it open
+const LOOK_ALONE_MS = 60_000;      // no one else
+const IDLE_AFTER_MS = 10 * 60_000;
+const AWAY_AFTER_MS = 2 * 60_000;
 
-const live = { id: null, ctl: null, seen: '', people: [], cell: null, beat: null, hiddenAt: null, away: false, failures: 0, warned: null };
+const live = { id: null, timer: null, busy: false, people: [], cell: null, hiddenAt: null, away: false, idle: false, lastUsed: Date.now(), failures: 0, warned: null };
 
-/** Whether the open program is one the account keeps (so others can have it open too). */
+/** Whether the open program is one others can have open too: a group library's, kept in the account. */
 function liveCan() {
   if (typeof signedIn !== 'function' || !accountsOn() || !signedIn()) return false;
   const item = libItem(library.current);
-  return !!item && item.version != null && !item.hold && !live.away;
+  return !!item?.owner && item.version != null && !item.hold && !live.away && !live.idle;
 }
 
 /** Starts, moves or stops following, to match the program that's open. Called after each render. */
@@ -34,55 +37,44 @@ function liveFollow() {
   liveStop();
   if (!want) return;
   live.id = want;
-  live.seen = '';
   live.failures = 0;
-  livePoll(want);
-  liveHere();
-  live.beat = setInterval(liveHere, HERE_EVERY_MS);
+  liveLook();
 }
 
 function liveStop() {
   if (!live.id) return;
   const id = live.id;
   live.id = null;
-  live.ctl?.abort();
-  clearInterval(live.beat);
+  clearTimeout(live.timer);
   live.people = [];
   liveShow();
   // "Closed it": sent as the page goes, too
-  api('DELETE', `/programs/${id}/here?tab=${LIVE_TAB}`, { keepalive: true }).catch(() => {});
+  api('DELETE', `/programs/${id}/live?tab=${LIVE_TAB}`, { keepalive: true }).catch(() => {});
 }
 
-async function livePoll(id) {
-  while (live.id === id) {
-    const item = libItem(id);
-    if (!item) return;
-    live.ctl = new AbortController();
-    let r;
-    try {
-      r = await api('GET', `/programs/${id}/live?version=${item.version ?? 0}&seen=${encodeURIComponent(live.seen)}&wait=40`, { signal: live.ctl.signal });
-    } catch {
-      if (live.id !== id) return;
-      // Offline, or the API's busy: try again in a while
-      live.failures++;
-      await new Promise((res) => setTimeout(res, Math.min(5000 * live.failures, 30_000)));
-      continue;
-    }
-    if (live.id !== id) return;
-    if (!r.ok) {
-      // Gone, or no longer theirs: the next look at the list sorts it out
-      if (r.status === 404 || r.status === 410 || r.status === 403) { liveStop(); return; }
-      live.failures++;
-      await new Promise((res) => setTimeout(res, Math.min(5000 * live.failures, 30_000)));
-      continue;
-    }
+/** One look: "I'm here", and what's new. Then the next, sooner while someone else is here. */
+async function liveLook() {
+  const id = live.id;
+  clearTimeout(live.timer);
+  if (!id || live.busy) return;
+  // No typing or clicking for 10 minutes: stop until there is
+  if (Date.now() - live.lastUsed > IDLE_AFTER_MS) { live.idle = true; liveStop(); return; }
+  live.busy = true;
+  let r = null;
+  try { r = await api('POST', `/programs/${id}/live`, { body: { tab: LIVE_TAB, cell: live.cell } }); } catch { /* offline: try again later */ }
+  live.busy = false;
+  if (live.id !== id) return;
+  if (r && !r.ok && [403, 404, 410].includes(r.status)) { liveStop(); return; }   // gone, or no longer theirs
+  if (r?.ok) {
     live.failures = 0;
-    live.seen = r.json.seen;
     live.people = r.json.people.filter((p) => p.tab !== LIVE_TAB);
     liveShow();
-    const now = libItem(id);
-    if (now && r.json.version > (now.version ?? 0) && r.json.by?.tab !== LIVE_TAB) await livePull(id, r.json.by);
-  }
+    const item = libItem(id);
+    if (item && r.json.version > (item.version ?? 0) && r.json.by?.tab !== LIVE_TAB) await livePull(id, r.json.by);
+  } else live.failures++;
+  if (live.id !== id) return;
+  const wait = live.failures ? Math.min(LOOK_ALONE_MS * live.failures, 5 * 60_000) : live.people.length ? LOOK_TOGETHER_MS : LOOK_ALONE_MS;
+  live.timer = setTimeout(liveLook, wait);
 }
 
 /** Fetches the newer version and puts it together with what's here. */
@@ -94,12 +86,6 @@ async function livePull(id, by) {
   if (await takeTheirs(id, got.json, by || got.json.updatedBy)) return;
   // No base to start from: with nothing changed here, simply take it; otherwise the next save asks
   if (!item.dirty && !unsavedHere()) storeRemote(got.json);
-}
-
-/** Says "I'm here (in this cell)". */
-function liveHere() {
-  if (!live.id) return;
-  api('POST', `/programs/${live.id}/here`, { body: { tab: LIVE_TAB, cell: live.cell } }).catch(() => {});
 }
 
 /** The cell an element is in, as "{rowId}:{column}", or null. */
@@ -155,7 +141,7 @@ document.addEventListener('focusin', (e) => {
   clearTimeout(liveMoveTimer);
   if (cell && cell !== live.cell) {
     live.cell = cell;
-    liveHere();
+    liveLook();
     // Someone else is in this cell: say so, once
     const other = live.people.find((p) => p.cell === cell);
     if (other && live.warned !== cell) {
@@ -167,13 +153,20 @@ document.addEventListener('focusin', (e) => {
 document.addEventListener('focusout', () => {
   clearTimeout(liveMoveTimer);
   liveMoveTimer = setTimeout(() => {
-    if (!liveCellOf(document.activeElement) && live.cell) { live.cell = null; live.warned = null; liveHere(); }
+    if (!liveCellOf(document.activeElement) && live.cell) { live.cell = null; live.warned = null; liveLook(); }
     // A newer version that waited for the typing to stop
     if (liveWaiting && !busyEditing() && live.id) { liveWaiting = false; livePull(live.id); }
   }, 400);
 });
 
-// Out of sight for 3 minutes: stop; back: start again (and look for anything new straight away)
+// Used again after 10 idle minutes: start again, and look for anything new straight away
+const liveUsed = () => {
+  live.lastUsed = Date.now();
+  if (live.idle) { live.idle = false; liveFollow(); }
+};
+for (const type of ['keydown', 'pointerdown', 'wheel']) document.addEventListener(type, liveUsed, { passive: true, capture: true });
+
+// Out of sight for 2 minutes: stop; back: start again (and look straight away)
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     live.hiddenAt = Date.now();
@@ -181,7 +174,9 @@ document.addEventListener('visibilitychange', () => {
   } else {
     live.hiddenAt = null;
     live.away = false;
-    liveFollow();
+    live.lastUsed = Date.now();
+    live.idle = false;
+    if (live.id) liveLook(); else liveFollow();
   }
 });
 window.addEventListener('pagehide', () => liveStop());
