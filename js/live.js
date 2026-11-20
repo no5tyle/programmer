@@ -21,7 +21,7 @@ const LOOK_ALONE_MS = 60_000;      // no one else
 const IDLE_AFTER_MS = 10 * 60_000;
 const AWAY_AFTER_MS = 2 * 60_000;
 
-const live = { id: null, timer: null, busy: false, people: [], cell: null, hiddenAt: null, away: false, idle: false, lastUsed: Date.now(), failures: 0, warned: null };
+const live = { id: null, timer: null, busy: false, again: false, people: [], cell: null, hiddenAt: null, away: false, idle: false, lastUsed: Date.now(), failures: 0, warned: null };
 
 /** Whether the open program is one others can have open too: a group library's, kept in the account. */
 function liveCan() {
@@ -55,8 +55,11 @@ function liveStop() {
 /** One look: "I'm here", and what's new. Then the next, sooner while someone else is here. */
 async function liveLook() {
   const id = live.id;
+  if (!id) return;
+  // One at a time: a look asked for meanwhile (a move to another cell, say) follows straight after this one
+  if (live.busy) { live.again = true; return; }
   clearTimeout(live.timer);
-  if (!id || live.busy) return;
+  live.again = false;
   // No typing or clicking for 10 minutes: stop until there is
   if (Date.now() - live.lastUsed > IDLE_AFTER_MS) { live.idle = true; liveStop(); return; }
   live.busy = true;
@@ -73,6 +76,7 @@ async function liveLook() {
     if (item && r.json.version > (item.version ?? 0) && r.json.by?.tab !== LIVE_TAB) await livePull(id, r.json.by);
   } else live.failures++;
   if (live.id !== id) return;
+  if (live.again) { liveLook(); return; }
   const wait = live.failures ? Math.min(LOOK_ALONE_MS * live.failures, 5 * 60_000) : live.people.length ? LOOK_TOGETHER_MS : LOOK_ALONE_MS;
   live.timer = setTimeout(liveLook, wait);
 }
