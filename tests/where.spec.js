@@ -36,13 +36,17 @@ test("a group library program's Where offers the group's spaces, and the night i
   // Saved with the space; the cell says it's pencilled in
   await expect.poll(() => server.programs.get('lib11111').data.rows.find((r) => r.id === row)).toMatchObject({ space: 'hall', where: 'Main hall' });
   await expect(cell.locator('.pick')).toHaveText('Main hall');
-  await expect(cell.locator('.night')).toHaveText('Pencilled in');
+  // No label in the cell: its border's tinted, and hovering says why
+  await expect(cell).toHaveClass(/night-tentative/);
+  await expect(cell).toHaveAttribute('title', /^Pencilled in\. /);
+  await expect(cell.locator('.night')).toHaveCount(0);
   // Published: booked
   await page.evaluate(() => publishCurrent());
-  await expect(cell.locator('.night')).toHaveText('Booked');
+  await expect(cell).toHaveClass(/night-confirmed/);
+  await expect(cell).toHaveAttribute('title', /^Booked\. /);
   // Not on paper
   await page.emulateMedia({ media: 'print' });
-  await expect(cell.locator('.night')).toBeHidden();
+  expect(await cell.evaluate((td) => getComputedStyle(td).outlineStyle)).toBe('none');
   await expect(cell.locator('.pick')).toHaveText('Main hall');
 });
 
@@ -51,14 +55,14 @@ test("someone else has the space: the cell says so, and publishing asks a quarte
   server.clashes = { [row]: { title: 'Yoga class', startAt: '2027-02-01T19:00', endAt: '2027-02-01T21:00' } };
   await cell.click();
   await page.click('.popover [data-space="hall"]');
-  await expect(cell.locator('.night.warn')).toHaveText('Pencilled in');
-  await expect(cell.locator('.night')).toHaveAttribute('title', /Yoga class has it 19:00–21:00/);
+  await expect(cell).toHaveClass(/night-tentative night-warn/);
+  await expect(cell).toHaveAttribute('title', /Yoga class has it 19:00–21:00/);
   await page.evaluate(() => publishCurrent());
-  await expect(cell.locator('.night')).toHaveText('Awaiting approval');
+  await expect(cell).toHaveAttribute('title', /^Awaiting approval\. /);
   // Its state is fetched again when the program's opened
   await page.reload();
   await page.waitForFunction(() => typeof state === 'object' && library.current === 'lib11111');
-  await expect(page.locator(`#sheet tr[data-id="${row}"] td.c-where .night`)).toHaveText('Awaiting approval');
+  await expect(page.locator(`#sheet tr[data-id="${row}"] td.c-where`)).toHaveClass(/night-requested/);
 });
 
 test('somewhere else: a place by name, not a space; and it is offered again for other nights', async ({ page }) => {
@@ -67,7 +71,7 @@ test('somewhere else: a place by name, not a space; and it is offered again for 
   await page.fill('.popover #pPick', 'The oval');
   await page.press('.popover #pPick', 'Enter');
   await expect.poll(() => server.programs.get('lib11111').data.rows.find((r) => r.id === row)).toMatchObject({ where: 'The oval', space: '' });
-  await expect(cell.locator('.night')).toHaveCount(0);
+  await expect(cell).not.toHaveClass(/night-/);
   const other = await page.evaluate((id) => state.rows.find((r) => !r.noMeeting && !r.autoHoliday && r.id !== id).id, row);
   await page.locator(`#sheet tr[data-id="${other}"] td.c-where`).click();
   await expect(page.locator('.popover .choice[data-v="The oval"]')).toBeVisible();

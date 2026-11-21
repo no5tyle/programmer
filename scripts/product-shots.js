@@ -39,6 +39,8 @@ const LIBRARY = {
   units: [{ id: 'banksia', name: 'Banksia Cubs', section: 'cubs' }, { id: 'kingfisher', name: 'Kingfisher Troop', section: 'scouts' }],
   styling: { shared: { groupName: '1st Wattle Creek Scout Group', font: 'Nunito' }, sections: {} },
   region: 'SA',
+  // The group's spaces in Quarters Master, for Where
+  spaces: [{ id: 'den', name: 'Den', shared: true }, { id: 'hall', name: 'Main hall', shared: false }],
 };
 
 /** The group, with the Group plan, whose library is in the list. */
@@ -95,16 +97,40 @@ async function fonts(page) {
     await page.waitForTimeout(300);
     await page.locator('#sheet').screenshot({ path: path.join(OUT, 'printout.png') });
     console.log('printout');
-    // Working on it together: another leader in the program, in the cell they're changing
-    const row = await page.evaluate(() => state.rows.filter((r) => document.querySelector(`#sheet tr[data-id="${r.id}"] td.c-activity .ed`))[3].id);
-    server2.otherHere('prog1111', { id: 'u2', name: 'Baloo', tab: 'baloosTab1' }, `${row}:activity`);
-    server2.otherHere('prog1111', { id: 'u3', name: 'Raksha', tab: 'rakshaTab1' }, null);
+    // Working on it together, in the group's library (a Group plan feature): another leader in the program, in the cell
+    // they're changing
+    await page.evaluate(() => openProgram('cubs3333'));
+    await page.waitForFunction(() => library.current === 'cubs3333' && document.querySelector('#sheet tr[data-id]'));
+    await fonts(page);
+    const nights = await page.evaluate(() => state.rows.filter((r) => document.querySelector(`#sheet tr[data-id="${r.id}"] td.c-activity .ed`)).map((r) => r.id));
+    server2.otherHere('cubs3333', { id: 'u2', name: 'Baloo', tab: 'baloosTab1' }, `${nights[3]}:activity`);
+    server2.otherHere('cubs3333', { id: 'u3', name: 'Raksha', tab: 'rakshaTab1' }, null);
+    await page.evaluate(() => liveLook());
     await page.waitForSelector('#livePeople .live-avatar:nth-child(2)');
     await page.waitForSelector('#sheet td.live-cell .live-tag');
+    await page.locator('.toast').evaluateAll((ts) => ts.forEach((t) => t.remove()));
     await shot(page, 'together', { clip: { x: 260, y: 0, width: 1180, height: 640 } });
-    server2.otherLeaves('prog1111');
-    server2.otherLeaves('prog1111', 'rakshaTab1');
+    server2.otherLeaves('cubs3333');
+    server2.otherLeaves('cubs3333', 'rakshaTab1');
+    await page.evaluate(() => liveLook());
     await page.waitForSelector('#livePeople', { state: 'hidden' });
+
+    // Where: the group's spaces, each night booked on its Facilities calendar (a hire in the way of one)
+    await page.evaluate(() => { state.columns.find((c) => c.key === 'where').visible = true; setSettingsOpen?.(false); save(); renderAll(); });
+    server2.clashes = { [nights[1]]: { title: 'Yoga class', startAt: '2027-02-08T19:00', endAt: '2027-02-08T21:00' } };
+    for (const id of nights.slice(0, 4)) {
+      await page.locator(`#sheet tr[data-id="${id}"] td.c-where`).click();
+      await page.click('.popover [data-space="hall"]');
+    }
+    await page.evaluate(() => publishCurrent());
+    await page.waitForSelector('#sheet td.c-where.night-confirmed');
+    await page.locator('.toast').evaluateAll((ts) => ts.forEach((t) => t.remove()));
+    await page.locator(`#sheet tr[data-id="${nights[1]}"] td.c-where`).click();
+    await page.waitForTimeout(300);
+    await shot(page, 'where', { clip: { x: 260, y: 160, width: 1180, height: 640 } });
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => openProgram('prog1111'));
+    await page.waitForFunction(() => library.current === 'prog1111');
     await page.click('#btnExport');
     await shot(page, 'export');
     await page.keyboard.press('Escape');
@@ -130,8 +156,7 @@ async function fonts(page) {
     await shot(page, 'programs', { clip: { x: 0, y: 0, width: 720, height: 900 } });
 
     // The group's library: moving this program into one of the group's units
-    await page.click('#btnAccount');
-    await page.click('#pLibrary');
+    await page.click('#btnDirMove');
     await page.waitForSelector('.modal h2:has-text("library")');
     await shot(page, 'library');
     await page.keyboard.press('Escape');

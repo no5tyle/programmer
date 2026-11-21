@@ -1277,7 +1277,12 @@ function cellInner(col, r) {
   }
   if (k === 'challenge') return `<td class="c-challenge clickable" data-pop="challenge"${align}${tint}>${challengeHTML(r.challenge)}</td>`;
   if (k === 'patrol') return `<td class="c-patrol clickable" data-pop="patrol"${align}${tint}>${patrolHTML(r.patrol)}</td>`;
-  if (k === 'where') return `<td class="c-where clickable" data-pop="where"${align}${tint}>${whereCellHTML(r)}</td>`;
+  if (k === 'where') {
+    // How a night at one of the group's spaces stands: a tinted border, explained on hover (screen only)
+    const st = nightStatus(r);
+    const cls = st ? ` night-${st.status}${st.warn ? ' night-warn' : ''}` : '';
+    return `<td class="c-where clickable${cls}" data-pop="where"${st ? ` title="${esc(`${st.label}. ${st.title}`)}"` : ''}${align}${tint}>${whereCellHTML(r)}</td>`;
+  }
   if (k === 'leader' || k === 'uniform') {
     const prompt = k === 'leader' ? 'Leader' : 'Uniform';
     return `<td class="c-${k} clickable" data-pop="${k}"${align}${tint}>${r[k] ? `<span class="pick">${esc(r[k])}</span>` : `<span class="ph">${prompt}</span>`}</td>`;
@@ -2112,14 +2117,12 @@ function nightStatus(r) {
   return { status: b.status, label, title: why + clash, warn: !!b.clash || b.status === 'rejected' || b.status === 'requested' };
 }
 
-/** The Where cell: the space's (or place's) name, and how a night at a group space stands. */
+/** The Where cell: the space's (or place's) name. */
 function whereCellHTML(r) {
   const spaces = typeof spacesFor === 'function' ? spacesFor() : [];
   const name = (r.space && spaces.find((x) => x.id === r.space)?.name) || r.where;
   if (!name) return '<span class="ph">Where</span>';
-  const st = nightStatus(r);
-  const chip = st ? `<span class="night ${st.status}${st.warn ? ' warn' : ''}" title="${esc(st.title)}">${esc(st.label)}</span>` : '';
-  return `<span class="pick">${esc(name)}</span>${chip}`;
+  return `<span class="pick">${esc(name)}</span>`;
 }
 
 /** Places typed into this program's Where (not the group's spaces), for picking again. */

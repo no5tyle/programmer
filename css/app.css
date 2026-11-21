@@ -964,3 +964,11 @@ body.no-program #btnSave, body.no-program #btnExport, body.no-program #btnUndo {
 .sheet.capture .night { display: none !important; }
 .menu-sub { display: block; font-size: 12px; color: var(--muted); font-weight: 400; }
 #readOnlyNote [data-move-current] { margin-left: 8px; }
+/* The Where cell of a night at one of the group's spaces: its border tinted for how it stands (title explains) */
+#sheet td.c-where[class*="night-"] { outline: 2px solid var(--night); outline-offset: -3px; }
+#sheet td.c-where.night-tentative { --night: #8FA9CC; outline-style: dashed; }
+#sheet td.c-where.night-confirmed { --night: #5FB37A; }
+#sheet td.c-where.night-warn { --night: #E0A040; }
+#sheet td.c-where.night-rejected { --night: #D95C5C; }
+@media print { #sheet td.c-where[class*="night-"] { outline: none !important; } }
+.sheet.capture td.c-where[class*="night-"] { outline: none !important; }
