@@ -1494,22 +1494,29 @@ function applyLibrary(s = state, owner = libItem(library.current)?.owner, rerend
   return changed;
 }
 
-/** Locks the Styling settings the group sets, saying where they're changed. */
+/**
+ * Locks the Styling settings the group sets. Nothing is written on the page about it: hovering a locked setting says
+ * whose it is and where it's changed (a tooltip on its label, since a disabled control shows none in every browser).
+ */
 function lockStyling(keys) {
   const locked = new Set(keys);
+  const g = groupFor(libItem(library.current)?.owner);
+  const why = g
+    ? `Set by ${g.name}'s styling. ${managesGroup(g) ? 'Change it on the group site (Programs).' : "The group's owner and admins change it on the group site."}`
+    : '';
+  const tip = (el, on) => { if (on && why) el.title = why; else el.removeAttribute('title'); };
   document.querySelectorAll('[data-bind^="branding."]').forEach((el) => {
     const on = locked.has(el.dataset.bind.slice('branding.'.length));
     el.disabled = on;
-    el.closest('.field')?.classList.toggle('locked', on);
+    const field = el.closest('.field');
+    field?.classList.toggle('locked', on);
+    if (field) tip(field, on);
   });
-  for (const id of ['#btnLogo', '#btnLogoClear']) { const b = $(id); if (b) b.disabled = locked.has('logo'); }
-  const note = $('#libraryStyleNote');
-  if (!note) return;
-  const g = groupFor(libItem(library.current)?.owner);
-  note.hidden = !locked.size || !g;
-  if (g) {
-    note.innerHTML = `${esc(g.name)}'s styling is on this program. It's changed on the <a href="${GROUP_SITE_URL}#/programs" target="_blank" rel="noopener">group site</a>${managesGroup(g) ? '' : " by the group's owner and admins"}.`;
-  }
+  const logo = locked.has('logo');
+  for (const id of ['#btnLogo', '#btnLogoClear']) { const b = $(id); if (b) b.disabled = logo; }
+  const logoField = $('#btnLogo')?.closest('.field');
+  logoField?.classList.toggle('locked', logo);
+  if (logoField) tip(logoField, logo);
 }
 
 /** The units of a group whose programs this person looks after: all of them, or the ones they're given. */

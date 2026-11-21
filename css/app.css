@@ -897,9 +897,9 @@ body.mobile .prog .col-grip { display: none; }
 .dir-unit { margin-top: 2px; }
 .dir-unit-head { display: flex; align-items: center; gap: 8px; padding: 6px 8px 2px 14px; font-size: 13px; font-weight: 600; color: var(--muted); }
 .dir-unit .dir-item { padding-left: 22px; }
-.library-note { margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; background: var(--tint-soft, rgba(0, 113, 227, .08)); font-size: 13px; line-height: 1.45; }
-.field.locked > span::after { content: ' · the group\2019s'; font-weight: 400; color: var(--muted); }
-.field.locked input, .field.locked select { opacity: .7; cursor: not-allowed; }
+/* A setting the group sets: dimmed, and hovering it (the label's tooltip) says why. The controls let the pointer through to the label */
+.field.locked { cursor: not-allowed; }
+.field.locked input, .field.locked select, .field.locked button, .field.locked .logo-preview { opacity: .7; pointer-events: none; }
 
 /* A group's units: a tab for each coming term (a program, or one to start), and More for the rest */
 .term-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 4px; padding: 4px 8px 10px 14px; }

@@ -123,7 +123,12 @@ test("a library program has the group's styling and its unit's name, locked; the
     await expect(page.locator(`[data-bind="branding.${bind}"]`).first()).toBeDisabled();
   }
   await expect(page.locator('[data-bind="branding.titleTemplate"]')).toBeEnabled();
-  await expect(page.locator('#libraryStyleNote')).toContainText("1st Example's styling is on this program");
+  // Nothing is written about it on the page: hovering a locked setting says why
+  const fontField = page.locator('[data-bind="branding.font"]').first().locator('xpath=ancestor::*[contains(@class,"field")][1]');
+  await expect(fontField).toHaveAttribute('title', /Set by 1st Example's styling\. Change it on the group site/);
+  await expect(page.locator('.field.locked > span').first()).not.toContainText('the group');
+  await expect(page.locator('#libraryStyleNote')).toHaveCount(0);
+  await expect(page.locator('[data-bind="branding.titleTemplate"]').locator('xpath=ancestor::*[contains(@class,"field")][1]')).not.toHaveAttribute('title', /.*/);
   server.libraries.set('g1', { units: UNITS, styling: { ...STYLING, shared: { ...STYLING.shared, font: 'Inter' } }, region: 'SA' });
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   await expect.poll(() => page.evaluate(() => state.branding.font)).toBe('Inter');
