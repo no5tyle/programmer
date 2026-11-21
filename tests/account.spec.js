@@ -59,10 +59,10 @@ test.describe('signed out', () => {
     expect(await page.evaluate(() => library.current)).not.toBe(first);
     expect(await page.evaluate((id) => localStorage.getItem(`scoutProgramBuilder.program.${id}`), first)).toBeNull();
 
-    // Opening a file asks too, and Save file is offered first
+    // Opening a file replaces it too, after asking, and Save file is offered first
     await page.click('#btnImport');
     await page.setInputFiles('#fileJson', exampleFile);
-    await expect(page.locator('.modal h2')).toHaveText('This device keeps one program');
+    await expect(page.locator('.modal h2')).toHaveText('Replace your program?');
     await expect(page.locator('.modal button:has-text("Save file")')).toBeVisible();
     await page.click('.modal button:has-text("Replace it")');
     await expect.poll(() => page.evaluate(() => state.branding.groupName)).toBe(EXAMPLE.branding.groupName);
@@ -396,8 +396,13 @@ test.describe('signed in', () => {
     await page.click('#btnDirNew');
     await expect(page.locator('.modal h2')).toHaveText('A free account keeps 3 programs');
     await page.click('.modal button:has-text("Not now")');
+    // Opening a file doesn't add one: it can only replace the program that's open
     await page.click('#btnImport');
     await page.setInputFiles('#fileJson', exampleFile);
+    await expect(page.locator('.modal h2')).toHaveText('Replace your program?');
+    await page.click('.modal button:has-text("Cancel")');
+    expect(server.live()).toHaveLength(3);
+    await page.click('#btnDirNew');
     await expect(page.locator('.modal h2')).toHaveText('A free account keeps 3 programs');
     await page.click('.modal button:has-text("Delete it")');
     // It points at the list on the left, ready to delete one

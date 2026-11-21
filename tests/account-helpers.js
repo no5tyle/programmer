@@ -35,6 +35,24 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
     // Premium's history and live links: each program's earlier versions, and its link if turned on
     history: new Map(), links: new Map(), billing: null,
     published: new Map(),   // program id → the version families see
+    // A library program's nights at the group's spaces: rowId -> { status, clash }, as the API keeps them
+    nights: new Map(),
+    nightsOf(p, publishing = false) {
+      if (!p.owner || p.owner === 'me') return [];
+      const was = server.nights.get(p.id) || new Map();
+      const next = new Map();
+      for (const r of p.data?.rows || []) {
+        if (!r.space || r.noMeeting) continue;
+        const old = was.get(r.id);
+        const same = old && old.spaceId === r.space && old.time === r.time && old.date === r.date;
+        let status = same ? old.status : 'tentative';
+        const clash = server.clashes?.[r.id] || null;
+        if (publishing && status === 'tentative') status = clash ? 'requested' : 'confirmed';
+        next.set(r.id, { rowId: r.id, spaceId: r.space, status, clash, time: r.time, date: r.date });
+      }
+      server.nights.set(p.id, next);
+      return [...next.values()].map(({ time, date, ...b }) => b);
+    },
     // Groups the person is in ({ id, name, role, plan }), and each one's library: { units, styling }, set on the group site
     groups, libraries: new Map(),
     renewals: [],   // what each renewal of a link asked for
@@ -127,6 +145,12 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
     const summary = ({ data, ...rest }) => ({ ...rest, publishedVersion: server.published.get(rest.id) ?? null });
     const full = () => server.limit !== null && server.live().length >= server.limit;
 
+    const nightsAt = /^\/programs\/([^/]+)\/bookings$/.exec(path);
+    if (nightsAt) {
+      const p = server.programs.get(nightsAt[1]);
+      if (!p) return error(route, 404, 'not_found');
+      return json(route, 200, { bookings: server.nights.has(p.id) ? [...server.nights.get(p.id).values()].map(({ time, date, ...b }) => b) : server.nightsOf(p) });
+    }
     // Working on it together: a look ("I'm here, in this cell", answered with what's new), and closing it
     const together = /^\/programs\/([^/]+)\/live$/.exec(path);
     if (together) {
@@ -204,7 +228,7 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
       if (!p) return error(route, 404, 'not_found');
       if (!premium) return error(route, 402, 'premium_required');
       server.published.set(p.id, p.version);
-      return json(route, 200, { link: null, published: { at: new Date().toISOString(), version: p.version } });
+      return json(route, 200, { link: null, published: { at: new Date().toISOString(), version: p.version }, bookings: server.nightsOf(p, true) });
     }
     const sh = /^\/programs\/([^/]+)\/share(\/renew|\/show)?$/.exec(path);
     if (sh) {
@@ -245,7 +269,7 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
       const g = server.groups.find((x) => x.id === lib[1]);
       if (!g) return error(route, 404, 'not_found');
       const l = server.libraries.get(g.id) || {};
-      return json(route, 200, { plan: !!g.plan, canManage: g.role !== 'leader', units: l.units || [], region: l.region ?? null, styling: l.styling || null, myUnits: l.myUnits ?? 'all' });
+      return json(route, 200, { plan: !!g.plan, canManage: g.role !== 'leader', units: l.units || [], region: l.region ?? null, styling: l.styling || null, myUnits: l.myUnits ?? 'all', spaces: l.spaces || [] });
     }
     const mv = /^\/programs\/([^/]+)\/move$/.exec(path);
     if (mv) {
@@ -278,7 +302,7 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
       }
       Object.assign(p, { name: body.name, data: body.data, version: p.version + 1, updatedAt: new Date().toISOString(), groupName: body.data?.branding?.groupName || '', unit: body.data?.unit ?? null });
       server.savedBy.set(p.id, { version: p.version, by: { id: SESSION.uid, name: server.name, tab: url.searchParams.get('tab') } });
-      return json(route, 200, summary(p), { ETag: `"${p.version}"` });
+      return json(route, 200, { ...summary(p), bookings: server.nightsOf(p) }, { ETag: `"${p.version}"` });
     }
     return error(route, 404, 'not_found');
   });

@@ -243,7 +243,7 @@ function normalise(raw) {
 }
 function newRowShape() {
   return { id: '', date: '', endDate: '', dateLabel: '', time: '', activity: '', description: '', uniform: '', forms: '',
-    where: '', patrol: '', leader: '', cost: '', challenge: '', notes: '', category: '', noMeeting: false, autoHoliday: false,
+    where: '', space: '', patrol: '', leader: '', cost: '', challenge: '', notes: '', category: '', noMeeting: false, autoHoliday: false,
     emptyWeek: false };
 }
 
@@ -335,9 +335,11 @@ function load() {
 }
 
 /** Make `next` the open program (a new entry in the library), keeping the current one saved. */
-function addProgram(next) {
+function addProgram(next, meta = null) {
   save();
   library.current = uid();
+  // Whose it is (a group library's, its unit and term) from the start, so it's never shown as one of the person's own
+  if (meta) library.items.push({ id: library.current, ...meta });
   state = next;
   undoStack = []; $('#btnUndo').disabled = true;
   save(); renderAll();
@@ -545,8 +547,21 @@ function renderDirectory() {
     if (g.own) return `<div class="dir-head dir-own">${esc(g.name)}<button type="button" class="btn-link dir-units" data-own-units>Units</button></div>`;
     const mark = g.library ? '<svg class="dir-lib-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M8 19V5M12 19l3-14 4 1-3 14z"/></svg>'
       : `<span class="dir-dot"${g.color ? ` style="background:${esc(g.color)}"` : ''}></span>`;
-    return `<div class="dir-head${g.library ? ' dir-library' : ''}">${mark}${esc(g.name)}<span class="dir-count">${g.items.length}</span></div>`;
+    // The group's owner and admins: its units and styling, on the group site
+    const settings = g.group && g.group.id !== 'me' && typeof managesGroup === 'function' && managesGroup(g.group)
+      ? `<button type="button" class="btn-link dir-units" data-group-site="${esc(g.group.id)}" title="The group's units and the styling on its programs (opens group.qstored.org)">Settings</button>` : '';
+    return `<div class="dir-head${g.library ? ' dir-library' : ''}">${mark}${esc(g.name)}${settings || `<span class="dir-count">${g.items.length}</span>`}</div>`;
   };
+  // The open program: into a group's library (their own, when they're in a group), or out of one (its owner and admins,
+  // with a plan of their own)
+  const moveBtn = $('#btnDirMove');
+  if (moveBtn) {
+    const x = libItem(library.current);
+    const out = !!x?.owner && managesGroup(groupFor(x.owner)) && ownMode() !== 'group';
+    const into = !!x && !x.owner && myGroups().length > 0;
+    moveBtn.hidden = !(account && x && x.version != null && !x.hold && (out || into));
+    moveBtn.textContent = out ? 'Move to my programs' : "Move to a group's library";
+  }
   box.innerHTML = keys.map((k) => {
     const g = groups.get(k);
     if (g.group) return `<div class="dir-group">${head(g)}${libraryTermsHTML(g.group, g.items.sort(byTerm), item)}</div>`;
@@ -1029,9 +1044,9 @@ function previewFieldStyles() {
  * same whole-cell style, from the same toolbar, shown while the cell's picker is open. Stored per row
  * in row.cellStyle[key]. (They replace the row menu's old "Red text", which is moved over on loading.)
  */
-const CELL_STYLE_KEYS = ['date', 'time', 'patrol', 'leader', 'uniform'];
+const CELL_STYLE_KEYS = ['date', 'time', 'patrol', 'leader', 'uniform', 'where'];
 const CELL_DEFAULTS = { patrol: { b: true } };
-const FREE_TEXT_KEYS = ['activity', 'description', 'forms', 'where', 'cost', 'notes'];
+const FREE_TEXT_KEYS = ['activity', 'description', 'forms', 'cost', 'notes'];
 
 /** A column's own alignment. */
 function colAlign(key) { return state.columns.find((c) => c.key === key)?.align || 'center'; }
@@ -1262,6 +1277,7 @@ function cellInner(col, r) {
   }
   if (k === 'challenge') return `<td class="c-challenge clickable" data-pop="challenge"${align}${tint}>${challengeHTML(r.challenge)}</td>`;
   if (k === 'patrol') return `<td class="c-patrol clickable" data-pop="patrol"${align}${tint}>${patrolHTML(r.patrol)}</td>`;
+  if (k === 'where') return `<td class="c-where clickable" data-pop="where"${align}${tint}>${whereCellHTML(r)}</td>`;
   if (k === 'leader' || k === 'uniform') {
     const prompt = k === 'leader' ? 'Leader' : 'Uniform';
     return `<td class="c-${k} clickable" data-pop="${k}"${align}${tint}>${r[k] ? `<span class="pick">${esc(r[k])}</span>` : `<span class="ph">${prompt}</span>`}</td>`;
@@ -1866,7 +1882,10 @@ function renderAll() {
   const note = $('#readOnlyNote');
   if (note) {
     note.hidden = !readOnly;
-    if (readOnly === 'group') note.textContent = "Your group's Group plan covers your programs in its library, so this one of your own is kept as it was. Move it into one of your units there (Group library, in your account menu) to carry on with it.";
+    if (readOnly === 'group') {
+      note.innerHTML = `Your group's Group plan covers your programs in its library, so this one of your own is kept as it was. Move it into one of your units there to carry on with it. <button type="button" class="btn btn-outline btn-sm" data-move-current>Move to the group's library</button>`;
+      note.querySelector('[data-move-current]').onclick = () => openLibraryBox();
+    }
     else if (readOnly) note.textContent = `Term ${state.term.term} ${state.term.year} has ended, so this program is kept as it was. You can still print it, save a PDF or export it.`;
   }
   // No program open: a way to start one, in place of the program
@@ -1892,6 +1911,8 @@ function renderAll() {
   if (typeof renderMobile === 'function') renderMobile();
   // Working on it together: follow the program that's open (js/live.js)
   if (typeof liveFollow === 'function') liveFollow();
+  // Its nights at the group's spaces, as they stand on the Facilities calendar (js/account.js)
+  if (typeof followNightBookings === 'function') followNightBookings();
 }
 function renderDoc() {
   sortRows(); applyPageSize(); renderSheet(); fit();
@@ -2072,6 +2093,75 @@ const PICKERS = {
   uniform: { title: 'Uniform', choices: uniformChoices, othersLabel: 'Also used in this program', otherLabel: 'Other',
     placeholder: 'e.g. Camp, Full uniform', empty: '', dot: 'person' },
 };
+
+/* ---------------------------------------------------------------- Where: the group's spaces, or anywhere */
+
+/** How a night at one of the group's spaces stands on its Facilities calendar (js/account.js: nightBookings). */
+const NIGHT_STATUS = {
+  tentative: ['Pencilled in', 'Pencilled in on the Facilities calendar. Publishing books it.'],
+  confirmed: ['Booked', 'Booked on the Facilities calendar.'],
+  requested: ['Awaiting approval', 'Someone else has the space then: a quartermaster confirms or declines it.'],
+  rejected: ['Declined', 'A quartermaster declined it on the Facilities calendar. Choose another space or time.'],
+};
+function nightStatus(r) {
+  if (!r.space || typeof nightBookings === 'undefined' || nightBookingsFor !== library.current) return null;
+  const b = nightBookings.get(r.id);
+  if (!b || b.spaceId !== r.space || !NIGHT_STATUS[b.status]) return null;
+  const [label, why] = NIGHT_STATUS[b.status];
+  const clash = b.clash ? ` ${b.clash.title} has it ${b.clash.startAt.slice(11)}–${b.clash.endAt.slice(11)}.` : '';
+  return { status: b.status, label, title: why + clash, warn: !!b.clash || b.status === 'rejected' || b.status === 'requested' };
+}
+
+/** The Where cell: the space's (or place's) name, and how a night at a group space stands. */
+function whereCellHTML(r) {
+  const spaces = typeof spacesFor === 'function' ? spacesFor() : [];
+  const name = (r.space && spaces.find((x) => x.id === r.space)?.name) || r.where;
+  if (!name) return '<span class="ph">Where</span>';
+  const st = nightStatus(r);
+  const chip = st ? `<span class="night ${st.status}${st.warn ? ' warn' : ''}" title="${esc(st.title)}">${esc(st.label)}</span>` : '';
+  return `<span class="pick">${esc(name)}</span>${chip}`;
+}
+
+/** Places typed into this program's Where (not the group's spaces), for picking again. */
+function wherePlaces(spaces) {
+  const names = new Set(spaces.map((x) => x.name));
+  return [...new Set(state.rows.filter((r) => !r.space).map((r) => (r.where || '').trim()).filter((v) => v && !names.has(v)))].sort();
+}
+
+/** Where: one of the group's spaces in Quarters Master (booked for the night), a place used before, or anything. */
+function openWherePopover(td, row) {
+  const item = libItem(library.current);
+  const spaces = spacesFor(item);
+  const places = wherePlaces(spaces);
+  const curSpace = row.space && spaces.some((x) => x.id === row.space) ? row.space : '';
+  const cur = curSpace ? '' : row.where || '';
+  const group = item?.owner ? groupFor(item.owner) : null;
+  const st = nightStatus(row);
+  const spaceBtn = (x) => `<button class="choice ${curSpace === x.id ? 'on' : ''}" data-space="${esc(x.id)}"><span class="dot place"></span><span>${esc(x.name)}</span>${curSpace === x.id && st ? `<span class="night ${st.status}${st.warn ? ' warn' : ''}">${esc(st.label)}</span>` : ''}</button>`;
+  const placeBtn = (v) => `<button class="choice ${cur === v ? 'on' : ''}" data-v="${esc(v)}"><span class="dot person"></span><span>${esc(v)}</span></button>`;
+  openPopover(td, `
+    <div class="pop-title">Where</div>
+    <div class="choice-list">
+      ${spaces.length ? `<div class="menu-label">${esc(group?.name || "The group")}'s spaces</div>${spaces.map(spaceBtn).join('')}` : ''}
+      ${places.length ? `<div class="menu-label">${spaces.length ? 'Other places in this program' : 'Used in this program'}</div>${places.map(placeBtn).join('')}` : ''}
+      <button class="choice ${curSpace || cur ? '' : 'on'}" data-v=""><span class="dot none"></span><span>None</span></button>
+    </div>
+    ${spaces.length ? `<p class="hint">${st ? esc(st.title) : "A night at one of the group's spaces is pencilled in on its Facilities calendar as the program's saved, and booked when it's published."}</p>` : ''}
+    <label class="field"><span>Somewhere else</span>
+      <span class="inline-add"><input type="text" id="pPick" placeholder="e.g. The oval, Belair National Park" value="${esc(cur && !places.includes(cur) ? cur : '')}"><button class="btn btn-primary btn-sm" id="pPickSet">Set</button></span>
+    </label>`, { type: 'where', id: row.id });
+  const set = (space, where) => {
+    pushHistory();
+    const r = rowById(row.id);
+    if (r) { r.space = space; r.where = where; }
+    closePopover(); save(); renderDoc();
+  };
+  pop.querySelectorAll('[data-space]').forEach((b) => { b.onclick = () => set(b.dataset.space, spaces.find((x) => x.id === b.dataset.space)?.name || ''); });
+  pop.querySelectorAll('.choice[data-v]').forEach((b) => { b.onclick = () => set('', b.dataset.v); });
+  const input = $('#pPick');
+  $('#pPickSet').onclick = () => { if (input.value.trim()) set('', input.value.trim()); };
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && input.value.trim()) set('', input.value.trim()); });
+}
 
 /** A single-choice list (leader, uniform) with an "Other" box for anything not listed. */
 function openPickPopover(td, row, key) {
@@ -2899,9 +2989,10 @@ function importJson() {
       try {
         const data = JSON.parse(text);
         if (!data || typeof data !== 'object' || !data.branding) throw new Error('bad');
+        if (accountsOn()) { await openProgramFile(data); return; }   // into a program they choose (js/account.js)
         const how = await addProgramChecked(() => copyOf(normalise(data)));
         if (how) toast(how === 'replace' ? 'Program opened.' : 'Program opened. It is saved alongside your others.');
-      } catch { toast('That file is not a saved program or spreadsheet.', 'error'); }
+      } catch (err) { console.warn(err); toast('That file is not a saved program or spreadsheet.', 'error'); }
     };
     fr.readAsText(f);
   };
@@ -3197,6 +3288,7 @@ function bindEvents() {
     }
     if (td.dataset.pop === 'date') openDatePopover(td, r);
     else if (td.dataset.pop === 'time') openTimePopover(td, r);
+    else if (td.dataset.pop === 'where') openWherePopover(td, r);
     else if (PICKERS[td.dataset.pop]) openPickPopover(td, r, td.dataset.pop);
     else openChoicePopover(td, r, td.dataset.pop);
     // The style toolbar for the cell, above it and its picker
@@ -3239,11 +3331,14 @@ function bindEvents() {
   });
   $('#btnDirToggle').onclick = () => setDirectoryOpen(!directoryOpen());
   $('#btnDirDup').onclick = () => duplicateProgram();
+  $('#btnDirMove').onclick = () => openLibraryBox();
   $('#dirList').onclick = (e) => {
     if (e.target.closest('[data-dir-signin]')) { openSignIn(); return; }
     const term = e.target.closest('[data-term]');
     if (term) { startTermProgram(term.dataset.term); return; }
     if (e.target.closest('[data-own-units]')) { openUnitsBox(); return; }
+    const site = e.target.closest('[data-group-site]');
+    if (site) { openGroupSite(site.dataset.groupSite, 'programs'); return; }
     const more = e.target.closest('[data-terms-more]');
     if (more) { const [gid, unit] = more.dataset.termsMore.split('|'); openTermsMenu(more, gid, unit); return; }
     const del = e.target.closest('[data-delprog]');

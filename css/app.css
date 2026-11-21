@@ -951,3 +951,16 @@ body.no-program #btnSave, body.no-program #btnExport, body.no-program #btnUndo {
 @media print { .live-people, .live-tag { display: none !important; } #sheet td.live-cell { outline: none; } }
 .sheet.capture .live-tag { display: none !important; }
 .sheet.capture td.live-cell { outline: none !important; }
+
+/* Where: how a night at one of the group's spaces stands on its Facilities calendar (screen only) */
+.night { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; font: 600 10px/16px system-ui, sans-serif;
+  vertical-align: middle; white-space: nowrap; background: #E8EEF6; color: #3A5A80; border: 1px dashed #9DB3CF; }
+.night.confirmed { background: #E6F4EA; color: #1E6B35; border: 1px solid #A8D5B5; }
+.night.warn { background: #FFF3E0; color: #8A4B00; border: 1px solid #F2C27D; }
+.night.rejected { background: #FDECEC; color: #A12121; border-color: #F2B2B2; }
+.dot.place { background: #0E7490; border-radius: 3px; }
+.choice .night { margin-left: auto; }
+@media print { .night { display: none !important; } }
+.sheet.capture .night { display: none !important; }
+.menu-sub { display: block; font-size: 12px; color: var(--muted); font-weight: 400; }
+#readOnlyNote [data-move-current] { margin-left: 8px; }

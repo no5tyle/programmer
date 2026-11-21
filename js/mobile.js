@@ -229,6 +229,20 @@ function chips(name, options, current, extra = '') {
   return `<div class="m-chips" data-chips="${name}">${options.map((o) => `<button class="m-chip ${o.value === current ? 'on' : ''}" data-v="${esc(o.value)}">${o.html}</button>`).join('')}${extra}</div>`;
 }
 
+/** How a night at one of the group's spaces stands, for the phone's editor. */
+function whereHintHTML(r) {
+  const st = nightStatus(r);
+  return st ? `<span class="night ${st.status}${st.warn ? ' warn' : ''}">${esc(st.label)}</span> ${esc(st.title)}` : '';
+}
+/** Brings the open editor's Where status up to date (the API says, as each save is answered), without redrawing it. */
+function refreshWhereHint() {
+  document.querySelectorAll('[data-style-field="where"][data-row]').forEach((f) => {
+    const r = rowById(f.dataset.row);
+    const hint = f.querySelector('[data-where-hint]');
+    if (r && hint) hint.innerHTML = whereHintHTML(r);
+  });
+}
+
 function openEditor(id) {
   pushHistory();
   openPanel({
@@ -275,6 +289,17 @@ function editorHTML(r) {
       return `<div class="m-field" data-style-field="${k}">${aa(k, esc(label(k)))}${chips(k, [...opts, { value: '', html: 'None' }], v)}
         <input type="text" data-f="${k}" class="m-other" placeholder="${esc(cfg.otherLabel)}, ${esc(cfg.placeholder)}" value="${isOther ? esc(v) : ''}"></div>`;
     }
+    if (k === 'where') {
+      // The group's spaces (booked for the night), places used in this program, or anywhere else
+      const spaces = typeof spacesFor === 'function' ? spacesFor() : [];
+      const places = wherePlaces(spaces);
+      const cur = r.space && spaces.some((x) => x.id === r.space) ? `space:${r.space}` : v;
+      const opts = [...spaces.map((x) => ({ value: `space:${x.id}`, html: `<span class="dot place"></span>${esc(x.name)}` })), ...places.map((n) => ({ value: n, html: esc(n) }))];
+      const isOther = v && !r.space && !places.includes(v);
+      return `<div class="m-field" data-style-field="where" data-row="${esc(r.id)}">${aa('where', esc(label(k)))}${chips('where', [...opts, { value: '', html: 'None' }], cur)}
+        <p class="hint" data-where-hint>${whereHintHTML(r)}</p>
+        <input type="text" data-f="where" class="m-other" placeholder="Somewhere else, e.g. The oval" value="${isOther ? esc(v) : ''}"></div>`;
+    }
     if (k === 'challenge') {
       const opts = state.challenges.map((c) => ({ value: c.id, html: `${challengeIconOnly(c)}${esc(c.label)}` }));
       return `<div class="m-field"><span>${esc(label(k))}</span>${chips('challenge', [...opts, { value: '', html: 'None' }], v)}</div>`;
@@ -291,7 +316,7 @@ function editorHTML(r) {
         </div>
         <label class="m-field"><span>Shown as, or type anything</span><textarea data-f="time" rows="2" placeholder="e.g. Pick up 9 AM">${esc(v)}</textarea></label></div>`;
     }
-    if (['activity', 'description', 'notes', 'where', 'cost'].includes(k)) return richField(k, label(k), r);
+    if (['activity', 'description', 'notes', 'cost'].includes(k)) return richField(k, label(k), r);
     const list = datalists[k] ? `<datalist id="dl-${k}">${datalists[k].map((x) => `<option value="${esc(x)}">`).join('')}</datalist>` : '';
     return `<label class="m-field"><span>${esc(label(k))}</span><input type="text" data-f="${k}" value="${esc(v)}" ${list ? `list="dl-${k}"` : ''}>${list}</label>`;
   };
@@ -372,6 +397,7 @@ function wireEditor(body, id, draw) {
     }
     if (el.isContentEditable) readRichField(r, f, el);
     else r[f] = el.value;
+    if (f === 'where') r.space = '';   // typed: a place by name, not one of the group's spaces
     r.autoHoliday = false;
     if (f === 'time') body.querySelectorAll('[data-chips="time"] .m-chip').forEach((c) => c.classList.toggle('on', c.dataset.v === el.value));
     if (el.classList.contains('m-other')) body.querySelectorAll(`[data-chips="${f}"] .m-chip`).forEach((c) => c.classList.toggle('on', c.dataset.v === el.value));
@@ -395,7 +421,12 @@ function wireEditor(body, id, draw) {
     const chip = e.target.closest('.m-chip');
     if (chip) {
       const key = chip.parentElement.dataset.chips;
-      r[key] = chip.dataset.v;
+      if (key === 'where') {
+        // One of the group's spaces, or a place by name
+        const id = chip.dataset.v.startsWith('space:') ? chip.dataset.v.slice(6) : '';
+        r.space = id;
+        r.where = id ? (spacesFor().find((x) => x.id === id)?.name || '') : chip.dataset.v;
+      } else r[key] = chip.dataset.v;
       saveSoon(); draw(); return;
     }
     const day = e.target.closest('[data-day]');

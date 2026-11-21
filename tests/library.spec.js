@@ -38,10 +38,9 @@ async function open(page, options = {}, setUp = () => {}) {
 }
 const unit = (page, id) => page.locator(`.dir-unit[data-unit="${id}"]`);
 
-/** Opens the Group library box from the account menu. */
+/** Opens the Group library box: Move, under the programs list. */
 async function libraryBox(page) {
-  await page.click('#btnAccount');
-  await page.click('#pLibrary');
+  await page.click('#btnDirMove');
   await expect(page.locator('.modal h2')).toHaveText("The group's library");
 }
 
@@ -162,8 +161,7 @@ test('a leader given some units sees only those, and can move programs in but no
   await expect(page.locator('#moveTo option')).toHaveText(['1st Example · Banksia Cubs']);
   await page.keyboard.press('Escape');
   await unit(page, 'banksia').locator('.term-tab.has').click();
-  await libraryBox(page);
-  await expect(page.locator('.modal-actions button:has-text("Move to my programs")')).toHaveCount(0);
+  await expect(page.locator('#btnDirMove')).toBeHidden();   // only the group's owner and admins take one out
 });
 
 test('without the Group plan, terms with no program yet can\'t be started, and the box says so', async ({ page }) => {
@@ -173,10 +171,11 @@ test('without the Group plan, terms with no program yet can\'t be started, and t
   await expect(page.locator('.modal-body')).toContainText("1st Example's library is part of the Group plan");
 });
 
-test('not in a group: the menu has no Group library, and there are no term tabs', async ({ page }) => {
+test('not in a group: no group in the menu, no move button, and no term tabs', async ({ page }) => {
   await open(page, { groups: [], programs: [program('prog1111', EXAMPLE, { version: 3 })] });
+  await expect(page.locator('#btnDirMove')).toBeHidden();
   await page.click('#btnAccount');
-  await expect(page.locator('#pLibrary')).toHaveCount(0);
+  await expect(page.locator('[data-group-site]')).toHaveCount(0);
   await expect(page.locator('.term-tab')).toHaveCount(0);
 });
 
@@ -190,4 +189,57 @@ test('on a phone, the programs menu has the units and their term tabs too', asyn
   await page.locator('.pop-library .dir-unit[data-unit="banksia"] .term-tab.has').click();
   await expect.poll(() => page.evaluate(() => library.current)).toBe('lib22222');
   await context.close();
+});
+
+test.describe('opening a program file, with a plan', () => {
+  const path = require('path');
+  const fs = require('fs');
+  /** The example, saved by another group: its own name, colours and spaces, and Term 1 2027. */
+  const otherGroupFile = (dir) => {
+    const data = { ...EXAMPLE, unit: 'theirs', branding: { ...EXAMPLE.branding, groupName: 'Another Group', color: '#123456', font: 'Arial' },
+      rows: EXAMPLE.rows.map((r, i) => (i === 1 ? { ...r, space: 'theirHall', where: 'Their hall' } : r)) };
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, 'other-group.json');
+    fs.writeFileSync(file, JSON.stringify(data));
+    return file;
+  };
+
+  test("goes only into a unit's term: started for it, with the group's styling, not the file's", async ({ page }, info) => {
+    const server = await open(page);
+    await page.click('#btnImport');
+    await page.setInputFiles('#fileJson', otherGroupFile(info.outputDir));
+    await expect(page.locator('.modal h2')).toHaveText('Open this program into');
+    // Only units' terms: no new program of their own, nor the open one as such
+    const choices = await page.locator('#openInto option').allTextContents();
+    expect(choices.every((c) => /^Term \d \d{4} \((replaces its program|starts it)\)$/.test(c))).toBe(true);
+    await expect(page.locator('#openInto optgroup')).toHaveCount(3);
+    await page.selectOption('#openInto', 'group:g1|wattle|2027|2');
+    await page.click('.modal-actions button:has-text("Open")');
+    await expect.poll(() => [...server.programs.values()].filter((p) => p.unit === 'wattle' && p.term === 2).length).toBe(1);
+    const made = [...server.programs.values()].find((p) => p.unit === 'wattle' && p.term === 2);
+    await expect.poll(() => server.programs.get(made.id).data.rows.some((r) => r.activity === EXAMPLE.rows.find((x) => !x.noMeeting && !x.autoHoliday).activity)).toBe(true);
+    const data = server.programs.get(made.id).data;
+    // The group's styling and the unit's name; the chosen unit and term, not the file's
+    expect(data.branding).toMatchObject({ groupName: '1st Example', font: 'Lexend', color: '#0B6E4F', sectionName: 'Wattle Cubs' });
+    expect([data.unit, data.term.year, data.term.term]).toEqual(['wattle', 2027, 2]);
+    // Its activities on Term 2's nights; the other group's space kept as a place, by name
+    const week = 7 * 86_400_000, at = (d) => Date.parse(d);
+    expect(data.rows.every((r) => !r.date || (at(r.date) >= at(data.term.start) - week && at(r.date) <= at(data.term.end) + week))).toBe(true);
+    expect(data.term.start.startsWith('2027-04')).toBe(true);
+    expect(data.rows.some((r) => r.where === 'Their hall' && !r.space)).toBe(true);
+    // Nothing of their own was added
+    expect(server.live().filter((p) => p.owner === 'me')).toHaveLength(1);
+  });
+
+  test("into a term that has a program: that program's contents are replaced", async ({ page }, info) => {
+    const server = await open(page);
+    await page.click('#btnImport');
+    await page.setInputFiles('#fileJson', otherGroupFile(info.outputDir));
+    await page.selectOption('#openInto', 'group:g1|banksia|2027|1');
+    await page.click('.modal-actions button:has-text("Open")');
+    await expect.poll(() => page.evaluate(() => library.current)).toBe('lib22222');
+    await expect.poll(() => server.programs.get('lib22222').version).toBeGreaterThan(2);
+    expect(server.programs.get('lib22222').data.branding.groupName).toBe('1st Example');
+    expect(server.programs.size).toBe(4);   // nothing added
+  });
 });

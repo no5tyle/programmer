@@ -107,4 +107,16 @@ test.describe("with only a group's Group plan", () => {
     // Their programs are the group's: its tabs
     await expect(page.locator('.dir-unit[data-unit="banksia"] .term-tab')).toHaveCount(5);
   });
+
+  test("starting a term in the group's library: the group's from the start, never shown as kept as it was", async ({ page }) => {
+    const server = await signedIn(page, { groups: [GROUP], programs: [] }, (s) => {
+      s.mode = 'group';
+      s.libraries.set('g1', { units: [{ id: 'banksia', name: 'Banksia Cubs', section: 'cubs' }], styling: null, region: 'SA', myUnits: ['banksia'] });
+    });
+    await page.locator('.dir-unit[data-unit="banksia"] .term-tab:has-text("T1 27")').click();
+    await expect.poll(() => page.evaluate(() => libItem(library.current)?.owner)).toBe('group:g1');
+    await expect(page.locator('#readOnlyNote')).toBeHidden();
+    await expect.poll(() => [...server.programs.values()].map((p) => [p.owner, p.unit])).toEqual([['group:g1', 'banksia']]);
+    await expect(page.locator('#readOnlyNote')).toBeHidden();
+  });
 });

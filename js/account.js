@@ -272,6 +272,37 @@ function refreshPublishButton() {
   if (b) b.hidden = !unpublishedChanges();
 }
 
+/* ---------------------------------------------------------------- nights at the group's spaces */
+
+/*
+ * A group library program's nights at the group's spaces (Where, chosen from Quarters Master) are booked on its
+ * Facilities calendar: pencilled in as the program's saved, confirmed as it's published (or asked for, if someone
+ * else has the space). How each stands is shown in its Where cell: the API says, with each save and publish.
+ */
+let nightBookings = new Map();   // rowId -> { status, spaceId, clash }
+let nightBookingsFor = null;     // the program they're for
+function setNightBookings(id, list) {
+  if (!Array.isArray(list)) return;
+  nightBookingsFor = id;
+  nightBookings = new Map(list.map((b) => [b.rowId, b]));
+  if (id === library.current && typeof renderSheet === 'function') { renderSheet(); if (typeof fit === 'function') fit(); }
+  if (id === library.current && typeof refreshWhereHint === 'function') refreshWhereHint();
+}
+/** The group's spaces a program's Where can be, for a group library program: [{ id, name, shared }]. */
+function spacesFor(item = libItem(library.current)) {
+  if (!item?.owner) return [];
+  return libraryOf(item.owner)?.spaces || [];
+}
+/** Called after each render: fetches how the open program's nights stand, once per program opened. */
+function followNightBookings() {
+  const item = libItem(library.current);
+  if (!item?.owner || item.version == null || !signedIn()) { if (nightBookingsFor !== library.current) { nightBookings = new Map(); nightBookingsFor = library.current; } return; }
+  if (nightBookingsFor === item.id) return;
+  nightBookingsFor = item.id;
+  nightBookings = new Map();
+  api('GET', `/programs/${item.id}/bookings`).then((r) => { if (r.ok && library.current === item.id) setNightBookings(item.id, r.json.bookings); }).catch(() => {});
+}
+
 /** Publishes the open program: families' page and calendar show it as it is now. */
 async function publishCurrent() {
   const id = await programInAccount('Publishing');
@@ -282,6 +313,7 @@ async function publishCurrent() {
   if (!r.ok) { toast(errorText(r), 'error'); return; }
   const item = libItem(id);
   if (item) { item.publishedVersion = r.json.published.version; saveLibrary(); }
+  if (r.json.bookings) setNightBookings(id, r.json.bookings);
   refreshPublishButton();
   if (typeof renderMobile === 'function' && onPhone()) renderMobile();
   toast('Published. Families see these changes now.');
@@ -350,6 +382,7 @@ async function pushProgram(id) {
 
   if (r.ok) {
     item.version = r.json.version;
+    if (r.json.bookings) setNightBookings(id, r.json.bookings);
     keepBase(id, json);   // what both now have: the starting point for putting changes together
     if (localStorage.getItem(key) === json) delete item.dirty;   // still dirty if it changed while sending
     saveLibrary();
@@ -1125,12 +1158,12 @@ function openAccountMenu(anchor) {
   openPopover(anchor, `
     <div class="pop-title">${esc(me?.user?.name || 'Your account')}<div class="pop-sub pop-email">${esc(session.email)}</div></div>
     <div class="menu">
-      ${myGroups().length ? `<button id="pLibrary" title="Keep this program in your group's library, and use the group's styling"><svg viewBox="0 0 24 24"><path d="M4 19V5M8 19V5M12 19l3-14 4 1-3 14z"/></svg>Group library</button>` : ''}
+      ${myGroups().map((g) => `<button data-group-site="${esc(g.id)}" title="${esc(g.name)}'s members, units and settings (opens group.qstored.org)"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20a6 6 0 0 1 12 0M14 20a4 4 0 0 1 7-2.6"/></svg><span>${esc(g.name)}<small class="menu-sub">Members, units and settings</small></span></button>`).join('')}
       <button id="pAccount" title="Your name, plan, billing and data, across qStored's apps (opens account.qstored.org)"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Account</button>
       <button id="pSignOut"><svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 8l-4 4 4 4M6 12h9"/></svg>Sign out</button>
     </div>`, { type: 'account' });
   $('#pAccount').onclick = () => { closePopover(); openQstoredAccount(); };
-  if ($('#pLibrary')) $('#pLibrary').onclick = () => { closePopover(); openLibraryBox(); };
+  pop.querySelectorAll('[data-group-site]').forEach((b) => { b.onclick = () => { closePopover(); openGroupSite(b.dataset.groupSite); }; });
   $('#pSignOut').onclick = signOut;
 }
 
@@ -1364,6 +1397,10 @@ async function openShareBox() {
 /* ---------------------------------------------------------------- a group's library (the Group plan) */
 
 const GROUP_SITE_URL = 'https://group.qstored.org/';
+/** A group's own page on the group site, in a new tab: `page` is members, programs (units and styling) or settings. */
+function openGroupSite(gid, page = 'members') {
+  window.open(`${GROUP_SITE_URL}?group=${encodeURIComponent(gid)}#/${page}`, '_blank', 'noopener');
+}
 const LIBRARIES_KEY = 'qstored.libraries';   // each group's units and styling, for offline
 /** The groups the person is in (from /me), each with `plan`: the Group plan, which opens its library. */
 const myGroups = () => (signedIn() && me?.groups) || [];
@@ -1696,12 +1733,120 @@ async function startTermProgram(key) {
   if (!applyTermPreset()) { state.term.start = ''; state.term.end = ''; }
   state.rows = generateRows();
   state = prev;
-  addProgram(c);
-  const item = libItem(library.current);
-  if (item) { if (owner !== 'me') item.owner = owner; item.unit = unitId; item.year = year; item.term = term; }
-  save();
+  addProgram(c, { ...(owner !== 'me' ? { owner } : {}), unit: unitId, year, term, updated: Date.now() });
   applyLibrary();
+  renderAll();
   toast(c.rows.length ? `${unit.name}'s Term ${term} ${year} program is ready to fill in.` : 'Enter the term dates, then use Generate meeting dates.');
+}
+
+/* ---------------------------------------------------------------- opening a program file */
+
+/** A row's own content: what an opened file's row brings to a night of the term it's opened into. */
+const ROW_CONTENT = ['activity', 'description', 'uniform', 'forms', 'where', 'space', 'patrol', 'leader', 'cost', 'challenge', 'notes', 'category', 'rich', 'cellStyle'];
+
+/**
+ * Opens a program file (Open, then a saved program) into a program the person chooses: the open one (its contents
+ * replaced), a unit's term (a group library's or their own units', started if there's none yet), or a new program
+ * of their own. The program keeps what's its own: its unit, its term and, in a group's library, the group's styling
+ * (the file's group name, logo, colours and so on are left out). From another term, the file's activities go onto
+ * this term's meeting nights in order.
+ */
+async function openProgramFile(raw) {
+  const file = normalise(raw);
+  const fileUnit = typeof file.unit === 'string' ? file.unit : null;
+  // A plan (their own Individual plan, or a group's Group plan): a file goes into a unit's term, its program
+  // replaced or started. Without one: it replaces the one program they keep (or, with none yet, becomes it).
+  const planned = signedIn() && (ownMode() !== 'one' || myGroups().some((g) => g.plan));
+  if (!planned) {
+    if (!library.current) {
+      const how = await addProgramChecked(() => { const c = copyOf(file); delete c.unit; c.rows.forEach((r) => { r.space = ''; }); return c; });
+      if (how) toast('Program opened.');
+      return;
+    }
+    const ok = await modal({
+      title: 'Replace your program?',
+      body: `<p>${signedIn() ? 'A free account keeps one program' : 'This device keeps one program'}, so the program in the file replaces what's in <b>${esc(titleText() || libItem(library.current)?.name || 'yours')}</b>. Use <strong>Save file</strong> first to keep a copy of it.</p>
+        ${signedIn() ? '<p class="hint">An Individual plan keeps a program every term for each section you run.</p>' : ''}`,
+      buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' }, { label: 'Save file', value: 'file', cls: 'btn-outline' }, { label: 'Replace it', value: 'replace', cls: 'btn-primary' }],
+    });
+    if (ok === 'file') { await saveProgramAs(); return openProgramFile(raw); }
+    if (ok !== 'replace') return;
+    fileIntoOpenProgram(file);
+    toast('Opened into your program.');
+    return;
+  }
+  const options = [];   // [optgroup label, [{ value, label }]]
+  let preferred = null;
+  const spaces = [...(ownMode() === 'units' ? [{ id: 'me', name: 'Your units', plan: true }] : []), ...myGroups().filter((g) => g.plan)];
+  for (const g of spaces) {
+    const owner = g.id === 'me' ? 'me' : `group:${g.id}`;
+    const units = g.id === 'me' ? unitsOf('me') : myUnitsOf(g.id);
+    const { shown } = termTabs(regionOf(g.id));
+    for (const u of units) {
+      options.push([g.id === 'me' ? `Your units · ${u.name}` : `${g.name} · ${u.name}`, shown.map((t) => {
+        const value = `${owner}|${u.id}|${t.year}|${t.term}`;
+        const p = programFor(owner, u.id, t.year, t.term);
+        if (!preferred && p && p.id === library.current) preferred = value;
+        if (!preferred && u.id === fileUnit && t.year === file.term.year && t.term === file.term.term) preferred = value;
+        return { value, label: `Term ${t.term} ${t.year}${p ? ' (replaces its program)' : ' (starts it)'}` };
+      })]);
+    }
+  }
+  if (!options.length) { toast(ownMode() === 'units' ? 'Add your units first: a file opens into one of their terms.' : "Your group's units come first: a file opens into one of their terms.", 'error'); return; }
+  const first = preferred || options[0][1][0].value;
+  const choice = await modal({
+    title: 'Open this program into',
+    body: `<p>Choose the unit and term it's for. That term's program takes its activities, and keeps its own unit and term${myGroups().some((g) => g.plan) ? ", and in a group's library, the group's styling" : ''}.</p>
+      <label class="field"><span>Open it into</span><select id="openInto">${options.map(([label, opts]) => `<optgroup label="${esc(label)}">${opts.map((o) => `<option value="${esc(o.value)}"${o.value === first ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}</optgroup>`).join('')}</select></label>
+      <p class="hint">From another term, its activities go onto that term's meeting nights, in order.</p>`,
+    buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' }, { label: 'Open', value: 'open', cls: 'btn-primary' }],
+  });
+  if (choice !== 'open') return;
+  const into = $('#openInto')?.value || first;
+  const [owner, unitId, y, t] = into.split('|');
+  const existing = programFor(owner, unitId, +y, +t);
+  if (existing) { await openProgram(existing.id); if (library.current !== existing.id) return; }
+  else { await startTermProgram(into); if (libItem(library.current)?.unit !== unitId) return; }
+  if (libraryReadOnly()) { toast("That term's program is kept as it was, so nothing was changed.", 'error'); return; }
+  const left = fileIntoOpenProgram(file);
+  toast(left ? `Opened. ${left} activit${left === 1 ? 'y' : 'ies'} didn't fit this term's meeting nights, so ${left === 1 ? "it's" : "they're"} at the end, with no date.` : 'Opened into this program.');
+}
+
+/** Puts a file's program into the open one, keeping the open one's unit, term and (in a group's library) styling. */
+function fileIntoOpenProgram(file) {
+  pushHistory();
+  const owner = libItem(library.current)?.owner;
+  const keepTerm = { ...state.term };
+  const ids = new Set(spacesFor().map((x) => x.id));
+  const next = copyOf(file);
+  if (state.unit) next.unit = state.unit; else delete next.unit;
+  // Places linked to another group's spaces stay as places, by name
+  next.rows.forEach((r) => { if (r.space && !ids.has(r.space)) r.space = ''; });
+  const sameTerm = file.term.year === keepTerm.year && file.term.term === keepTerm.term;
+  const termFields = ['region', 'year', 'term', 'start', 'end', ...(owner || state.unit ? ['meetingDay', 'startTime', 'endTime'] : [])];
+  next.term = { ...next.term, ...Object.fromEntries(termFields.map((k) => [k, keepTerm[k]])) };
+  let left = 0;
+  if (!sameTerm) {
+    // This term's nights, with the file's activities on them in order; dates for families from another term go
+    const prev = state;
+    state = next;
+    const nights = generateRows();
+    state = prev;
+    const from = next.rows.filter((r) => !r.noMeeting && !r.autoHoliday && !r.emptyWeek);
+    const slots = nights.filter((r) => !r.noMeeting && !r.autoHoliday);
+    from.forEach((r, i) => {
+      const n = slots[i];
+      if (n) ROW_CONTENT.forEach((k) => { if (r[k] !== undefined) n[k] = clone(r[k]); });
+    });
+    left = Math.max(0, from.length - slots.length);
+    next.rows = [...nights, ...from.slice(slots.length).map((r) => ({ ...r, date: '', endDate: '', dateLabel: '' }))];
+    next.extras = { ...next.extras, dates: [] };
+  }
+  // A group library's styling, or the person's own unit's section and name, over the file's
+  applyLibrary(next, owner, false);
+  state = next;
+  save(); renderAll();
+  return left;
 }
 
 /* ---------------------------------------------------------------- the person's own units (an Individual plan) */
