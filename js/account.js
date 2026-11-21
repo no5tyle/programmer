@@ -932,6 +932,9 @@ async function afterSignIn() {
   saveLibrary();
   toast(`Signed in as ${session.email}.`);
   await catchUp();   // with nothing of its own here, this opens the newest program in the account
+  // Signed in from the setup wizard's first visit, into a group (an invite) or an account with programs: theirs
+  // are what to show, not the wizard
+  if (typeof welcomeClose === 'function' && accountHasPrograms()) welcomeClose();
 }
 
 async function chooseWhatToAdd() {
@@ -940,8 +943,9 @@ async function chooseWhatToAdd() {
 
   const locals = library.items.filter((x) => x.version == null && !x.hold);
   const real = locals.filter((x) => !isBlankProgram(readJSON(programKey(x.id))));
-  const hasPrograms = (me?.programs?.count || 0) > 0;
+  const hasPrograms = (me?.programs?.count || 0) > 0 || (me?.groups || []).length > 0;
   // An untouched starter program isn't worth a place in the account, if the account has programs of its own
+  // (or is in a group: an invited leader starts with the group's programs)
   if (hasPrograms) {
     for (const x of locals.filter((l) => !real.includes(l))) {
       library.items = library.items.filter((i) => i !== x);
@@ -1966,8 +1970,14 @@ function accountInit() {
 
   const params = new URLSearchParams(location.search);
   const answer = readJSON(IDP_KEY) ? idpAnswer() : null;
-  if (answer) completeMicrosoftSignIn(answer);
-  else if (params.get('mode') === 'signIn' && params.get('oobCode')) completeSignIn(params.get('oobCode'));
-  else if (signedIn() && (shared === 'in' || (library.owner && library.owner !== session.uid))) afterSignIn();
-  else if (signedIn()) catchUp();
+  if (answer) accountReady = completeMicrosoftSignIn(answer);
+  else if (params.get('mode') === 'signIn' && params.get('oobCode')) accountReady = completeSignIn(params.get('oobCode'));
+  else if (signedIn() && (shared === 'in' || (library.owner && library.owner !== session.uid))) accountReady = afterSignIn();
+  else if (signedIn()) accountReady = catchUp();
 }
+
+/** The first look at the account as the page opens (js/welcome.js waits for it before offering the wizard). */
+let accountReady = Promise.resolve();
+
+/** True once the account has programs to show, or groups whose library has them: no need for the setup wizard. */
+const accountHasPrograms = () => signedIn() && (library.items.some((x) => x.version != null) || (me?.groups || []).length > 0);

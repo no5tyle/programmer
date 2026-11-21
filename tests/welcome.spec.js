@@ -360,3 +360,47 @@ test.describe('for leaders new to it', () => {
     await expect(saved).toHaveText('All changes saved');
   });
 });
+
+/* Invited to a group, a leader is signed in already (by the shared qStored sign-in) the first time they open the
+   builder: the group's programs are what they see, not the wizard. */
+test.describe('signed in on a first visit', () => {
+  const { program, mockAccount } = require('./account-helpers');
+  const EXAMPLE = require('../examples/example-program.json');
+  const GROUP = { id: 'g1', name: '1st Example', role: 'leader', gearRole: 'leader', plan: true };
+
+  async function arrive(page, context, options) {
+    const server = await mockAccount(page, options);
+    server.libraries.set('g1', { units: [{ id: 'banksia', name: 'Banksia Cubs', section: 'cubs' }], styling: {}, region: 'SA' });
+    await context.addCookies([{
+      name: 'qstored_session', domain: 'localhost', path: '/',
+      value: encodeURIComponent(JSON.stringify({ uid: 'u1', email: 'akela@example.com', refreshToken: 'refresh-1' })),
+    }]);
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto('/');
+    return errors;
+  }
+
+  test("an invited leader sees the group's programs, not the wizard", async ({ page, context }) => {
+    const errors = await arrive(page, context, { groups: [GROUP], programs: [
+      program('lib22222', { ...EXAMPLE, unit: 'banksia' }, { name: 'Banksia T1', owner: 'group:g1', unit: 'banksia', version: 2 }),
+    ] });
+    await expect.poll(() => page.evaluate(() => library.current)).toBe('lib22222');
+    await expect(page.locator('.wz')).toHaveCount(0);
+    expect(await page.evaluate(() => localStorage.getItem('scoutProgramBuilder.welcome'))).toBe('done');
+    expect(errors).toEqual([]);
+  });
+
+  test("in a group whose library is empty, still no wizard: the group's terms are there to start", async ({ page, context }) => {
+    const errors = await arrive(page, context, { groups: [GROUP] });
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('scoutProgramBuilder.welcome'))).toBe('done');
+    await expect(page.locator('.wz')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
+  test('an account with nothing yet still gets the wizard', async ({ page, context }) => {
+    const errors = await arrive(page, context, {});
+    await expect(page.locator('.wz h2')).toHaveText('Welcome to Program Builder');
+    expect(errors).toEqual([]);
+  });
+});

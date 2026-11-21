@@ -7,6 +7,7 @@
 
 const WELCOME_KEY = 'scoutProgramBuilder.welcome';   // 'pending' until the wizard is finished or skipped
 
+let welcomeClose = null;   // closes the open wizard (js/account.js, on signing in to an account with programs)
 function welcomeState() { try { return localStorage.getItem(WELCOME_KEY); } catch { return null; } }
 function setWelcomeState(v) { try { localStorage.setItem(WELCOME_KEY, v); } catch { /* this visit only */ } }
 
@@ -196,7 +197,10 @@ function openWelcome() {
   function close() {
     document.removeEventListener('keydown', onKey, true);
     back.remove();
+    welcomeClose = null;
   }
+  // Signing in part-way, to an account with programs (or a group's): js/account.js closes it, and it's done
+  welcomeClose = () => { close(); setWelcomeState('done'); };
 
   function onKey(e) {
     if (e.key === 'Enter' && e.target.closest?.('.wz') && e.target.tagName === 'INPUT') { e.preventDefault(); next(); }
@@ -473,7 +477,17 @@ function initWelcome() {
   $('#btnTour').onclick = startTour;
   $('#btnHelp').onclick = openHelp;   // the ? beside Export: help, with the tour
   if (firstVisit && !welcomeState()) setWelcomeState('pending');
-  if (welcomeState() === 'pending') openWelcome();
+  if (welcomeState() !== 'pending') return;
+  // Already signed in (on another qStored site, or by an invite to a group): the account's programs, and the
+  // group's, come first. The wizard is only for someone starting with nothing.
+  if (typeof signedIn === 'function' && accountsOn() && signedIn()) {
+    accountReady.catch(() => {}).then(() => {
+      if (accountHasPrograms()) setWelcomeState('done');
+      else if (welcomeState() === 'pending') openWelcome();
+    });
+    return;
+  }
+  openWelcome();
 }
 
 initWelcome();
