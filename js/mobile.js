@@ -150,7 +150,7 @@ function openMenu() {
       const cardItem = (c, i) => item(`data-card="${i}"`, c.querySelector('.card-icon').innerHTML, esc(c.querySelector('summary').textContent.trim()));
       body.innerHTML = `
         <div class="m-group">
-          ${item('data-m="programs"', '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>', 'Programs', !accountsOn() ? `${library.items.length} saved in this browser` : signedIn() ? `${library.items.length} in your account` : 'One on this phone. Sign in to keep more')}
+          ${item('data-m="programs"', '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>', 'Programs', !accountsOn() ? `${library.items.length} saved in this browser` : signedIn() ? `${library.items.length} in your account` : 'One on this phone. Sign in to save it to your account')}
           ${item('data-m="new"', '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>', 'New program')}
           ${item('data-m="open"', '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>', 'Open a file', 'A program file you saved, or a spreadsheet of activities')}
           ${item('data-m="generate"', '<svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>', 'Generate meeting dates')}

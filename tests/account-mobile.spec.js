@@ -13,7 +13,7 @@ test('the menu has Sign in, then Account and Sign out', async ({ page }) => {
   await mockAccount(page);
   errors = await openAccountApp(page);
   await page.click('#mMenu');
-  await expect(page.locator('[data-m="programs"]')).toContainText('Sign in to keep more');
+  await expect(page.locator('[data-m="programs"]')).toContainText('Sign in to save it to your account');
   await page.click('[data-m="signin"]');
   await expect(page.locator('.modal h2')).toHaveText('Sign in');
 });

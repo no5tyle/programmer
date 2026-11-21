@@ -444,7 +444,7 @@ function openProgramsMenu(anchor) {
     </div>
     ${libGroups.map((g) => `<div class="pop-library"><div class="pop-title">${esc(libraryName(`group:${g.id}`))}</div>
       ${libraryTermsHTML(g, library.items.filter((x) => x.owner === `group:${g.id}`), (x) => `<div class="prog-item"><button class="prog-open" data-open="${x.id}"><b>${esc(x.name)}</b><span>${esc(termLabel(x))}</span></button></div>`)}</div>`).join('')}
-    ${accountsOn() && !account ? `<div class="prog-signin"><span>Sign in to keep more than one, and use them on any device.</span><button class="btn btn-outline btn-sm" id="pSignIn">Sign in</button></div>` : ''}
+    ${accountsOn() && !account ? `<div class="prog-signin"><span>Sign in to save it to your account, and open it on any device.</span><button class="btn btn-outline btn-sm" id="pSignIn">Sign in</button></div>` : ''}
     <div class="pop-actions">
       <button class="btn btn-text btn-sm" id="pDupProg" title="Make a copy of this program, to change without touching this one">Duplicate this one</button>
       <button class="btn btn-primary btn-sm" id="pNewProg" title="Start another program for this term or the next, keeping your branding, leaders, columns and lists">New program</button>
@@ -556,7 +556,7 @@ function renderDirectory() {
     </div>`;
   }).join('') || '<p class="dir-empty">No programs yet.</p>';
   if (accountsOn() && !account) {
-    box.insertAdjacentHTML('beforeend', `<div class="dir-signin"><span>Sign in to keep more than one program, and use them on any device.</span>
+    box.insertAdjacentHTML('beforeend', `<div class="dir-signin"><span>Sign in to save your program to your account, and open it on any device.</span>
       <button class="btn btn-outline btn-sm" type="button" data-dir-signin>Sign in</button></div>`);
   }
 }

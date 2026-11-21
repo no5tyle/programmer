@@ -36,7 +36,7 @@ test.describe('signed out', () => {
     await edit(page, 'Night hike');
     await expect(saveState(page)).toHaveText('Saved on this device');
     await expect(page.locator('#directory .dir-item')).toHaveCount(1);
-    await expect(page.locator('#directory .dir-signin')).toContainText('Sign in to keep more than one');
+    await expect(page.locator('#directory .dir-signin')).toContainText('Sign in to save your program to your account');
     await page.click('[data-dir-signin]');
     await expect(page.locator('.modal h2')).toHaveText('Sign in');
   });
@@ -46,7 +46,7 @@ test.describe('signed out', () => {
     const first = await page.evaluate(() => library.current);
 
     await page.click('#btnDirDup');
-    await expect(page.locator('.modal h2')).toHaveText('Sign in to keep more than one');
+    await expect(page.locator('.modal h2')).toHaveText('This device keeps one program');
     await page.click('.modal button:has-text("Cancel")');
     expect(await page.evaluate(() => library.items.length)).toBe(1);
 
@@ -62,7 +62,7 @@ test.describe('signed out', () => {
     // Opening a file asks too, and Save file is offered first
     await page.click('#btnImport');
     await page.setInputFiles('#fileJson', exampleFile);
-    await expect(page.locator('.modal h2')).toHaveText('Sign in to keep more than one');
+    await expect(page.locator('.modal h2')).toHaveText('This device keeps one program');
     await expect(page.locator('.modal button:has-text("Save file")')).toBeVisible();
     await page.click('.modal button:has-text("Replace it")');
     await expect.poll(() => page.evaluate(() => state.branding.groupName)).toBe(EXAMPLE.branding.groupName);

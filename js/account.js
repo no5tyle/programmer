@@ -767,8 +767,8 @@ async function newProgramGate() {
   }
   for (;;) {
     const choice = await modal({
-      title: 'Sign in to keep more than one',
-      body: `<p>Without an account, the builder keeps one program on this device. <strong>Sign in</strong> (it's free) to keep it in your account, and use it on any device.</p>
+      title: 'This device keeps one program',
+      body: `<p>Without an account, the builder keeps one program on this device. <strong>Sign in</strong> (it's free) to save it to your account and open it on any device. An Individual plan adds a program every term for each section you run.</p>
         <p>Or replace the program on this device. Use <strong>Save file</strong> first to keep a copy of it.</p>`,
       buttons: [{ label: 'Cancel', value: null, cls: 'btn-text' }, { label: 'Save file', value: 'file', cls: 'btn-outline' },
         { label: 'Replace it', value: 'replace', cls: 'btn-outline' }, { label: 'Sign in', value: 'signin', cls: 'btn-primary' }],
