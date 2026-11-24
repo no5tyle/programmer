@@ -425,7 +425,8 @@ function openProgramsMenu(anchor) {
   const account = signedIn();
   // A group library's programs are under its units' term tabs, after the person's own
   const libGroups = account && typeof myGroups === 'function' ? myGroups().filter((g) => myUnitsOf(g.id).length || library.items.some((x) => x.owner === `group:${g.id}`)) : [];
-  const items = [...library.items].filter((x) => !x.owner || !libGroups.some((g) => x.owner === `group:${g.id}`)).sort((a, b) => b.updated - a.updated);
+  const shownHere = (x) => (typeof inView === 'function' ? inView(x) : true);   // their own, or the group in view's
+  const items = [...library.items].filter((x) => shownHere(x) && (!x.owner || !libGroups.some((g) => x.owner === `group:${g.id}`))).sort((a, b) => b.updated - a.updated);
   const where = !accountsOn() ? 'saved in this browser' : account ? 'in your account' : 'on this device';
   const sub = (x) => {
     const held = x.hold === 'conflict' ? 'changed somewhere else' : x.hold ? 'on this device only' : '';

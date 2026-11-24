@@ -17,14 +17,14 @@ test.describe('sheet', () => {
     await expect(page.locator('#btnExport')).toHaveCSS('background-color', 'rgb(0, 122, 255)');
     // The qStored app switcher (js/qstored-switcher.js) replaces the icon at the top left: qStored's apps only,
     // and the internal dashboard only for sysadmins (tests/account.spec.js)
-    await page.locator('.appbar .qs-switch-btn').click();
-    await expect(page.locator('.appbar .qs-switch-item[aria-current=page]')).toContainText('Program Builder');
-    await expect(page.locator('.appbar .qs-switch-name')).toHaveText(['Program Builder', 'Pinewood Control', 'Quarters Master']);
+    await page.locator('.appbar qs-app-switcher .qs-switch-btn').click();
+    await expect(page.locator('.appbar qs-app-switcher .qs-switch-item[aria-current=page]')).toContainText('Program Builder');
+    await expect(page.locator('.appbar qs-app-switcher .qs-switch-name')).toHaveText(['Program Builder', 'Pinewood Control', 'Quarters Master']);
     await page.keyboard.press('ArrowDown');
-    await expect(page.locator('.appbar .qs-switch-item').nth(1)).toBeFocused();
+    await expect(page.locator('.appbar qs-app-switcher .qs-switch-item').nth(1)).toBeFocused();
     await page.keyboard.press('Escape');
-    await expect(page.locator('.appbar .qs-switch-menu')).toBeHidden();
-    await expect(page.locator('.appbar .qs-switch-btn')).toBeFocused();
+    await expect(page.locator('.appbar qs-app-switcher .qs-switch-menu')).toBeHidden();
+    await expect(page.locator('.appbar qs-app-switcher .qs-switch-btn')).toBeFocused();
     await expect(page.locator('#sheet .prog')).toHaveCount(1);
   });
 

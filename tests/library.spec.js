@@ -248,3 +248,57 @@ test.describe('opening a program file, with a plan', () => {
     expect(server.programs.size).toBe(4);   // nothing added
   });
 });
+
+test.describe('several groups', () => {
+  const OTHER = { id: 'g2', name: '2nd Example', role: 'leader', gearRole: 'leader', plan: true };
+  const otherProgram = program('lib55555', { ...EXAMPLE, unit: 'kingfisher' }, { name: 'Kingfisher T1', owner: 'group:g2', unit: 'kingfisher', version: 1, year: 2027, term: 1 });
+
+  test('the bar switches the group in view: its library, its address, and the group every call says it is for', async ({ page }) => {
+    const server = await open(page, { groups: [GROUP, OTHER] }, (s) => {
+      s.programs.set(otherProgram.id, otherProgram);
+      s.libraries.set('g2', { units: [{ id: 'kingfisher', name: 'Kingfisher Troop', section: 'scouts' }], styling: null, region: 'SA' });
+    });
+    // The first group, with its address
+    await expect(page.locator('#groupSwitch')).toBeVisible();
+    await expect(page.locator('#groupSwitch .qs-group-name')).toHaveText('1st Example');
+    await expect(page.locator('.appbar .brand-text')).toBeHidden();
+    await expect(page).toHaveURL(/\/g\/g1\/$/);
+    const lib = page.locator('.dir-group:has(.dir-library)');
+    await expect(lib.locator('.dir-head')).toContainText("1st Example's library");
+    // To the other: its library, not the first's; their own programs stay
+    await page.click('#groupSwitch .qs-group-btn');
+    await expect(page.locator('#groupSwitch .qs-switch-name')).toHaveText(['My programs', '1st Example', '2nd Example', 'Start or join a group']);
+    await page.click('#groupSwitch [data-group="g2"]');
+    await expect(page).toHaveURL(/\/g\/g2\/$/);
+    await expect(lib.locator('.dir-head')).toContainText("2nd Example's library");
+    await expect(lib.locator('.dir-unit-head')).toHaveText(['Kingfisher Troop']);
+    await expect(page.locator('.dir-group:not(:has(.dir-library)) .dir-item b')).toHaveText([/Cubs Program/]);
+    await unit(page, 'kingfisher').locator('.term-tab.has').click();
+    await expect.poll(() => page.evaluate(() => library.current)).toBe('lib55555');
+    expect(server.scopes).toContain('GET /programs/lib55555 g2');
+    expect(server.scopes).toContain('GET /groups/g2/library g2');
+    expect(server.scopes.filter((x) => /\/groups\/g\d|owner=group/.test(x) && x.endsWith(' -'))).toEqual([]);
+    // Shared with qStored's other apps
+    const cookie = (await page.context().cookies()).find((c) => c.name === 'qstored_group');
+    expect(JSON.parse(decodeURIComponent(cookie.value)).gid).toBe('g2');
+    // "My programs": their own only, at the site's root
+    await page.click('#groupSwitch .qs-group-btn');
+    await page.click('#groupSwitch [data-group=""]');
+    await expect(page).toHaveURL(/localhost:\d+\/$/);
+    await expect(lib).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => library.current)).toBe('prog1111');
+  });
+
+  test("a group's address opens that group (GitHub Pages hands it on through 404.html)", async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-11-18T10:00:00+10:30'));
+    const server = await mockAccount(page, { signedIn: true, groups: [GROUP, OTHER], programs: [program('prog1111', EXAMPLE, { version: 3 }), otherProgram] });
+    server.libraries.set('g2', { units: [{ id: 'kingfisher', name: 'Kingfisher Troop', section: 'scouts' }], styling: null, region: 'SA' });
+    errors = await openAccountApp(page, SIGN_IN_LINK);
+    await expect(page.locator('#groupSwitch .qs-group-name')).toHaveText('1st Example');
+    await page.goto('/g/g2/');
+    await page.waitForFunction(() => typeof state === 'object');
+    await expect(page.locator('#groupSwitch .qs-group-name')).toHaveText('2nd Example');
+    await expect(page).toHaveURL(/\/g\/g2\/$/);
+    await expect(page.locator('.dir-group:has(.dir-library) .dir-head')).toContainText("2nd Example's library");
+  });
+});

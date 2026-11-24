@@ -21,6 +21,22 @@
   The same file is in programmer, qstored-internal, qstored-account, qstored-group, pinewood-control
   (frontend/public) and qstored-gear (static). Change them all together.
   To add an app, add it to APPS below.
+
+  The group switcher, beside it in the bar of each app that works on a group (Quarters Master, the group site
+  and the Program Builder):
+
+    <qs-group-switcher></qs-group-switcher>
+    el.groups = [{ id, name }];  el.current = gid;   // drawn when set; with no groups, it offers to start one
+    el.addEventListener('qs-group-change', (e) => …e.detail.id…);   // the site goes to that group's address
+
+  It shows the current group's name, and opens a menu of the person's groups and a way to start or join another.
+  Where the bar is narrow, a site can show the group's letter instead of its name: `qs-group-switcher[compact]`
+  (or the same rules as that, in its own media query).
+  `none-label` (the Program Builder's "My programs") adds an item for no group, whose id is ''.
+
+  The current group is shared across qStored's apps: window.qsGroup.get(uid) and .set(uid, gid), kept in a
+  cookie on qstored.org (this host's only, locally) with whose it is, so someone else signing in doesn't take it
+  up. Picking a group sets it; each site also sets it from its address, which always wins.
 */
 (() => {
   if (customElements.get('qs-app-switcher')) return;
@@ -143,4 +159,103 @@
   }
 
   customElements.define('qs-app-switcher', AppSwitcher);
+
+  /* -------------------------------------------------------------- the current group, shared across the apps */
+
+  const GROUP_COOKIE = 'qstored_group';
+  const cookieAttrs = () => `; Path=/; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}${/(^|\.)qstored\.org$/.test(location.hostname) ? '; Domain=qstored.org' : ''}`;
+  window.qsGroup = {
+    /** The group this person was last working in, in any qStored app, or null. */
+    get(uid) {
+      const m = document.cookie.match(/(?:^|;\s*)qstored_group=([^;]*)/);
+      if (!m) return null;
+      try {
+        const v = JSON.parse(decodeURIComponent(m[1]));
+        return v && v.uid === uid && typeof v.gid === 'string' ? v.gid : null;
+      } catch { return null; }
+    },
+    /** Remembers the group they're working in, for every qStored app; null forgets it. */
+    set(uid, gid) {
+      document.cookie = gid
+        ? `${GROUP_COOKIE}=${encodeURIComponent(JSON.stringify({ uid, gid }))}; Max-Age=${365 * 86400}${cookieAttrs()}`
+        : `${GROUP_COOKIE}=; Max-Age=0${cookieAttrs()}`;
+    },
+  };
+
+  /* -------------------------------------------------------------- the group switcher */
+
+  const GROUP_SITE = 'https://group.qstored.org/';
+  /** A group's letter: its name's first word that isn't a number ("1st Wattle Creek Scouts" is W). */
+  const initial = (name) => ((name.split(/\s+/).find((w) => /^[^\d]/.test(w)) || name.trim() || '?')[0]).toUpperCase();
+
+  class GroupSwitcher extends HTMLElement {
+    connectedCallback() {
+      if (this.button) return;
+      const id = `qs-group-${++count}`;
+      this.classList.add('qs-switch', 'qs-group');
+      this.innerHTML = `
+        <button type="button" class="qs-group-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="${id}">
+          <span class="qs-group-badge" aria-hidden="true"></span><span class="qs-group-name"></span>${CHEVRON}
+        </button>
+        <div class="qs-switch-backdrop" hidden></div>
+        <div class="qs-switch-menu qs-group-menu" id="${id}" role="menu" aria-label="Your groups" hidden></div>`;
+      this.button = this.querySelector('.qs-group-btn');
+      this.menu = this.querySelector('.qs-switch-menu');
+      this.backdrop = this.querySelector('.qs-switch-backdrop');
+      this.button.addEventListener('click', () => (this.isOpen ? this.close() : this.open()));
+      this.backdrop.addEventListener('click', () => this.close());
+      this.addEventListener('keydown', (e) => AppSwitcher.prototype.onKey.call(this, e));
+      this.menu.addEventListener('click', (e) => {
+        const item = e.target.closest('[data-group]');
+        if (!item) { if (e.target.closest('.qs-switch-item')) this.close(false); return; }
+        e.preventDefault();
+        this.close();
+        const gid = item.dataset.group;
+        if (gid === (this._current ?? '')) return;
+        this._current = gid;
+        this.draw();
+        this.dispatchEvent(new CustomEvent('qs-group-change', { detail: { id: gid }, bubbles: true }));
+      });
+      this.draw();
+    }
+
+    set groups(list) { this._groups = Array.isArray(list) ? list : []; this.draw(); }
+    get groups() { return this._groups ?? []; }
+    set current(gid) { this._current = gid || ''; this.draw(); }
+    get current() { return this._current ?? ''; }
+
+    draw() {
+      if (!this.button) return;
+      const noneLabel = this.getAttribute('none-label');
+      const groups = this.groups;
+      const here = groups.find((g) => g.id === this.current);
+      const label = here?.name ?? (noneLabel || (groups.length ? 'Choose a group' : 'No group yet'));
+      this.querySelector('.qs-group-name').textContent = label;
+      this.querySelector('.qs-group-badge').textContent = here ? initial(here.name) : '+';
+      this.button.setAttribute('aria-label', `${label}: switch group`);
+      this.button.title = 'Switch group';
+      const item = (gid, name, hint) => `
+        <a class="qs-switch-item qs-group-item" role="menuitem" href="#" data-group="${escape(gid)}" ${gid === this.current ? 'aria-current="page"' : ''}>
+          <span class="qs-group-initial" aria-hidden="true">${escape(initial(name))}</span>
+          <span class="qs-switch-text"><span class="qs-switch-name">${escape(name)}</span>${hint ? `<span class="qs-switch-tagline">${escape(hint)}</span>` : ''}</span>
+          ${gid === this.current ? CHECK : ''}
+        </a>`;
+      const ROLE = { owner: 'Owner', admin: 'Admin', leader: 'Leader' };
+      this.menu.innerHTML = `
+        <div class="qs-switch-head" aria-hidden="true">Your groups</div>
+        ${noneLabel ? item('', noneLabel, 'Not in a group') : ''}
+        ${groups.map((g) => item(g.id, g.name, ROLE[g.role] ?? '')).join('')}
+        <a class="qs-switch-item qs-group-more" role="menuitem" href="${GROUP_SITE}#/new">
+          <span class="qs-group-initial qs-group-plus" aria-hidden="true">+</span>
+          <span class="qs-switch-text"><span class="qs-switch-name">Start or join a group</span></span>
+        </a>`;
+      this.items = [...this.menu.querySelectorAll('.qs-switch-item')];
+    }
+
+    get isOpen() { return !this.menu.hidden; }
+    open() { AppSwitcher.prototype.open.call(this); }
+    close(refocus = true) { AppSwitcher.prototype.close.call(this, refocus); }
+  }
+
+  customElements.define('qs-group-switcher', GroupSwitcher);
 })();

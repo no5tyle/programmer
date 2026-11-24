@@ -31,6 +31,7 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
     programs: new Map(programs.map((p) => [p.id, p])),
     limit, name: '', deleted: false, offline: false, rejectTokens: false, sysadmin: false,
     calls: [],      // 'METHOD /path' for each API call
+    scopes: [],     // 'METHOD /path group' for each API call: the group it said it was for, or -
     sent: [],       // the bodies of Firebase calls
     // Premium's history and live links: each program's earlier versions, and its link if turned on
     history: new Map(), links: new Map(), billing: null,
@@ -142,6 +143,17 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
     server.calls.push(`${method} ${path}${url.search}`);
     if (server.rejectTokens || !/^Bearer token-/.test(req.headers().authorization || '')) return error(route, 401, 'not_signed_in');
     const body = req.postData() ? JSON.parse(req.postData()) : null;
+    // The group a call says it's for (X-Qstored-Group), checked as the API does: theirs, and what's asked for is its
+    const scope = req.headers()['x-qstored-group'] || null;
+    server.scopes.push(`${method} ${path}${url.search} ${scope ?? '-'}`);
+    if (scope && !server.groups.some((g) => g.id === scope)) return error(route, 404, 'not_found');
+    const progId = /^\/programs\/([^/?]+)/.exec(path)?.[1];
+    const progOwner = progId && server.programs.get(progId)?.owner;
+    const needs = /^\/groups\/([^/]+)/.exec(path)?.[1]
+      ?? [url.searchParams.get('owner'), body?.owner, body?.to].find((v) => typeof v === 'string' && v.startsWith('group:'))?.slice(6)
+      ?? body?.groupId ?? (progOwner?.startsWith('group:') ? progOwner.slice(6) : undefined);
+    if (needs && !scope) return error(route, 400, 'group_required');
+    if (needs && scope !== needs) return error(route, 403, 'wrong_group');
     const summary = ({ data, ...rest }) => ({ ...rest, publishedVersion: server.published.get(rest.id) ?? null });
     const full = () => server.limit !== null && server.live().length >= server.limit;
 

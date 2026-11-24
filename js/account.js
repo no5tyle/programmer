@@ -198,7 +198,29 @@ function sessionEnded() {
 /* ---------------------------------------------------------------- the API */
 
 /** Calls the API. Answers { status, ok, json, res }; throws an `offline` error when it can't be reached. */
+/**
+ * The group a request is for (the API's X-Qstored-Group header): the group in its path, or named in its query or
+ * body (owner or to as group:{id}, a plan's groupId), or the library a program is in; else none (the person's own).
+ */
+function groupOfRequest(path, body) {
+  const inPath = /^\/groups\/([^/?]+)/.exec(path)?.[1];
+  if (inPath) return decodeURIComponent(inPath);
+  const named = [new URLSearchParams(path.split('?')[1] || '').get('owner'), body?.owner, body?.to]
+    .find((v) => typeof v === 'string' && v.startsWith('group:'));
+  if (named) return named.slice('group:'.length);
+  if (typeof body?.groupId === 'string' && body.groupId) return body.groupId;
+  const pid = /^\/programs\/([^/?]+)/.exec(path)?.[1];
+  if (pid) {
+    const item = libItem(decodeURIComponent(pid));
+    if (item) return item.owner?.startsWith('group:') ? item.owner.slice('group:'.length) : null;
+    return groupInView || null;   // not one listed here: the group in view's, if any
+  }
+  return null;
+}
+
 async function api(method, path, { body, headers = {}, keepalive = false, signal } = {}) {
+  const scope = groupOfRequest(path, body);
+  if (scope) headers = { 'X-Qstored-Group': scope, ...headers };
   for (let attempt = 0; ; attempt++) {
     const token = await idToken(attempt > 0);
     let res;
@@ -226,6 +248,7 @@ async function loadMe() {
   me = r.json;
   try { localStorage.setItem(ME_KEY, JSON.stringify(me)); } catch { /* not needed to carry on */ }
   renderAccountButton();
+  pickGroup();
   return me;
 }
 
@@ -640,11 +663,11 @@ function setOwner(item, owner) {
 }
 
 /**
- * Brings the list of programs in step with the account: the person's own, and the library of each group
- * they're in. Programs waiting to upload are left alone.
+ * Brings the list of programs in step with the account: the person's own, and the library of the group in view.
+ * Programs waiting to upload are left alone, and those of their other groups are kept for when they switch back.
  */
 async function refreshPrograms() {
-  const owners = ['me', ...(me?.groups || []).map((g) => `group:${g.id}`)];
+  const owners = ['me', ...myGroups().map((g) => `group:${g.id}`)];
   const lists = await Promise.all(owners.map((o) => api('GET', `/programs?owner=${encodeURIComponent(o)}`)));
   if (!lists[0].ok) return;
   // A group they've left (or that's gone) lists nothing, so its programs leave this device too
@@ -653,7 +676,8 @@ async function refreshPrograms() {
   const remote = new Map(lists.flatMap((r) => (r.ok ? r.json.programs : [])).filter((p) => !gone.has(p.id)).map((p) => [p.id, p]));
   library.items = library.items.filter((x) => {
     if (x.version == null || x.dirty || x.hold || remote.has(x.id)) return true;
-    if (!listed.has(x.owner || 'me')) return true;   // that list couldn't be read: keep it for now
+    const left = x.owner && !allGroups().some((g) => x.owner === `group:${g.id}`);   // a group they've left, or that's gone
+    if (!left && !listed.has(x.owner || 'me')) return true;   // another group's, or a list that couldn't be read: keep it
     try { localStorage.removeItem(programKey(x.id)); } catch { /* ignore */ }   // deleted on another device
     return false;
   });
@@ -701,8 +725,8 @@ async function fetchForOpen(id) {
 
 /** If the open program has gone (deleted elsewhere, or left out at sign-in), open the newest; with none, none is open. */
 async function ensureCurrent() {
-  if (libItem(library.current)) return;
-  for (const x of [...library.items].sort((a, b) => b.updated - a.updated)) {
+  if (libItem(library.current) && inView(libItem(library.current))) return;
+  for (const x of [...library.items].filter(inView).sort((a, b) => b.updated - a.updated)) {
     if (!(await fetchForOpen(x.id))) continue;
     library.current = x.id;
     state = normalise(readJSON(programKey(x.id)));
@@ -1109,6 +1133,10 @@ async function signOut() {
 /** Signing out clears this device's copy of the account, and starts again with one blank program. */
 function clearDevice() {
   clearTimeout(syncTimer);
+  // No group in view, at the site's root
+  groupInView = null;
+  if (location.pathname !== '/') history.replaceState(null, '', `/${location.hash}`);
+  showGroupInView();
   try {
     library.items.forEach((x) => localStorage.removeItem(programKey(x.id)));
     forgetBases(() => true);
@@ -1403,11 +1431,76 @@ async function openShareBox() {
 const GROUP_SITE_URL = 'https://group.qstored.org/';
 /** A group's own page on the group site, in a new tab: `page` is members, programs (units and styling) or settings. */
 function openGroupSite(gid, page = 'members') {
-  window.open(`${GROUP_SITE_URL}?group=${encodeURIComponent(gid)}#/${page}`, '_blank', 'noopener');
+  window.open(`${GROUP_SITE_URL}g/${encodeURIComponent(gid)}/#/${page}`, '_blank', 'noopener');
 }
 const LIBRARIES_KEY = 'qstored.libraries';   // each group's units and styling, for offline
-/** The groups the person is in (from /me), each with `plan`: the Group plan, which opens its library. */
-const myGroups = () => (signedIn() && me?.groups) || [];
+/*
+ * The group in view, chosen with the group switcher in the bar: its library is listed beside the person's own
+ * programs, and the address says which it is (/g/{gid}/). '' is none (their own programs only), and null is not
+ * chosen yet. It's shared with qStored's other apps (window.qsGroup, in qstored-switcher.js); an address with a
+ * group in it wins. Programs of their other groups stay on this device, out of view until it's switched to.
+ */
+let groupInView = null;
+const MINE_ONLY_KEY = 'qstored.mineOnly';   // chose "My programs": no group, on this device
+/** Every group the person is in (from /me), each with `plan`: the Group plan, which opens its library. */
+const allGroups = () => (signedIn() && me?.groups) || [];
+/** The groups whose libraries are shown: the group in view (none, or one). */
+const myGroups = () => allGroups().filter((g) => g.id === groupInView);
+/** Whether a program is shown: the person's own, or the group in view's. */
+const inView = (x) => !x?.owner || x.owner === `group:${groupInView}`;
+/** The group in the address: /g/{gid}/, or ?g={gid} as 404.html passes it on. */
+const groupInAddress = () => /^\/g\/([A-Za-z0-9_-]+)/.exec(location.pathname)?.[1] || new URLSearchParams(location.search).get('g');
+
+/** Chooses the group in view once /me is in: the address's, the one shared across qStored's apps, or the first. */
+function pickGroup() {
+  const groups = allGroups();
+  const has = (id) => !!id && groups.some((g) => g.id === id);
+  if (signedIn() && (groupInView === null || (groupInView && !has(groupInView)))) {
+    const asked = groupInAddress();
+    const shared = window.qsGroup?.get(me.user.id);
+    let mineOnly = false;
+    try { mineOnly = localStorage.getItem(MINE_ONLY_KEY) === '1'; } catch { /* no */ }
+    groupInView = has(asked) ? asked : has(shared) ? shared : mineOnly ? '' : groups[0]?.id || '';
+    if (asked && !has(asked)) toast("You're not in that group, or it's gone.", 'error');
+  }
+  showGroupInView();
+}
+
+/** The address, the bar's switchers and the shared choice, for the group in view. */
+function showGroupInView() {
+  const shown = signedIn() && allGroups().length > 0;
+  if (groupInView === null || !signedIn()) {   // not chosen yet: the address is left as it came
+    for (const el of document.querySelectorAll('qs-group-switcher')) el.hidden = true;
+    document.body.classList.remove('has-groups');
+    return;
+  }
+  const path = groupInView ? `/g/${encodeURIComponent(groupInView)}/` : '/';
+  const search = new URLSearchParams(location.search);
+  search.delete('g');
+  const q = search.toString();
+  if (location.pathname !== path || location.search !== (q ? `?${q}` : '')) history.replaceState(null, '', path + (q ? `?${q}` : '') + location.hash);
+  for (const el of document.querySelectorAll('qs-group-switcher')) {
+    el.hidden = !shown;
+    el.groups = allGroups();
+    el.current = groupInView || '';
+  }
+  document.body.classList.toggle('has-groups', shown);
+}
+
+/** Switches the group in view (the bar's switcher): its library, and a program that's in view. */
+async function changeGroup(gid) {
+  groupInView = gid || '';
+  if (me) window.qsGroup?.set(me.user.id, groupInView || null);
+  try { if (groupInView) localStorage.removeItem(MINE_ONLY_KEY); else localStorage.setItem(MINE_ONLY_KEY, '1'); } catch { /* this visit only */ }
+  showGroupInView();
+  if (!inView(libItem(library.current))) { save(); library.current = null; }
+  renderDirectory();
+  await loadLibraries().catch(() => null);
+  await refreshPrograms().catch(() => null);
+  if (!library.current) await ensureCurrent();
+  renderAll();
+}
+document.addEventListener('qs-group-change', (e) => { void changeGroup(e.detail.id); });
 const groupFor = (owner) => myGroups().find((g) => owner === `group:${g.id}`) || null;
 const managesGroup = (g) => !!g && (g.role === 'owner' || g.role === 'admin');
 /** "1st Example's library", for a library program's owner. */

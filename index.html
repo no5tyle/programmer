@@ -2,6 +2,8 @@
 <html lang="en-AU">
 <head>
   <meta charset="utf-8">
+  <!-- The app's files are at the site's root, also when the address is a group's (/g/{gid}/; see 404.html) -->
+  <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- What the page may load and talk to. The sign-in token is held by the page's own script, so no
        script may come from anywhere else: the app itself, the shared app switcher, and the PDF
@@ -30,10 +32,12 @@
           <svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9" /></svg>
         </span>
       </qs-app-switcher>
-      <div>
+      <div class="brand-text">
         <div class="brand-title">Program Builder</div>
         <div class="brand-sub">Term programs for Scout families</div>
       </div>
+      <!-- The group in view (js/qstored-switcher.js, js/account.js): its library is listed beside your own programs -->
+      <qs-group-switcher id="groupSwitch" none-label="My programs" hidden></qs-group-switcher>
     </div>
     <div class="appbar-actions">
       <!-- Others with this program open (js/live.js) -->
@@ -350,6 +354,7 @@
           <svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9" /></svg>
         </span>
       </qs-app-switcher>
+      <qs-group-switcher id="mGroupSwitch" none-label="My programs" compact hidden></qs-group-switcher>
       <button class="m-title" id="mTitle" aria-label="Switch program" title="Switch to another saved program, or start a new one">
         <span class="m-title-main" id="mTitleMain"></span>
         <span class="m-title-sub" id="mTitleSub"></span>

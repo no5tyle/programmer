@@ -40,6 +40,9 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .brand-mark svg { width: 20px; height: 20px; stroke-width: 2.4; }
 .brand-title { font-weight: 700; font-size: var(--n5-bar-title-size); letter-spacing: -.01em; }
 .brand-sub { font-size: var(--n5-bar-sub-size); color: var(--muted); }
+/* Signed in with groups: the bar's group switcher stands where the app's name was, as in qStored's other apps */
+body.has-groups .appbar .brand-text { display: none; }
+.appbar qs-group-switcher { font-size: var(--n5-bar-title-size); max-width: 22rem; }
 .appbar-actions { display: flex; align-items: center; gap: 4px; }
 .divider { width: 1px; height: 24px; background: var(--border); margin: 0 6px; }
 

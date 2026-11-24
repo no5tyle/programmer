@@ -1,7 +1,8 @@
 /*
   The qStored app switcher (js/qstored-switcher.js). It uses the page's own colours where the page has
   the shared ones (no5tyle.css: --surface, --text, --muted, --hover, --border, --tint), and its own otherwise.
-  The same file is in programmer, qstored-internal and qstored-account. Change all three together.
+  The same file is in programmer, qstored-internal, qstored-account, qstored-group, pinewood-control (frontend/src)
+  and qstored-gear (src). Change them all together. The group switcher (qs-group-switcher) is at the end.
 */
 qs-app-switcher {
   --qs-switch-size: 36px;
@@ -175,4 +176,112 @@ qs-app-switcher svg:not(.qs-switch-chevron):not(.qs-switch-check) {
 }
 @media print {
   qs-app-switcher { display: none !important; }
+}
+
+/* The group switcher (qs-group-switcher): the current group's name in the bar, opening a menu of the person's groups */
+qs-group-switcher {
+  --qs-surface: var(--surface, #fff);
+  --qs-text: var(--text, #1d1d1f);
+  --qs-muted: var(--muted, #6e6e73);
+  --qs-hover: var(--hover, rgba(118, 118, 128, 0.1));
+  --qs-border: var(--border, rgba(60, 60, 67, 0.16));
+  --qs-tint: var(--tint, #007aff);
+  --qs-tint-fill: var(--tint-fill, rgba(0, 122, 255, 0.12));
+  --qs-focus: var(--focus-ring, rgba(0, 122, 255, 0.35));
+  position: relative;
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  min-width: 0;
+}
+@media (prefers-color-scheme: dark) {
+  qs-group-switcher {
+    --qs-surface: var(--surface, #1c1c1e);
+    --qs-text: var(--text, #f2f2f7);
+    --qs-muted: var(--muted, #98989f);
+    --qs-hover: var(--hover, rgba(118, 118, 128, 0.24));
+    --qs-border: var(--border, rgba(84, 84, 88, 0.6));
+    --qs-tint: var(--tint, #0a84ff);
+    --qs-tint-fill: var(--tint-fill, rgba(10, 132, 255, 0.2));
+  }
+}
+.qs-group-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 0;
+  margin: 0 -8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--qs-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.qs-group-btn:hover,
+.qs-group-btn[aria-expanded='true'] {
+  background: var(--qs-hover);
+}
+.qs-group-btn:focus-visible {
+  outline: 3px solid var(--qs-focus);
+  outline-offset: 2px;
+}
+.qs-group-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.qs-group-badge {
+  display: none;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--qs-tint-fill);
+  color: var(--qs-tint);
+  font-weight: 700;
+}
+/* Compact (a narrow bar): the group's letter, not its name */
+qs-group-switcher[compact] { flex: none; }
+qs-group-switcher[compact] .qs-group-badge { display: grid; }
+qs-group-switcher[compact] .qs-group-name { display: none; }
+.qs-group-btn .qs-switch-chevron {
+  color: var(--qs-muted);
+}
+.qs-group-btn[aria-expanded='true'] .qs-switch-chevron {
+  transform: rotate(180deg);
+}
+.qs-group-menu .qs-switch-item {
+  min-height: 44px;
+}
+.qs-group-initial {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 9px;
+  background: var(--qs-tint-fill);
+  color: var(--qs-tint);
+  font-weight: 700;
+}
+.qs-group-plus {
+  background: var(--qs-hover);
+  color: var(--qs-muted);
+  font-size: 20px;
+  font-weight: 400;
+}
+.qs-group-more {
+  border-top: 0.5px solid var(--qs-border);
+  border-radius: 0 0 0.75rem 0.75rem;
+  margin-top: 2px;
+}
+@media print {
+  qs-group-switcher { display: none !important; }
 }
