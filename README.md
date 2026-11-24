@@ -125,7 +125,8 @@ signed in), for the project **`qstored`** (number **560810336067**) and its depl
    certificate can take up to an hour. The API, sign-in and Microsoft settings already name `program.qstored.org`,
    so they need no change.
 5. **Turn GitHub Pages off** once the address answers from Firebase: this repository's **Settings → Pages** →
-   unpublish. The `_github-pages-challenge-no5tyle` TXT record can go too.
+   unpublish, and remove the custom domain there. Keep the `_github-pages-challenge-no5tyle` TXT record: it stops
+   anyone else's GitHub Pages site claiming a qstored.org address.
 
 ## Sign in with Microsoft
 
