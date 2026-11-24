@@ -1,6 +1,6 @@
 # Scout Program Builder
 
-A small web app for building a term program to share with Scout families. It runs entirely in the browser and is hosted on GitHub Pages. There's no server and no build step.
+A small web app for building a term program to share with Scout families. It runs entirely in the browser and is hosted on Firebase Hosting, like qStored's other sites. There's no server and no build step.
 
 **Use it:** [program.qstored.org](https://program.qstored.org/)
 
@@ -31,7 +31,7 @@ To try it, download [`examples/example-program.json`](examples/example-program.j
 ## Features
 
 - **Programs on the left, settings on the right.** The left column lists your programs (in your account once signed in), grouped by section in the Scouts order, Joeys to Rovers, each section newest term first; click one to open it, start a *New* one, duplicate the open one, or delete one. The « button folds the list to a thin strip, and » brings it back. The settings (term, styling, leaders, columns and lists) are in a pane that floats on the right: *Settings* above the program hides and shows it, and the program makes room beside it rather than going under it. Both stay as you left them.
-- **Several groups.** Signed in and in a Scout group (or several), the **group switcher** in the bar, beside the app switcher, chooses the group in view: its library is listed beside your own programs, and the address says which it is (`program.qstored.org/g/{group}/`; GitHub Pages hands such an address to the app through `404.html`). *My programs* shows your own only. The group you're working in is shared with qStored's other apps (Quarters Master and the group site), and every call to the API about a group's programs says which group it's for (the `X-Qstored-Group` header). On a phone the switcher shows the group's letter.
+- **Several groups.** Signed in and in a Scout group (or several), the **group switcher** in the bar, beside the app switcher, chooses the group in view: its library is listed beside your own programs, and the address says which it is (`program.qstored.org/g/{group}/`, which Firebase Hosting serves as the app: `firebase.json`). *My programs* shows your own only. The group you're working in is shared with qStored's other apps (Quarters Master and the group site), and every call to the API about a group's programs says which group it's for (the `X-Qstored-Group` header). On a phone the switcher shows the group's letter.
 - **Set up on the first visit.** A short wizard asks for the group's name, the section, the term (state, year, term and meeting night; it suggests the current or next term and fills in the meeting nights) and, optionally, the leaders (contact details optional too; with them, each activity's leader can be picked with a tap, and you choose whether they're listed at the top of the program). Tick *Start with example activities* to have your term's meeting nights filled with the example program's activities, using your group, section, term and leaders, to change to your own (an empty program offers this too). Then a tour points out the settings, the program, the buttons for dates and activities, saved programs, files and printing. On a phone the tour covers the week list, Add, Preview, Share, the title and the menu. Take it again with *Take the tour* at the foot of Settings, in **Help**, or in the phone menu. Anyone who already has programs saved isn't shown the wizard.
 - **Generates meeting dates automatically.** Pick the region, year, term and meeting night, and you get one row per meeting with its term week number. Weeks can run Monday–Sunday or Sunday–Saturday. If the term starts partway through a week, after the meeting night, that whole week is still Week 1 and its meeting night is shown as a week off ("No Cubs – Term starts Thu 28 Jan"). The same goes for a term that ends partway through its last week, before the meeting night ("No Cubs – Term ends Fri 11 Dec"). Meeting nights on a public holiday automatically become weeks off, such as "No Cubs – Labour Day", and don't use up a duty patrol turn.
   - **Term dates** are built in for every state and territory: SA 2025–2028, VIC 2026–2029, QLD and WA 2026–2028, and NSW (Eastern and Western divisions), TAS, ACT and NT 2026–2027. For other years or places, choose *Other / custom* and type the dates. ACT and NT dates come from sources quoting the official tables, because their sites couldn't be reached, so double-check those.
@@ -80,17 +80,52 @@ The menu's *Use the desktop editor* switches back to the sheet editor, and *Swit
 
 Desktop editing works in current Chrome, Edge, Firefox and Safari.
 
-## Hosting on GitHub Pages
+## Hosting
 
-Every push to `main` is tested and then published by `.github/workflows/pages.yml` (in **Settings → Pages**, **Build and deployment** is set to **GitHub Actions**). If a test fails, the live site isn't touched.
+The site is on **Firebase Hosting** at **`program.qstored.org`**, in the production project with qStored's other
+sites. Every push to `main` builds the site folder (`_site`), runs the tests against exactly those files, fills in
+`js/config.js` from the repository's variables, and deploys it (`.github/workflows/deploy.yml`), signing in to
+Google without stored keys (Workload Identity Federation). If a test fails, the live site isn't touched; until the
+variables in step 3 are set, nothing is deployed. `firebase.json` serves a group's addresses (`/g/{gid}/…`) as the
+app, and sets the headers.
 
-The site is served at **`program.qstored.org`**. GitHub sends the old address, `no5tyle.github.io/programmer`, there automatically. To set the address up:
+It was on GitHub Pages until November 2026. The address stays the same, so programs saved in browsers stay where
+they are (each address keeps its own). To move it, once, in Cloud Shell (or locally, with the Google Cloud CLI
+signed in), for the project **`qstored`** (number **560810336067**) and its deploy account
+**`github-deploy@qstored.iam.gserviceaccount.com`**:
 
-1. **Verify the domain** for the `no5tyle` account: your profile's **Settings → Pages → Add a domain**, `qstored.org`. GitHub shows a TXT record (`_github-pages-challenge-no5tyle.qstored.org`) to add at the domain's DNS provider. Verifying stops anyone else's Pages site from using the domain.
-2. **Add a DNS record:** `program` as a `CNAME` to `no5tyle.github.io` (no path).
-3. In this repository's **Settings → Pages**, enter `program.qstored.org` under **Custom domain**, wait for the DNS check, then tick **Enforce HTTPS**. The `CNAME` file in the repository records the address; with the site published by the workflow, the setting in **Settings → Pages** is the one that counts.
+1. **A Hosting site.** `npx firebase-tools hosting:sites:create qstored-program --project qstored`. If the name is
+   taken, choose another and change `site` in `firebase.json` to match.
+2. **Let GitHub deploy it:**
 
-Each address keeps its own saved programs in the browser, so programs saved at the old address don't appear at the new one. Use **Save file** at the old address first, and **Open** at the new one. This is why the move comes before anyone signs in (`docs/premium-plan.md`, section 3.2).
+   ```bash
+   PROJECT=qstored
+   PROJECT_NUMBER=560810336067
+   SA=github-deploy@$PROJECT.iam.gserviceaccount.com
+
+   gcloud iam workload-identity-pools providers create-oidc qstored-program --project $PROJECT \
+     --location=global --workload-identity-pool=github \
+     --issuer-uri=https://token.actions.githubusercontent.com \
+     --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.ref=assertion.ref" \
+     --attribute-condition="assertion.repository=='no5tyle/programmer' && assertion.ref=='refs/heads/main'"
+
+   gcloud iam service-accounts add-iam-policy-binding $SA --project $PROJECT \
+     --role=roles/iam.workloadIdentityUser \
+     --member="principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository/no5tyle/programmer"
+   ```
+
+   The deploy account already has Firebase Hosting Admin from the other sites.
+3. **The repository's variables** (Settings → Secrets and variables → Actions → Variables), beside the account
+   ones already there (`API_BASE`, `FIREBASE_API_KEY` and the rest): `PROJECT` = `qstored`, `WIF_PROVIDER` =
+   `projects/560810336067/locations/global/workloadIdentityPools/github/providers/qstored-program`, `DEPLOY_SA` =
+   `github-deploy@qstored.iam.gserviceaccount.com`. Then re-run the latest **Test and deploy** run, and check the
+   site at the Hosting site's own address (`https://qstored-program.web.app`).
+4. **The address.** Firebase console → **Hosting** → the `qstored-program` site → **Add custom domain** →
+   `program.qstored.org`. Replace the `program` CNAME to `no5tyle.github.io` with the records it shows; the
+   certificate can take up to an hour. The API, sign-in and Microsoft settings already name `program.qstored.org`,
+   so they need no change.
+5. **Turn GitHub Pages off** once the address answers from Firebase: this repository's **Settings → Pages** →
+   unpublish. The `_github-pages-challenge-no5tyle` TXT record can go too.
 
 ## Sign in with Microsoft
 
@@ -133,7 +168,7 @@ The sign-in only asks Microsoft for the leader's name and email address.
 
 Drafts are in `policies/` (`privacy.html` and `terms.html`). They aren't published yet: the publish
 workflow copies only the app's own folders. To publish them, fill in the highlighted placeholders, take out
-the draft notice, add `policies` to the `cp` line in `.github/workflows/pages.yml`, and set the
+the draft notice, add `policies` to the `cp` line in `.github/workflows/deploy.yml`, and set the
 `PRIVACY_URL` and `TERMS_URL` variables to their addresses (`https://program.qstored.org/policies/...`).
 *Sign in* (and the qStored account site) then link to them. The support address on them comes from `SUPPORT_EMAIL`.
 
@@ -145,13 +180,11 @@ Open `index.html` directly, or serve the folder:
 python3 -m http.server 8000
 ```
 
-## Publishing and tests
+## Deploying and tests
 
-Every push to `main` builds the site folder, runs the tests against exactly those files, then publishes them (`.github/workflows/pages.yml`). If a test fails, the live site isn't touched. Pushes to other branches and pull requests just run the tests (`test.yml`).
+Every push to `main` builds the site folder, runs the tests against exactly those files, then deploys them to Firebase Hosting (`.github/workflows/deploy.yml`; see *Hosting*). If a test fails, the live site isn't touched. Pushes to other branches and pull requests just run the tests (`test.yml`).
 
-When publishing, the `?v=` tags on the CSS and JS links in `index.html` are set to the commit, so browsers always load matching files after an update. GitHub Pages lets browsers keep files for 10 minutes.
-
-**One-time setup:** in the repository's **Settings → Pages**, set **Source** to **GitHub Actions**.
+When deploying, the `?v=` tags on the CSS and JS links in `index.html` are set to the commit, so browsers always load matching files after an update; the pages themselves are checked for changes on every visit (`Cache-Control: no-cache`, in `firebase.json`).
 
 To run the tests yourself (needs Node.js):
 
@@ -193,7 +226,8 @@ Term dates are in `js/data.js` under `TERM_DATES`, as `[start, end]` pairs for e
 | `js/app.js` | State, rendering, auto-fit, editing, import/export |
 | `js/mobile.js`, `css/mobile.css` | Phone and tablet view |
 | `tests/`, `playwright.config.js` | Automated tests (`npm test`) |
-| `.github/workflows/` | Tests on every push; publishing to GitHub Pages |
+| `.github/workflows/` | Tests on every push; deploying to Firebase Hosting |
+| `firebase.json` | Firebase Hosting: the site, a group's addresses, and the headers |
 
 ## Licence
 

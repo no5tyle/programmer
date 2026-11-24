@@ -1,5 +1,5 @@
 # Runs the tests on pull requests and on pushes to branches other than main
-# (main is tested by pages.yml before it is published).
+# (main is tested by deploy.yml before it is deployed).
 name: Tests
 
 on:

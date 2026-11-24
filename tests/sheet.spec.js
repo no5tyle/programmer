@@ -12,7 +12,7 @@ test.describe('sheet', () => {
     const sheets = await page.evaluate(() => [...document.styleSheets].map((x) => (x.href || '').split('/').pop().split('?')[0]).filter(Boolean));
     expect(sheets).toEqual(expect.arrayContaining(['no5tyle.css', 'app.css', 'mobile.css']));
     await expect(page.locator('.appbar')).toHaveCSS('height', '60px');
-    // The shared look (no5tyle.github.io/shared/no5tyle.css) supplies the colours
+    // The shared look (css/no5tyle.css, a copy of no5tyle's shared stylesheet) supplies the colours
     await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(242, 242, 247)');
     await expect(page.locator('#btnExport')).toHaveCSS('background-color', 'rgb(0, 122, 255)');
     // The qStored app switcher (js/qstored-switcher.js) replaces the icon at the top left: qStored's apps only,

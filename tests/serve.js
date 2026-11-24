@@ -3,7 +3,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-// SITE_ROOT=_site serves the folder that gets published (see .github/workflows/pages.yml).
+// SITE_ROOT=_site serves the folder that gets deployed (see .github/workflows/deploy.yml).
 const root = path.resolve(process.env.SITE_ROOT || path.join(__dirname, '..'));
 const port = +process.env.PORT || 8765;
 const types = {
@@ -12,19 +12,14 @@ const types = {
 };
 
 http.createServer((req, res) => {
-  const url = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  let url = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  // A group's addresses are the app, as Firebase Hosting's rewrite makes them (firebase.json)
+  if (url.startsWith('/g/')) url = '/index.html';
   let file = path.join(root, url);
   if (!file.startsWith(root)) { res.writeHead(403); res.end(); return; }
   if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
   fs.readFile(file, (err, data) => {
-    // As GitHub Pages does: anything that isn't a file is the site's 404.html, with a 404
-    if (err) {
-      fs.readFile(path.join(root, '404.html'), (e2, page) => {
-        res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-        res.end(e2 ? 'Not found' : page);
-      });
-      return;
-    }
+    if (err) { res.writeHead(404); res.end('Not found'); return; }
     res.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
     res.end(data);
   });

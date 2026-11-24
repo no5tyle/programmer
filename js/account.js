@@ -1448,8 +1448,8 @@ const allGroups = () => (signedIn() && me?.groups) || [];
 const myGroups = () => allGroups().filter((g) => g.id === groupInView);
 /** Whether a program is shown: the person's own, or the group in view's. */
 const inView = (x) => !x?.owner || x.owner === `group:${groupInView}`;
-/** The group in the address: /g/{gid}/, or ?g={gid} as 404.html passes it on. */
-const groupInAddress = () => /^\/g\/([A-Za-z0-9_-]+)/.exec(location.pathname)?.[1] || new URLSearchParams(location.search).get('g');
+/** The group in the address: /g/{gid}/. */
+const groupInAddress = () => /^\/g\/([A-Za-z0-9_-]+)/.exec(location.pathname)?.[1] || null;
 
 /** Chooses the group in view once /me is in: the address's, the one shared across qStored's apps, or the first. */
 function pickGroup() {
@@ -1475,10 +1475,7 @@ function showGroupInView() {
     return;
   }
   const path = groupInView ? `/g/${encodeURIComponent(groupInView)}/` : '/';
-  const search = new URLSearchParams(location.search);
-  search.delete('g');
-  const q = search.toString();
-  if (location.pathname !== path || location.search !== (q ? `?${q}` : '')) history.replaceState(null, '', path + (q ? `?${q}` : '') + location.hash);
+  if (location.pathname !== path) history.replaceState(null, '', path + location.search + location.hash);
   for (const el of document.querySelectorAll('qs-group-switcher')) {
     el.hidden = !shown;
     el.groups = allGroups();

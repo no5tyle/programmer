@@ -2,13 +2,13 @@
 <html lang="en-AU">
 <head>
   <meta charset="utf-8">
-  <!-- The app's files are at the site's root, also when the address is a group's (/g/{gid}/; see 404.html) -->
+  <!-- The app's files are at the site's root, also when the address is a group's (/g/{gid}/; see firebase.json) -->
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- What the page may load and talk to. The sign-in token is held by the page's own script, so no
        script may come from anywhere else: the app itself, the shared app switcher, and the PDF
        libraries. connect-src is the API and Firebase's sign-in (and the emulators, for local work). -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://no5tyle.github.io; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' blob: https://api.qstored.org https://identitytoolkit.googleapis.com https://securetoken.googleapis.com http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' blob: https://api.qstored.org https://identitytoolkit.googleapis.com https://securetoken.googleapis.com http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'self'; form-action 'none'">
   <title>Scout Program Builder</title>
   <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lexend:wght@400;600;700&family=Nunito:wght@400;600;700;800&family=Open+Sans:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://no5tyle.github.io/shared/no5tyle.css">
+  <link rel="stylesheet" href="css/no5tyle.css?v=20261124-1">
   <link rel="stylesheet" href="css/qstored-switcher.css?v=20261118-1">
   <link rel="stylesheet" href="css/app.css?v=20261118-1">
   <link rel="stylesheet" href="css/mobile.css?v=20261118-1">

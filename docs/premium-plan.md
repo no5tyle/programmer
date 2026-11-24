@@ -94,7 +94,7 @@ On **Google Cloud**, in Sydney (`australia-southeast1`), using services that **c
 
 Ground rules:
 
-- **The builder stays a static site** on GitHub Pages. Without an account it still works, for one program kept in the browser, and it works without a connection. The API adds saving to an account.
+- **The builder stays a static site**, on Firebase Hosting like qStored's other sites (it was on GitHub Pages until November 2026). Without an account it still works, for one program kept in the browser, and it works without a connection. The API adds saving to an account.
 - **The API is the only thing that reads or writes Firestore.** The builder never talks to it directly, and Firestore's security rules deny all access from browsers. The cap, places, who can edit each unit, trials and who has paid are all checked in the API, where they can be tested.
 - **All data access sits in one module of the API.** That keeps a later move to another database (Postgres, say) a contained job.
 

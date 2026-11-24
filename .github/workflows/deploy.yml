@@ -1,8 +1,9 @@
-# On every push to main: build the site folder, run the tests against exactly that folder,
-# then publish it to GitHub Pages. If a test fails, the live site isn't touched.
-# The ?v= tags on the CSS and JS links are set to the commit, so browsers always load
-# matching files after an update.
-name: Test and publish
+# On every push to main: build the site folder, run the tests against exactly that folder, then deploy it to
+# Firebase Hosting (program.qstored.org), signing in to Google without stored keys (Workload Identity Federation).
+# If a test fails, the live site isn't touched. The deploy is skipped until the repository's variables are set:
+# PROJECT, WIF_PROVIDER and DEPLOY_SA (see the README, "Hosting").
+# The ?v= tags on the CSS and JS links are set to the commit, so browsers always load matching files after an update.
+name: Test and deploy
 
 on:
   push:
@@ -11,23 +12,22 @@ on:
 
 permissions:
   contents: read
-  pages: write
   id-token: write
 
 concurrency:
-  group: pages
+  group: deploy
   cancel-in-progress: false
 
 jobs:
-  test:
+  test-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
       - name: Build the site folder with version tags from the commit
         run: |
           mkdir _site
-          cp -r index.html 404.html css js assets examples .nojekyll _site/
+          cp -r index.html css js assets examples _site/
           # Only rewrite real version tags on links, e.g. css/app.css?v=20261111-6
           sed -i -E "s/(\.(css|js))\?v=[A-Za-z0-9.-]+\"/\1?v=${GITHUB_SHA::8}\"/g" _site/index.html
           # Every stylesheet and script link of the app's own (css/, js/) must carry the new tag, and nothing else may change.
@@ -66,17 +66,11 @@ jobs:
             };
             require("fs").writeFileSync("_site/js/config.js", `window.QSTORED_CONFIG = Object.assign(${JSON.stringify(settings)}, window.QSTORED_CONFIG);\n`);
           '
-      - uses: actions/upload-pages-artifact@v3
+      - uses: google-github-actions/auth@v2
+        if: vars.PROJECT != ''
         with:
-          path: _site
-
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/configure-pages@v5
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.DEPLOY_SA }}
+      - name: Deploy to Firebase Hosting
+        if: vars.PROJECT != ''
+        run: npx --yes firebase-tools@15 deploy --only hosting --project "${{ vars.PROJECT }}" --non-interactive

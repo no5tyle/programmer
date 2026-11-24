@@ -1,7 +1,7 @@
 /* ================================================================ App chrome */
 /*
   The app's look is shared with Beacon, Snag Calc and the homepage: the colours (light and dark),
-  rounding, bars, glass and font come from https://no5tyle.github.io/shared/no5tyle.css, linked before
+  rounding, bars, glass and font come from css/no5tyle.css (a copy of no5tyle's shared stylesheet), linked before
   this file. Apple's system colours, capsule buttons, borderless rounded cards on a grouped background,
   and dark mode that follows the device. The printed program below has its own colours and always
   stays a white page.

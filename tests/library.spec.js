@@ -289,7 +289,7 @@ test.describe('several groups', () => {
     await expect.poll(() => page.evaluate(() => library.current)).toBe('prog1111');
   });
 
-  test("a group's address opens that group (GitHub Pages hands it on through 404.html)", async ({ page }) => {
+  test("a group's address opens that group", async ({ page }) => {
     await page.clock.setFixedTime(new Date('2026-11-18T10:00:00+10:30'));
     const server = await mockAccount(page, { signedIn: true, groups: [GROUP, OTHER], programs: [program('prog1111', EXAMPLE, { version: 3 }), otherProgram] });
     server.libraries.set('g2', { units: [{ id: 'kingfisher', name: 'Kingfisher Troop', section: 'scouts' }], styling: null, region: 'SA' });

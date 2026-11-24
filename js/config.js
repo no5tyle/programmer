@@ -2,7 +2,7 @@
  * Settings for accounts. They're empty here, which leaves accounts off: the builder then keeps
  * every program in this browser, as it always has.
  *
- * The published site's values are filled in when it's built (.github/workflows/pages.yml), from the
+ * The deployed site's values are filled in when it's built (.github/workflows/deploy.yml), from the
  * repository's variables, so no address or key is written into the code:
  *   apiBase          the API, e.g. https://api.qstored.org
  *   firebaseApiKey   the Firebase project's web API key (it identifies the project; it isn't a secret)
