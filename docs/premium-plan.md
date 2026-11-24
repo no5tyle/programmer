@@ -295,7 +295,7 @@ Programs hold leaders' names and phone numbers, and sometimes young people's nam
 
 Taken:
 
-1. **Free accounts** save up to 3 programs to the account.
+1. **Free accounts** save one program to the account (it was 3 until 18 November 2026; the API's README says how accounts over it were brought within it).
 2. **Signed out,** the browser keeps only one program (section 4.4). Not public yet, so no carry-over for current behaviour.
 3. **Group places:** the owner plus 10 leaders, and more places at a cost per place. The owner can be someone who only pays and manages.
    - **Editors from outside the group** are allowed for a unit if they have Premium of their own, without using a place.
