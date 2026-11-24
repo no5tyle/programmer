@@ -57,9 +57,17 @@ function isRedColour(c) { return textColourOf(c)?.cls === 'r'; }
  * Any HTML (an edited field, or a loaded file) reduced to the allowed formatting. Text is escaped and
  * everything else (other tags, attributes, scripts, links, images) is dropped, keeping its text.
  */
+/**
+ * HTML parsed into a document of its own, with no scripting, so nothing in it runs or loads. Event handler
+ * attributes (on…=) are renamed first, inside tags only: none is kept anyway, and Chromium checks each one against
+ * the page's security policy as it's parsed, even inertly, logging a refusal for every one.
+ */
+const parseInert = (html) => new DOMParser().parseFromString(
+  `<!doctype html><body>${html.replace(/<[a-zA-Z][^>]*>/g, (tag) => tag.replace(/([\s/"'])on(?=[a-z]+\s*=)/gi, '$1data-was-on'))}`,
+  'text/html').body;
+
 function cleanRich(html) {
-  const t = document.createElement('template');
-  t.innerHTML = String(html ?? '');
+  const t = { content: parseInert(String(html ?? '')) };
   const walk = (parent) => [...parent.childNodes].map((n, i) => {
     if (n.nodeType === 3) return richEsc(n.nodeValue);
     if (n.nodeType !== 1) return '';
@@ -88,9 +96,7 @@ function cleanRich(html) {
 
 /** The plain text of cleaned rich text (line breaks as \n). */
 function richToText(html) {
-  const t = document.createElement('template');
-  t.innerHTML = String(html ?? '').replace(/<br>/g, '\n');
-  return t.content.textContent;
+  return parseInert(String(html ?? '').replace(/<br>/g, '\n')).textContent;
 }
 
 const hasFormatting = (html) => /<(b|i|u|span)\b/.test(html || '');
