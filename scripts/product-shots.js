@@ -145,7 +145,11 @@ async function fonts(page) {
     await page.locator('.toast').evaluateAll((ts) => ts.forEach((t) => t.remove()));
     await page.mouse.move(5, 880);
     await shot(page, 'notes', { clip: { x: 260, y: 0, width: 1180, height: 760 } });
-    await page.evaluate(() => closeNotes());
+    // Full screen, with the notes over the program
+    await page.evaluate(() => { closeNotes(); setFullScreen(true); openNotes(state.rows.find((x) => x.activity === 'Knots for Camp').id); document.activeElement?.blur(); });
+    await page.mouse.move(5, 5);
+    await shot(page, 'full-screen');
+    await page.evaluate(() => { closeNotes(); setFullScreen(false); });
 
     // A change waiting to be published
     await edit(page, 'Welcome Back Games');

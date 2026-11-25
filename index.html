@@ -119,9 +119,21 @@
               <option value="fit">Fit width</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option>
             </select>
           </label>
+          <button class="btn btn-tonal" id="btnFull" type="button" aria-pressed="false" title="Full screen: just the program, as large as the screen allows">
+            <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>Full screen
+          </button>
         </div>
       </div>
       <div class="ws-body" id="wsBody">
+      <!-- In full screen, the only controls: Notes and leaving full screen (js/app.js: setFullScreen) -->
+      <div class="screen-bar" id="fsBar" role="toolbar" aria-label="Full screen" hidden>
+        <button class="btn btn-tonal" id="btnFsNotes" type="button" aria-pressed="false" aria-controls="notesPane" title="Notes for a row, over the program">
+          <svg viewBox="0 0 24 24"><path d="M5 4h10l4 4v12H5z"/><path d="M14 4v5h5M8 13h8M8 17h5"/></svg>Notes
+        </button>
+        <button class="btn btn-tonal" id="btnFsExit" type="button" title="Leave full screen (Esc)">
+          <svg viewBox="0 0 24 24"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>Exit full screen
+        </button>
+      </div>
       <div class="canvas" id="canvas">
         <div class="paper-wrap" id="paperWrap">
           <div class="paper" id="paper">
