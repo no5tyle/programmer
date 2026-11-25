@@ -1952,6 +1952,44 @@ function rowById(id) { return state.rows.find((r) => r.id === id); }
 /** True when the Time column is hidden, so a row's time is shown (and set) with its date. */
 function timeShownInDate(row) { return !row.noMeeting && !state.columns.find((c) => c.key === 'time')?.visible; }
 
+/*
+ * A date typed day first (DD/MM/YYYY), whatever the browser's own date field would show, with a calendar button that
+ * opens the browser's calendar to pick from. Its `data-iso` holds the date as it's kept (2026-11-28), or ''.
+ */
+const dmy = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? `${m[3]}/${m[2]}/${m[1]}` : ''; };
+function isoFromDmy(text) {
+  const m = /^\s*(\d{1,2})[/.\-\s](\d{1,2})[/.\-\s](\d{2}|\d{4})\s*$/.exec(text || '');
+  if (!m) return null;
+  const y = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+  const d = new Date(Date.UTC(y, Number(m[2]) - 1, Number(m[1])));
+  if (d.getUTCMonth() !== Number(m[2]) - 1 || d.getUTCDate() !== Number(m[1])) return null;   // 31/02 isn't a date
+  return d.toISOString().slice(0, 10);
+}
+function dmyFieldHTML(id, iso, label) {
+  return `<label class="field"><span>${label}</span><span class="dmy">
+    <input type="text" id="${id}" inputmode="numeric" autocomplete="off" placeholder="DD/MM/YYYY" value="${esc(dmy(iso))}" data-iso="${esc(iso || '')}">
+    <button type="button" class="icon-btn dmy-cal" data-for="${id}" title="Choose from a calendar" aria-label="Choose ${label.toLowerCase()} from a calendar"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></button>
+    <input type="date" class="dmy-native" tabindex="-1" aria-hidden="true" value="${esc(iso || '')}">
+  </span></label>`;
+}
+/** Wires a DD/MM/YYYY field: `onChange()` after each change that's a date (or cleared); a typed non-date says so. */
+function bindDmyField(id, onChange) {
+  const input = $(`#${id}`);
+  const wrap = input.closest('.dmy');
+  const native = wrap.querySelector('.dmy-native');
+  const set = (iso) => { input.dataset.iso = iso; native.value = iso; input.classList.remove('bad'); onChange(); };
+  input.addEventListener('input', () => {
+    if (!input.value.trim()) { set(''); return; }
+    const iso = isoFromDmy(input.value);
+    if (iso) set(iso); else input.classList.add('bad');
+  });
+  input.addEventListener('blur', () => { if (input.dataset.iso) { input.value = dmy(input.dataset.iso); input.classList.remove('bad'); } });
+  native.addEventListener('change', () => { input.value = dmy(native.value); set(native.value); });
+  wrap.querySelector('.dmy-cal').addEventListener('click', () => {
+    try { native.showPicker(); } catch { native.focus(); native.click(); }
+  });
+}
+
 function openDatePopover(td, row) {
   const ws = rowWeekStart(row);
   const days = ws ? Array.from({ length: 7 }, (_, i) => addDays(ws, i)) : [];
@@ -1963,8 +2001,8 @@ function openDatePopover(td, row) {
       const iso = toISO(d);
       return `<button class="day ${iso === row.date ? 'on' : ''}" data-date="${iso}" title="${DAY_LONG[d.getDay()]} ${d.getDate()} ${MONTH_LONG[d.getMonth()]}"><b>${DAY_SHORT[d.getDay()]}</b><span>${d.getDate()}</span></button>`;
     }).join('')}</div>` : ''}
-    <label class="field"><span>Date</span><input type="date" id="pDate" value="${esc(row.date)}"></label>
-    <label class="field"><span>Ends (multi-day, optional)</span><input type="date" id="pEnd" value="${esc(row.endDate)}"></label>
+    ${dmyFieldHTML('pDate', row.date, 'Date')}
+    ${dmyFieldHTML('pEnd', row.endDate, 'Ends (multi-day, optional)')}
     <label class="field"><span>Custom text (replaces date)</span><input type="text" id="pLabel" value="${esc(row.dateLabel)}" placeholder="e.g. Sat or Sun 7 or 8 Nov"></label>
     ${timeShownInDate(row) ? `<div class="field"><span>Time <em class="muted">— shown with the date, as the Time column is hidden</em></span>
       <button type="button" class="btn btn-outline btn-sm" id="pTime">${esc((row.time || '').replace('\n', ' – ')) || 'Set a time'}</button></div>` : ''}
@@ -1973,12 +2011,17 @@ function openDatePopover(td, row) {
   pushHistory();
   const apply = () => {
     const r = rowById(row.id); if (!r) return;
-    r.date = $('#pDate').value; r.endDate = $('#pEnd').value; r.dateLabel = $('#pLabel').value;
+    r.date = $('#pDate').dataset.iso; r.endDate = $('#pEnd').dataset.iso; r.dateLabel = $('#pLabel').value;
     saveSoon(); renderDoc();
   };
-  ['#pDate', '#pEnd', '#pLabel'].forEach((s) => $(s).addEventListener('input', apply));
+  bindDmyField('pDate', apply);
+  bindDmyField('pEnd', apply);
+  $('#pLabel').addEventListener('input', apply);
   $('#pLabel').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#pDone').click(); });
-  $('#pClear').onclick = () => { $('#pDate').value = ''; $('#pEnd').value = ''; $('#pLabel').value = ''; apply(); };
+  $('#pClear').onclick = () => {
+    for (const id of ['pDate', 'pEnd']) { const f = $(`#${id}`); f.value = ''; f.dataset.iso = ''; f.closest('.dmy').querySelector('.dmy-native').value = ''; }
+    $('#pLabel').value = ''; apply();
+  };
   $('#pDone').onclick = () => { closePopover(); sortRows(); save(); renderDoc(); };
   // The time picker, in place of the date's (the cell is drawn again, so find it afresh)
   $('#pTime')?.addEventListener('click', () => {

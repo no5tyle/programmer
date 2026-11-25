@@ -7,6 +7,28 @@ test.describe('sheet', () => {
   test.beforeEach(async ({ page }) => { errors = await openApp(page); });
   test.afterEach(() => { expect(errors, 'browser errors').toEqual([]); });
 
+  test("a row's date is typed and shown day first (DD/MM/YYYY), whatever the browser's own date fields show", async ({ page }) => {
+    const row = await page.evaluate(() => state.rows.find((r) => r.date && !r.noMeeting).id);
+    const date = await page.evaluate((id) => state.rows.find((r) => r.id === id).date, row);
+    await page.click(`#sheet tr[data-id="${row}"] td.c-date`);
+    const field = page.locator('#pDate');
+    await expect(field).toHaveValue(date.split('-').reverse().join('/'));
+    await expect(field).toHaveAttribute('placeholder', 'DD/MM/YYYY');
+    // Typed: day first
+    await field.fill('5/3/2027');
+    await expect.poll(() => page.evaluate((id) => state.rows.find((r) => r.id === id).date, row)).toBe('2027-03-05');
+    // Not a date: said so, and the row keeps its date
+    await field.fill('31/02/2027');
+    await expect(field).toHaveClass(/bad/);
+    expect(await page.evaluate((id) => state.rows.find((r) => r.id === id).date, row)).toBe('2027-03-05');
+    await field.blur();
+    await expect(field).toHaveValue('05/03/2027');
+    // Picked from the calendar: shown day first
+    await page.evaluate(() => { const n = document.querySelector('#pDate').closest('.dmy').querySelector('.dmy-native'); n.value = '2027-04-09'; n.dispatchEvent(new Event('change')); });
+    await expect(field).toHaveValue('09/04/2027');
+    await expect.poll(() => page.evaluate((id) => state.rows.find((r) => r.id === id).date, row)).toBe('2027-04-09');
+  });
+
   test('Escape leaves a cell, keeping what was typed; Undo then takes it back', async ({ page }) => {
     const row = await page.evaluate(() => state.rows.find((r) => document.querySelector(`#sheet tr[data-id="${r.id}"] td.c-description .ed`)).id);
     const cell = page.locator(`#sheet tr[data-id="${row}"] td.c-description .ed`);
