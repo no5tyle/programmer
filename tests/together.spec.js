@@ -134,7 +134,7 @@ test.describe('live', () => {
     await expect(cell).not.toHaveClass(/live-cell/);
   });
 
-  test('looks every 10 seconds with someone else here, every minute alone, and stops after 10 idle minutes', async ({ page }) => {
+  test('looks every 3 seconds with someone else here, every 15 alone, and stops after 10 idle minutes', async ({ page }) => {
     await page.clock.install();
     const { server } = await openLibrary(page);
     const looks = () => server.called('POST /programs/prog1111/live').length;
@@ -142,15 +142,16 @@ test.describe('live', () => {
     const pass = async (seconds) => { for (let s = 0; s < seconds; s++) { await page.clock.runFor(1000); await page.waitForTimeout(5); } };
     await pass(2);
     let n = looks();
-    await pass(50);
+    await pass(8);
     expect(looks()).toBe(n);   // alone: not yet
-    await pass(10);
+    await pass(9);
     expect(looks()).toBe(n + 1);
     server.otherHere('prog1111');
-    await pass(60);   // the next look finds Baloo; from then on, every 10 seconds
+    await pass(15);   // the next look finds Baloo; from then on, every 3 seconds
     n = looks();
     await pass(31);
-    expect(looks()).toBe(n + 3);
+    expect(looks()).toBeGreaterThanOrEqual(n + 9);
+    expect(looks()).toBeLessThanOrEqual(n + 11);
     // Ten minutes with no typing or clicking: it stops, saying it's closed
     await pass(10 * 60);
     expect(server.calls.some((c) => c.startsWith('DELETE /programs/prog1111/live'))).toBe(true);
@@ -162,9 +163,13 @@ test.describe('live', () => {
     await expect.poll(looks).toBe(n + 1);
   });
 
-  test("a program of one's own isn't watched at all", async ({ page }) => {
-    const { server } = await open(page);
-    await page.waitForTimeout(800);
-    expect(server.called('POST /programs/prog1111/live')).toEqual([]);
+  test("a program of one's own is watched too: their other device's change shows here", async ({ page }) => {
+    const { server, p } = await open(page);
+    await expect.poll(() => server.called('POST /programs/prog1111/live').length).toBeGreaterThan(0);
+    // Their phone has it open, and saves a change
+    server.otherHere('prog1111', { id: 'u1', name: 'Akela', tab: 'akelasPhone1' });
+    server.otherSaves('prog1111', (d) => { d.rows[1].activity = 'From my phone'; });
+    await expect.poll(() => activities(page).then((a) => a[1]), { timeout: 20_000 }).toBe('From my phone');
+    expect(p.version).toBeGreaterThan(3);
   });
 });
