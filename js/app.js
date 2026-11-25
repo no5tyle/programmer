@@ -244,7 +244,9 @@ function normalise(raw) {
 function newRowShape() {
   return { id: '', date: '', endDate: '', dateLabel: '', time: '', activity: '', description: '', uniform: '', forms: '',
     where: '', space: '', patrol: '', leader: '', cost: '', challenge: '', notes: '', category: '', noMeeting: false, autoHoliday: false,
-    emptyWeek: false };
+    emptyWeek: false,
+    // The Notes pane's (never printed): planning for the leaders only, and longer details on the family page and calendar
+    leaderNotes: '', details: '' };
 }
 
 /* ---------------------------------------------------------------- saved programs */
@@ -642,13 +644,83 @@ const PANE_KEY = 'scoutProgramBuilder.settingsPane';   // 'open' or 'closed'
 
 /** Shows or hides the settings pane. While it's open, the program makes room for it. */
 function setSettingsOpen(open, remember = true) {
+  if (open && notesRowId) closeNotes(false);   // the two share the place
   $('#sidebar').hidden = !open;
-  $('#wsBody').classList.toggle('settings-open', open);
+  $('#wsBody').classList.toggle('settings-open', open || !!notesRowId);
   $('#btnSettings').setAttribute('aria-pressed', String(open));
   if (remember) { try { localStorage.setItem(PANE_KEY, open ? 'open' : 'closed'); } catch { /* this visit only */ } }
   if (state) applyZoom();
 }
 const settingsOpen = () => !$('#sidebar').hidden;
+
+/* ---------------------------------------------------------------- notes for a row */
+
+/*
+ * The Notes pane, in the Settings pane's place: for one row, its leaders' notes (planning among the leaders: never
+ * printed or published) and its details for families (longer, on the family page and in the calendar, not printed).
+ * It follows the row being worked on: moving into another row's cell shows that row's notes.
+ */
+let notesRowId = null;
+let lastRowId = null;   // the last row worked on, for Notes in the toolbar
+let notesSettingsWas = false;   // Settings was open when Notes took its place: it comes back when Notes closes
+const hasNotes = (r) => !!(r?.leaderNotes?.trim() || r?.details?.trim());
+/** The rows notes can be for, in order: not an empty week's placeholder. */
+const notesRows = () => state.rows.filter((r) => !r.emptyWeek);
+
+function openNotes(rowId) {
+  const r = rowById(rowId) || notesRows()[0];
+  if (!r) { toast('Add an activity first: notes are for a row.'); return; }
+  if (!notesRowId) notesSettingsWas = settingsOpen();
+  notesRowId = r.id;
+  $('#sidebar').hidden = true;
+  $('#btnSettings').setAttribute('aria-pressed', 'false');
+  $('#notesPane').hidden = false;
+  $('#wsBody').classList.add('settings-open');
+  $('#btnNotes').setAttribute('aria-pressed', 'true');
+  renderNotes();
+  applyZoom();
+}
+function closeNotes(restore = true) {
+  if (!notesRowId) return;
+  notesRowId = null;
+  $('#notesPane').hidden = true;
+  $('#btnNotes').setAttribute('aria-pressed', 'false');
+  document.querySelectorAll('#sheet tr.notes-on').forEach((tr) => tr.classList.remove('notes-on'));
+  if (restore && notesSettingsWas) setSettingsOpen(true, false);
+  else { $('#wsBody').classList.toggle('settings-open', settingsOpen()); applyZoom(); }
+}
+/** Shows the open row's notes (and marks its row on the sheet). Typing in a box isn't redrawn under. */
+function renderNotes() {
+  if (!notesRowId) return;
+  const r = rowById(notesRowId);
+  if (!r) { const first = notesRows()[0]; if (first) notesRowId = first.id; else { closeNotes(); return; } }
+  const row = rowById(notesRowId);
+  const when = [row.date ? parseDate(row.date)?.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }) : '', row.time?.split('\n')[0]].filter(Boolean).join(' · ');
+  const what = row.activity?.trim() || (row.noMeeting ? 'No meeting' : 'An activity with no name yet');
+  $('#notesRow').innerHTML = `<b>${esc(what)}</b>${when ? `<span>${esc(when)}</span>` : ''}`;
+  for (const [id, key] of [['#notesLeaders', 'leaderNotes'], ['#notesDetails', 'details']]) {
+    const box = $(id);
+    if (document.activeElement !== box) box.value = row[key] || '';
+  }
+  const list = notesRows();
+  const at = list.findIndex((x) => x.id === notesRowId);
+  $('#btnNotesPrev').disabled = at <= 0;
+  $('#btnNotesNext').disabled = at < 0 || at >= list.length - 1;
+  $('#notesPrivacy').textContent = typeof PRIVACY_NOTE === 'string' ? PRIVACY_NOTE : '';
+  document.querySelectorAll('#sheet tr.notes-on').forEach((tr) => tr.classList.toggle('notes-on', tr.dataset.id === notesRowId));
+  document.querySelector(`#sheet tr[data-id="${CSS.escape(notesRowId)}"]`)?.classList.add('notes-on');
+}
+/** A small mark on each row with notes, on screen only: it opens them. */
+function markNoteRows() {
+  for (const r of state.rows) {
+    if (!hasNotes(r)) continue;
+    const tr = document.querySelector(`#sheet tr[data-id="${CSS.escape(r.id)}"]`);
+    const td = tr && [...tr.children].filter((x) => !x.classList.contains('c-week')).at(-1);
+    if (!td) continue;
+    td.insertAdjacentHTML('beforeend', `<button type="button" class="ph note-mark" data-notes="${esc(r.id)}" title="Notes for this row" aria-label="Notes for ${esc(r.activity || 'this row')}"><svg viewBox="0 0 24 24"><path d="M5 4h10l4 4v12H5z"/><path d="M14 4v5h5M8 13h8M8 17h5"/></svg></button>`);
+  }
+  if (notesRowId) document.querySelector(`#sheet tr[data-id="${CSS.escape(notesRowId)}"]`)?.classList.add('notes-on');
+}
 
 function pushHistory() {
   undoStack.push(JSON.stringify(state));
@@ -1407,6 +1479,8 @@ function renderSheet() {
     ${b.footerText ? `<div class="doc-footer"${fs('branding.footerText')}>${esc(b.footerText)}</div>` : ''}`;
   // Where others working on it are (js/live.js)
   if (typeof liveMarkCells === 'function') liveMarkCells();
+  markNoteRows();
+  renderNotes();
 }
 
 /* ---------------------------------------------------------------- page size / fit */
@@ -2250,6 +2324,8 @@ function openRowMenu(anchor, rowId) {
   const icon = (d) => `<svg viewBox="0 0 24 24">${d}</svg>`;
   openPopover(anchor, `
     <div class="menu">
+      <button data-act="notes">${icon('<path d="M5 4h10l4 4v12H5z"/><path d="M14 4v5h5M8 13h8M8 17h5"/>')}Notes${hasNotes(r) ? ' <small>has notes</small>' : ''}</button>
+      <div class="menu-sep"></div>
       <button data-act="below">${icon('<path d="M12 5v14M5 12h14"/>')}Add activity below <small>same date</small></button>
       <button data-act="above">${icon('<path d="M12 5v14M5 12h14"/>')}Add activity above</button>
       <button data-act="break">${icon(r.noMeeting ? '<path d="M3 12h4l3-8 4 16 3-8h4"/>' : '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M9 14l6 5M15 14l-6 5"/>')}${r.noMeeting ? 'Turn back into an activity' : 'Mark as no meeting'}</button>
@@ -2269,6 +2345,7 @@ function openRowMenu(anchor, rowId) {
   pop.onclick = (e) => {
     const btn = e.target.closest('[data-act],[data-cat]');
     if (!btn || btn.disabled) return;
+    if (btn.dataset.act === 'notes') { pop.onclick = null; closePopover(); hideHandle(); openNotes(rowId); return; }
     pushHistory();
     const i = state.rows.findIndex((x) => x.id === rowId);
     const row = state.rows[i];
@@ -2678,7 +2755,7 @@ function exportCalendar() {
       if (real(r.where)) ev.push(`LOCATION:${icsText(r.where)}`);
       const details = [real(r.description) && r.description, real(r.uniform) && `Uniform: ${r.uniform}`, real(r.forms) && `Forms: ${r.forms}`,
         real(r.cost) && `Cost: ${r.cost}`, real(r.leader) && `Leader: ${r.leader}`, real(r.patrol) && `Patrol: ${r.patrol}`,
-        real(r.notes) && r.notes].filter(Boolean);
+        real(r.notes) && r.notes, real(r.details) && r.details].filter(Boolean);
       if (details.length) ev.push(`DESCRIPTION:${icsText(details.join('\n'))}`);
     }
     ev.push('END:VEVENT');
@@ -3255,6 +3332,9 @@ function bindEvents() {
   const sheet = $('#sheet');
   sheet.addEventListener('focusin', (e) => {
     if (!e.target.matches('.ed')) return;
+    // The row being worked on: Notes follows it, while it's open
+    const tr = e.target.closest('tr[data-id]');
+    if (tr) { lastRowId = tr.dataset.id; if (notesRowId && notesRowId !== tr.dataset.id) { notesRowId = tr.dataset.id; renderNotes(); } }
     pushHistory();
     e.target.closest('tr')?.classList.add('editing');
     // An empty cell has no line for the cursor, so the browser shows it at the left edge: give it an
@@ -3314,6 +3394,8 @@ function bindEvents() {
   });
   sheet.addEventListener('click', (e) => {
     if (e.target.closest('[data-example]')) { fillExampleActivities(); return; }
+    const mark = e.target.closest('[data-notes]');
+    if (mark) { e.stopPropagation(); openNotes(mark.dataset.notes); return; }
     const addIn = e.target.closest('[data-add-week]');
     if (addIn) {
       // A week's + (or an empty week's Add) opens the day picker, or closes it if it's already open from there
@@ -3364,6 +3446,31 @@ function bindEvents() {
   $('#btnPublish').onclick = () => publishCurrent();
   $('#btnImport').onclick = importJson;
   $('#btnSettings').onclick = () => setSettingsOpen(!settingsOpen());
+  // Notes: for the row being worked on (or the first), in Settings' place
+  $('#btnNotes').onclick = () => {
+    if (notesRowId) { closeNotes(); return; }
+    openNotes(document.activeElement?.closest?.('#sheet tr[data-id]')?.dataset.id || lastRowId);
+  };
+  $('#btnNotesClose').onclick = () => { closeNotes(); $('#btnNotes').focus(); };
+  const stepNotes = (by) => {
+    const list = notesRows();
+    const next = list[list.findIndex((x) => x.id === notesRowId) + by];
+    if (next) { notesRowId = next.id; renderNotes(); document.querySelector(`#sheet tr[data-id="${CSS.escape(next.id)}"]`)?.scrollIntoView({ block: 'nearest' }); }
+  };
+  $('#btnNotesPrev').onclick = () => stepNotes(-1);
+  $('#btnNotesNext').onclick = () => stepNotes(1);
+  for (const [id, key] of [['#notesLeaders', 'leaderNotes'], ['#notesDetails', 'details']]) {
+    $(id).addEventListener('focus', () => pushHistory());
+    $(id).addEventListener('input', (e) => {
+      const r = rowById(notesRowId); if (!r) return;
+      const had = hasNotes(r);
+      r[key] = e.target.value;
+      saveSoon();
+      // The row's mark comes or goes with its first or last note
+      if (had !== hasNotes(r)) { const tr = document.querySelector(`#sheet tr[data-id="${CSS.escape(r.id)}"]`); tr?.querySelector('.note-mark')?.remove(); if (hasNotes(r)) markNoteRows(); }
+    });
+    $(id).addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.target.blur(); } });
+  }
   $('#btnSettingsClose').onclick = () => { setSettingsOpen(false); $('#btnSettings').focus(); };
   $('#btnDirNew').onclick = () => newProgram();
   $('#btnDirNew').dataset.title = $('#btnDirNew').title;

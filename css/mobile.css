@@ -242,3 +242,7 @@ body.mobile .popover:has(.prog-list) { min-width: min(340px, calc(100vw - 24px))
 .m-style:active { background: var(--tint-fill); color: var(--primary); }
 
 .m-note { margin: 4px 8px 12px; }
+
+/* A row's notes, in its editor */
+.m-notes textarea { width: 100%; resize: vertical; font: inherit; line-height: 1.45; }
+.m-notes .hint { margin: -4px 0 10px; }

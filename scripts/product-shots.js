@@ -135,6 +135,18 @@ async function fonts(page) {
     await shot(page, 'export');
     await page.keyboard.press('Escape');
 
+    // Notes for a row: the leaders' own, and details for families, in place of the settings
+    await page.evaluate(() => {
+      const r = state.rows.find((x) => x.activity === 'Knots for Camp');
+      r.leaderNotes = 'Baloo brings the rope box from the store.\nPractise the bowline first: we need it for camp.';
+      r.details = 'We\'re learning the knots we\'ll use at camp.\n\nOlder Cubs: bring a length of rope if you have one.';
+      save(); renderAll(); openNotes(r.id);
+    });
+    await page.locator('.toast').evaluateAll((ts) => ts.forEach((t) => t.remove()));
+    await page.mouse.move(5, 880);
+    await shot(page, 'notes', { clip: { x: 260, y: 0, width: 1180, height: 760 } });
+    await page.evaluate(() => closeNotes());
+
     // A change waiting to be published
     await edit(page, 'Welcome Back Games');
     await page.waitForSelector('#btnPublish:not([hidden])');
@@ -178,10 +190,11 @@ async function fonts(page) {
     if (process.argv.includes('--family')) {
       const api = path.join(root, '..', 'programmer-api');
       const html = path.join(OUT, 'family.html');
+      const withDetails = { ...EXAMPLE, rows: EXAMPLE.rows.map((r) => r.activity === 'Knots for Camp' ? { ...r, details: "We're learning the knots we'll use at camp.\n\nOlder Cubs: bring a length of rope if you have one." } : r) };
       const script = path.join(OUT, 'family.mts');
       fs.writeFileSync(script, `import { writeFileSync } from 'node:fs';
 import { familyPage } from ${JSON.stringify(path.join(api, 'src', 'family.ts'))};
-const data = ${JSON.stringify(EXAMPLE)};
+const data = ${JSON.stringify(withDetails)};
 writeFileSync(${JSON.stringify(html)}, familyPage(data, { showPhones: false, calendarUrl: 'webcal://api.qstored.org/p/x.ics', calendarFileUrl: 'https://api.qstored.org/p/x.ics', updatedAt: new Date() }));
 `);
       execFileSync(path.join(api, 'node_modules', '.bin', 'tsx'), [script], { cwd: api, stdio: 'inherit' });

@@ -344,6 +344,12 @@ function editorHTML(r) {
     ? `<div class="m-card">${richField('activity', 'Text shown', r, `No ${state.branding.sectionName || 'meeting'} – Public holiday`)}</div>`
     : `<div class="m-card">${cols.map(field).join('')}</div>
       <p class="hint m-note m-privacy">${esc(PRIVACY_NOTE)}</p>
+      <div class="m-card m-notes">
+        <label class="m-field"><span>Leaders' notes</span><textarea data-f="leaderNotes" rows="4" placeholder="Planning for the leaders: who's bringing what, the plan for the night">${esc(r.leaderNotes || '')}</textarea></label>
+        <p class="hint">Only leaders see these: not printed, and not on the family page or calendar.</p>
+        <label class="m-field"><span>Details for families</span><textarea data-f="details" rows="6" placeholder="More for families: what to bring, where to meet, how it'll run">${esc(r.details || '')}</textarea></label>
+        <p class="hint">On the family page and in the calendar for families. Not printed.</p>
+      </div>
       <div class="m-card"><div class="m-field"><span>Highlight</span>
         ${chips('category', [...state.categories.map((c) => ({ value: c.id, html: `<span class="dot" style="background:${esc(c.color)}"></span>${esc(c.label)}` })), { value: '', html: 'None' }], r.category)}
       </div>
