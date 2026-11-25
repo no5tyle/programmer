@@ -120,6 +120,8 @@ body.has-groups .appbar .brand-text { display: none; }
 @media (hover: none) { .dir-actions { opacity: 1; } }
 .dir-actions .icon-btn { width: 28px; height: 28px; background: var(--surface); }
 .dir-foot { padding: 8px 16px 14px; border-top: .5px solid var(--border); font-size: 13px; }
+/* Nothing in it to show (Move hidden): no empty strip */
+.dir-foot:not(:has(> :not([hidden]))) { display: none; }
 .directory.attention .dir-list { animation: dir-attention 1.2s ease-out; }
 @keyframes dir-attention { 0%, 40% { background: var(--tint-fill); } 100% { background: transparent; } }
 .dir-item {

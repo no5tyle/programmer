@@ -449,7 +449,6 @@ function openProgramsMenu(anchor) {
       ${libraryTermsHTML(g, library.items.filter((x) => x.owner === `group:${g.id}`), (x) => `<div class="prog-item"><button class="prog-open" data-open="${x.id}"><b>${esc(x.name)}</b><span>${esc(termLabel(x))}</span></button></div>`)}</div>`).join('')}
     ${accountsOn() && !account ? `<div class="prog-signin"><span>Sign in to save it to your account, and open it on any device.</span><button class="btn btn-outline btn-sm" id="pSignIn">Sign in</button></div>` : ''}
     <div class="pop-actions">
-      <button class="btn btn-text btn-sm" id="pDupProg" title="Make a copy of this program, to change without touching this one">Duplicate this one</button>
       <button class="btn btn-primary btn-sm" id="pNewProg" title="Start another program for this term or the next, keeping your branding, leaders, columns and lists">New program</button>
     </div>`, { type: 'programs' });
   pop.querySelectorAll('[data-open]').forEach((b) => { b.onclick = () => { closePopover(); openProgram(b.dataset.open); }; });
@@ -458,7 +457,6 @@ function openProgramsMenu(anchor) {
   pop.querySelectorAll('[data-term]').forEach((b) => { b.onclick = () => { closePopover(); startTermProgram(b.dataset.term); }; });
   pop.querySelectorAll('[data-terms-more]').forEach((b) => { b.onclick = () => { const [gid, u] = b.dataset.termsMore.split('|'); openTermsMenu(anchor, gid, u); }; });
   if ($('#pSignIn')) $('#pSignIn').onclick = openSignIn;
-  $('#pDupProg').onclick = () => { closePopover(); duplicateProgram(); };
   $('#pNewProg').onclick = () => { closePopover(); newProgram(); };
   // Signed in: the list comes from the account, so bring it up to date while it's open
   if (account && !anchor.dataset.fresh) {
@@ -614,15 +612,6 @@ async function startFirstProgram() {
 }
 
 /** A copy of the open program, to change without touching this one. */
-async function duplicateProgram() {
-  const how = await addProgramChecked(() => {
-    const c = copyOf(state);
-    c.branding.versionText = '';
-    return c;
-  });
-  if (how) toast('Copy made — you are now editing the copy.');
-}
-
 /** Points at the directory, to delete a program from it (a phone opens its programs list instead). */
 function showDirectoryToDelete() {
   if (document.body.classList.contains('mobile')) { openProgramsMenu($('#mTitle')); return; }
@@ -3344,7 +3333,6 @@ function bindEvents() {
     if (b.dataset.empty === 'signin') openSignIn();
   });
   $('#btnDirToggle').onclick = () => setDirectoryOpen(!directoryOpen());
-  $('#btnDirDup').onclick = () => duplicateProgram();
   $('#btnDirMove').onclick = () => openLibraryBox();
   $('#dirList').onclick = (e) => {
     if (e.target.closest('[data-dir-signin]')) { openSignIn(); return; }

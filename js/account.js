@@ -840,7 +840,7 @@ function showLimitBox(extra = '') {
 }
 
 /**
- * Asked before another program is started (New, Duplicate, opening a file).
+ * Asked before another program is started (New, opening a file).
  * Answers 'add', 'replace' (signed out: the one program on this device is replaced) or null.
  */
 async function newProgramGate() {

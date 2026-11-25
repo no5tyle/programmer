@@ -20,7 +20,7 @@ Premium belongs to the qStored account, not to one app. The builder (`program.qs
 How the rules work:
 
 - **Who has Premium.** A person has Premium while they have an active Individual subscription, **or** they're an active member of a group whose Group subscription is active. Having both is fine; nothing doubles up.
-- **Signed out, one program.** The browser keeps one program. Starting another, opening a file or duplicating asks the leader to sign in (free), or replaces the program on this device after offering *Save file* first. *Programs*, *New program* and *Duplicate* lead to the sign-in for anyone signed out.
+- **Signed out, one program.** The browser keeps one program. Starting another or opening a file asks the leader to sign in (free), or replaces the program on this device after offering *Save file* first. *Programs* and *New program* lead to the sign-in for anyone signed out.
 - **The free cap of 3.** The cap counts a person's own programs in their account, not deleted ones. Programs that belong to a group don't count against anyone's cap. The server enforces it, so it can't be got around.
 - **The owner of a group** can be anyone, including a treasurer or committee member who pays and manages the leaders but doesn't write programs. The owner doesn't use one of the 10 leader places.
 - **More places.** A group can add places beyond the 10, one at a time, at a cost per place (A$1 a month or A$9 a year, so 11 to 20 leaders cost less each than the base plan). They're added to the same subscription: billed pro rata for the rest of the period, or added to the next invoice for groups paying by invoice. Places can be removed again, but not below the number of leaders and pending invites. Inviting a leader when every place is taken offers *Add a place* to the owner and admins.
@@ -263,7 +263,7 @@ Nothing is ever lost silently. This is enough while live joint editing is out of
 
 Signed out, the builder keeps one program in the browser. For a signed-in leader, the browser also holds a working copy of the programs they open, for speed and offline use (section 4.2). That copy is a cache of the account, not a separate save, and it's cleared on *Sign out*.
 
-Today the builder keeps any number of programs in the browser. Because it isn't public yet, this changes outright, with nothing to carry over: *Programs*, *New program* and *Duplicate* lead to sign-in when signed out.
+Today the builder keeps any number of programs in the browser. Because it isn't public yet, this changes outright, with nothing to carry over: *Programs* and *New program* lead to sign-in when signed out.
 
 ## 5. Privacy and safety
 

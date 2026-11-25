@@ -41,11 +41,11 @@ test.describe('signed out', () => {
     await expect(page.locator('.modal h2')).toHaveText('Sign in');
   });
 
-  test('keeps one program: New, Duplicate and Open ask to sign in or replace it', async ({ page }) => {
+  test('keeps one program: New and Open ask to sign in or replace it', async ({ page }) => {
     await edit(page, 'Night hike');
     const first = await page.evaluate(() => library.current);
 
-    await page.click('#btnDirDup');
+    await page.click('#btnDirNew');
     await expect(page.locator('.modal h2')).toHaveText('This device keeps one program');
     await page.click('.modal button:has-text("Cancel")');
     expect(await page.evaluate(() => library.items.length)).toBe(1);
@@ -434,7 +434,8 @@ test.describe('signed in', () => {
     await page.click('#directory [data-delprog="progcccc"]');
     await page.click('.modal .btn-danger');
     await expect.poll(() => server.live().length).toBe(2);
-    await page.click('#btnDirDup');
+    await page.click('#btnDirNew');
+    await page.click('.modal [data-i="1"]');
     await expect.poll(() => server.live().length).toBe(3);
   });
 
@@ -464,7 +465,8 @@ test.describe('signed in', () => {
     await expect.poll(() => server.called('GET /programs?owner=me').length).toBe(2);
     // Another device fills the account, after this one last looked
     server.programs.set('progzzzz', program('progzzzz', EXAMPLE));
-    await page.click('#btnDirDup');
+    await page.click('#btnDirNew');
+    await page.click('.modal [data-i="1"]');
     await expect(page.locator('.modal h2')).toHaveText('A free account keeps 3 programs');
     await expect(page.locator('.modal-body')).toContainText('saved on this device only for now');
     await page.click('.modal button:has-text("Not now")');
@@ -474,7 +476,8 @@ test.describe('signed in', () => {
 
   test('Premium has no limit', async ({ page }) => {
     const server = await open(page, { limit: null, programs: ['a', 'b', 'c'].map((x) => program(`prog${x}${x}${x}${x}`, EXAMPLE)) });
-    await page.click('#btnDirDup');
+    await page.click('#btnDirNew');
+    await page.click('.modal [data-i="1"]');
     await expect.poll(() => server.live().length).toBe(4);
   });
 
