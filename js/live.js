@@ -1,9 +1,10 @@
 /*
- * Working on a program together, live (the API's POST and DELETE /programs/{id}/live): a Group plan feature, for the
- * programs in a group's library.
+ * Working on a program together, live (the API's POST and DELETE /programs/{id}/live): any program kept in the
+ * account, whether a group library's (its leaders together) or a person's own (on their phone and computer at once).
  *
- * While one is open, the builder takes a quick look now and then: every 10 seconds while someone else has it open,
- * every minute otherwise, and straight away on a move from cell to cell. Each look says the person is here (and in
+ * While one is open, the builder takes a quick look now and then: every 3 seconds while someone else (or another of
+ * their devices) has it open, every 15 seconds otherwise, and straight away on a move from cell to cell. A change is
+ * sent about a second after typing stops while someone else is here (js/account.js: syncSoon). Each look says the person is here (and in
  * which cell), and answers with the newest version and who else is here. A newer version is put together with any
  * changes here (js/account.js: takeTheirs) and shown; while someone's typing it waits until they stop.
  *
@@ -16,19 +17,23 @@ const LIVE_TAB = (() => {
   return [...a].map((b) => 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[b % 62]).join('');
 })();
 const LIVE_COLOURS = ['#0E7490', '#B45309', '#6D28D9', '#BE123C', '#15803D', '#1D4ED8', '#A21CAF', '#9A3412'];
-const LOOK_TOGETHER_MS = 10_000;   // someone else has it open
-const LOOK_ALONE_MS = 60_000;      // no one else
+const LOOK_TOGETHER_MS = 3_000;    // someone else, or another of their devices, has it open
+const LOOK_ALONE_MS = 15_000;      // no one else: soon enough to notice another device opening it
+const SEND_TOGETHER_MS = 800;      // while together, a change is sent this soon after the last one
 const IDLE_AFTER_MS = 10 * 60_000;
 const AWAY_AFTER_MS = 2 * 60_000;
 
 const live = { id: null, timer: null, busy: false, again: false, people: [], cell: null, hiddenAt: null, away: false, idle: false, lastUsed: Date.now(), failures: 0, warned: null };
 
-/** Whether the open program is one others can have open too: a group library's, kept in the account. */
+/** Whether the open program can be open elsewhere too: one kept in the account (a group library's, or their own). */
 function liveCan() {
   if (typeof signedIn !== 'function' || !accountsOn() || !signedIn()) return false;
   const item = libItem(library.current);
-  return !!item?.owner && item.version != null && !item.hold && !live.away && !live.idle;
+  return !!item && item.version != null && !item.hold && !live.away && !live.idle;
 }
+
+/** How soon a change is sent: quickly while someone else has the program open, else the usual gap. */
+const liveSendGap = () => (live.id && live.people.length ? SEND_TOGETHER_MS : null);
 
 /** Starts, moves or stops following, to match the program that's open. Called after each render. */
 function liveFollow() {

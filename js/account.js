@@ -358,7 +358,9 @@ function accountChanged(item) {
 /** Called by save() after the library is written: send the change on, but not too often. */
 function syncSoon(wait) {
   if (!signedIn() || syncTimer || settingUp) return;
-  const gap = wait ?? Math.max(0, lastSync + ACCOUNT.syncGap - Date.now());
+  // While someone else has it open (js/live.js), sooner: they're watching for it
+  const every = (typeof liveSendGap === 'function' && liveSendGap()) || ACCOUNT.syncGap;
+  const gap = wait ?? Math.max(0, lastSync + every - Date.now());
   syncTimer = setTimeout(() => { syncTimer = null; runSync(); }, gap);
 }
 
