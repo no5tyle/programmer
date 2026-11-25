@@ -985,3 +985,4 @@ body.no-program #btnSave, body.no-program #btnExport, body.no-program #btnUndo {
 #sheet td.c-where.night-rejected { --night: #D95C5C; }
 @media print { #sheet td.c-where[class*="night-"] { outline: none !important; } }
 .sheet.capture td.c-where[class*="night-"] { outline: none !important; }
+select option.taken { color: var(--muted); }

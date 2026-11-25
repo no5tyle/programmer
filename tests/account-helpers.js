@@ -288,6 +288,13 @@ async function mockAccount(page, { signedIn = false, limit = 3, programs = [], m
       const p = server.programs.get(mv[1]);
       if (!p) return error(route, 404, 'not_found');
       if (body.to === 'me' && full()) return error(route, 403, 'program_limit', { limit: server.limit });
+      // A unit keeps one program a term: refused, or (asked to) the one there goes to the bin, as the API does
+      if (body.to !== 'me' && body.unit) {
+        const year = p.year ?? p.data?.term?.year, term = p.term ?? p.data?.term?.term;
+        const taken = [...server.programs.values()].find((x) => x.id !== p.id && !x.deletedAt && x.owner === body.to && x.unit === body.unit && x.year === year && x.term === term);
+        if (taken && !body.replace) return error(route, 409, 'term_taken', { program: { id: taken.id, name: taken.name } });
+        if (taken) taken.deletedAt = new Date().toISOString();
+      }
       p.owner = body.to;
       // The unit it goes into (a group's), or none, out of a library
       const unit = body.to === 'me' ? null : body.unit;
