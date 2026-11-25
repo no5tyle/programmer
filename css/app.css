@@ -992,3 +992,23 @@ select option.taken { color: var(--muted); }
 .dmy input[type=text] { flex: 1; min-width: 0; }
 .dmy input.bad { border-color: var(--danger, #d70015); }
 .dmy .dmy-native { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
+
+/* Notes for a row, in the Settings pane's place (js/app.js: openNotes) */
+.notes-nav { display: flex; gap: 2px; }
+.notes-row { display: grid; gap: 2px; margin: 4px 2px 12px; }
+.notes-row b { font-size: 15px; }
+.notes-row span { color: var(--text-2); font-size: 13px; }
+.notes-card textarea { width: 100%; resize: vertical; min-height: 120px; font: inherit; line-height: 1.45; }
+.notes-card .hint { margin: 6px 0 0; }
+.notes-privacy { margin: 4px 2px 0; }
+#btnNotes[aria-pressed="false"] { background: var(--fill); color: var(--text-2); }
+.prog tr.notes-on > td { box-shadow: inset 0 2px 0 var(--primary), inset 0 -2px 0 var(--primary); }
+.prog td { position: relative; }
+.prog .note-mark {
+  position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; padding: 2px; border: 0; border-radius: 5px;
+  background: var(--primary); color: #fff; cursor: pointer; opacity: .85; display: grid; place-items: center;
+}
+.prog .note-mark svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.prog .note-mark:hover { opacity: 1; }
+@media print { .prog .note-mark, .notes-pane { display: none !important; } .prog tr.notes-on > td { box-shadow: none; } }
+.sheet.capture .prog tr.notes-on > td { box-shadow: none; }

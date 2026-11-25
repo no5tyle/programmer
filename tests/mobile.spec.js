@@ -17,6 +17,15 @@ test.describe('phone', () => {
     await expect(page.locator('.m-row')).toHaveCount(9);
   });
 
+  test('leaders\' notes and details for families in the editor', async ({ page }) => {
+    await fillCubs(page);
+    await page.click('.m-row:has-text("Night Walk")');
+    await page.fill('[data-f="leaderNotes"]', 'Baloo books the park');
+    await page.fill('[data-f="details"]', 'Bring a torch');
+    const r = await page.evaluate(() => { const x = state.rows.find((y) => y.activity === 'Night Walk'); return [x.leaderNotes, x.details]; });
+    expect(r).toEqual(['Baloo books the park', 'Bring a torch']);
+  });
+
   test('editing an activity in the editor', async ({ page }) => {
     await fillCubs(page);
     await page.click('.m-row:has-text("OAS Catchup")');

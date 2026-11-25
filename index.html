@@ -109,6 +109,9 @@
           <button class="btn btn-tonal" id="btnSettings" type="button" aria-pressed="true" aria-controls="sidebar" title="Show or hide the settings: term, styling, leaders, columns and lists">
             <svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Settings
           </button>
+          <button class="btn btn-tonal" id="btnNotes" type="button" aria-pressed="false" aria-controls="notesPane" title="Notes for a row: leaders' planning notes, and details for families' digital program">
+            <svg viewBox="0 0 24 24"><path d="M5 4h10l4 4v12H5z"/><path d="M14 4v5h5M8 13h8M8 17h5"/></svg>Notes
+          </button>
           <span class="chip" id="fitStatus" title="Whether the program fits on one printed page, and the text size it uses to fit">—</span>
           <label class="zoom">
             <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
@@ -340,6 +343,33 @@
       </details>
 
       <p class="sidebar-foot"><span id="saveWhere">Your programs save automatically, in this browser only (listed on the left). Use <strong>Save file</strong> to keep a copy, move to another device or share one with other leaders.</span> <button class="link-btn" id="btnTour">Take the tour</button> · <button class="link-btn" id="btnMobileView" title="Use the phone layout on this screen: a week-by-week list, with a preview of the page">Switch to the mobile view</button></p>
+      </aside>
+      <!-- Notes for a row, in the Settings pane's place (js/app.js: openNotes) -->
+      <aside class="sidebar notes-pane" id="notesPane" aria-labelledby="notesTitle" hidden>
+        <div class="pane-head">
+          <span class="pane-title" id="notesTitle">Notes</span>
+          <span class="notes-nav">
+            <button class="icon-btn" id="btnNotesPrev" type="button" title="The row before" aria-label="Notes for the row before"><svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button>
+            <button class="icon-btn" id="btnNotesNext" type="button" title="The row after" aria-label="Notes for the row after"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+            <button class="icon-btn" id="btnNotesClose" type="button" title="Hide notes" aria-label="Hide notes"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+          </span>
+        </div>
+        <div class="notes-row" id="notesRow"></div>
+        <div class="card notes-card">
+          <div class="card-body">
+            <label class="field"><span>Leaders' notes</span>
+              <textarea id="notesLeaders" rows="7" placeholder="Planning for the leaders: who's bringing what, the plan for the night, what to set up"></textarea></label>
+            <p class="hint">Only leaders see these: they're not printed, and not on the family page or calendar.</p>
+          </div>
+        </div>
+        <div class="card notes-card">
+          <div class="card-body">
+            <label class="field"><span>Details for families</span>
+              <textarea id="notesDetails" rows="10" placeholder="More about the activity for families: what to bring, where to meet, how it'll run"></textarea></label>
+            <p class="hint">Shown under the activity on the family page (the live link) and in the calendar for families. Not printed.</p>
+          </div>
+        </div>
+        <p class="hint notes-privacy" id="notesPrivacy"></p>
       </aside>
       </div>
     </main>
