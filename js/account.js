@@ -1665,12 +1665,12 @@ function splitPlace(v) {
 }
 
 /** Moves a program into a group's library ('group:{id}', for a unit) or out to the person's own ('me'). */
-async function moveProgram(id, to, unit = null) {
+async function moveProgram(id, to, unit = null, replace = false) {
   const item = libItem(id);
   if (!item) return false;
   if (item.dirty || item.version == null) await runSync();
-  // Into a group's unit: the unit goes with the move
-  const r = await tryApi('POST', `/programs/${id}/move`, { body: to === 'me' ? { to } : { to, unit } });
+  // Into a group's unit: the unit goes with the move (and, asked first, in place of the unit's program for the term)
+  const r = await tryApi('POST', `/programs/${id}/move`, { body: to === 'me' ? { to } : { to, unit, ...(replace ? { replace: true } : {}) } });
   if (!r) return false;
   if (errorCode(r) === 'program_limit') { showLimitBox(); return false; }
   if (!r.ok) { toast(errorText(r), 'error'); return false; }
@@ -1682,7 +1682,15 @@ async function moveProgram(id, to, unit = null) {
   if (id === library.current) applyLibrary();
   renderDirectory(); refreshSaveState();
   await loadMe();
+  if (replace) await refreshPrograms().catch(() => null);   // the one it replaced is in the bin now
   return true;
+}
+
+/** The program a unit already has for the open program's term (a place's `group:{gid}|{unit}`), other than `id`. */
+function takenFor(place, id) {
+  const { owner, unit } = splitPlace(place);
+  if (!owner || !unit || !state.term?.year || !state.term?.term) return null;
+  return library.items.find((x) => x.id !== id && x.owner === owner && x.unit === unit && x.year === state.term.year && x.term === state.term.term) || null;
 }
 
 /** The Group library box: where the open program is kept, moving it into a unit of a group's library, or out. */
@@ -1715,16 +1723,36 @@ async function openLibraryBox() {
     if (managesGroup(here)) buttons.push({ label: 'Move to my programs', value: 'out', cls: 'btn-outline' });
   } else {
     const places = placesForPrograms().filter((p) => p.value !== 'me');
+    // Each unit keeps one program a term: one already there for this term is said so (moving there replaces it)
+    const termWords = state.term?.term && state.term?.year ? `Term ${state.term.term} ${state.term.year}` : '';
+    const label = (p) => { const t = takenFor(p.value, id); return t ? `${p.label}: already has ${termWords}` : p.label; };
     body = `<p>This program is <b>yours</b>. Moving it to a group's library lets every leader in the group open and change it, and it stays with the group if you move on. It takes the group's styling, and no longer counts towards your own programs.</p>
-      ${places.length ? `<label class="field"><span>Move it to</span><select id="moveTo">${places.map((p) => `<option value="${esc(p.value)}">${esc(p.label)}</option>`).join('')}</select></label>` : ''}
+      ${places.length ? `<label class="field"><span>Move it to</span><select id="moveTo"><option value="" selected disabled>Choose a unit…</option>${places.map((p) => `<option value="${esc(p.value)}"${takenFor(p.value, id) ? ' class="taken"' : ''}>${esc(label(p))}</option>`).join('')}</select></label>
+        ${termWords && places.some((p) => takenFor(p.value, id)) ? `<p class="hint">A unit marked <i>already has ${esc(termWords)}</i> keeps one program a term: moving there replaces it (you're asked first).</p>` : ''}` : ''}
       ${groups.filter((g) => !g.plan).map((g) => `<p class="hint">${esc(g.name)}'s library is part of the Group plan, which the group's owner starts on the ${site}.</p>`).join('')}
       ${groups.some((g) => g.plan && !unitsOf(g.id).length) ? `<p class="hint">The group's units, such as two Cubs packs, are set on the ${site}'s Programs page.</p>` : ''}`;
     if (places.length) buttons.push({ label: 'Move', value: 'in', cls: 'btn-primary' });
   }
   const choice = await modal({ title: "The group's library", body, buttons });
   if (choice === 'in') {
-    const { owner, unit } = splitPlace($('#moveTo')?.value);
-    if (owner && await moveProgram(id, owner, unit)) toast(`Moved to ${libraryName(owner)}.`);
+    const place = $('#moveTo')?.value;
+    if (!place) { toast('Choose the unit to move it to.', 'error'); return openLibraryBox(); }
+    const { owner, unit } = splitPlace(place);
+    // That unit has a program for this term already: replacing it is asked, plainly
+    const taken = takenFor(place, id);
+    let replace = false;
+    if (taken) {
+      const unitName = unitsOf(owner.slice('group:'.length)).find((u) => u.id === unit)?.name || 'That unit';
+      const ok = await modal({
+        title: `Replace ${esc(unitName)}'s Term ${state.term.term} ${state.term.year} program?`,
+        body: `<p><b>${esc(unitName)}</b> already has a program for Term ${state.term.term} ${state.term.year}: <b>${esc(taken.name)}</b>. A unit keeps one program a term, so moving yours there <b>replaces it</b>.</p>
+          <p>Theirs goes to the bin, and can be brought back for 30 days (if yours is moved out first). Every leader in the unit then sees yours.</p>`,
+        buttons: [{ label: 'Cancel', value: false, cls: 'btn-text' }, { label: 'Replace it', value: true, cls: 'btn-danger' }],
+      });
+      if (!ok) return;
+      replace = true;
+    }
+    if (owner && await moveProgram(id, owner, unit, replace)) toast(replace ? `Moved to ${libraryName(owner)}, in place of ${taken.name}.` : `Moved to ${libraryName(owner)}.`);
   } else if (choice === 'out') {
     if (await moveProgram(id, 'me')) toast('Moved to your programs.');
   }

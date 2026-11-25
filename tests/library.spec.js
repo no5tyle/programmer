@@ -156,6 +156,38 @@ test("a leader's own program moves into one of their units, and the owner takes 
   await expect.poll(() => server.programs.get('prog1111').owner).toBe('me');
 });
 
+test("moving in: a unit is chosen, one with the term's program already says so, and replacing it is asked first", async ({ page }) => {
+  const server = await open(page);
+  const term = await page.evaluate(() => `Term ${state.term.term} ${state.term.year}`);
+  server.programs.get('lib22222').year = await page.evaluate(() => state.term.year);
+  server.programs.get('lib22222').term = await page.evaluate(() => state.term.term);
+  await page.evaluate(() => refreshPrograms());
+  await libraryBox(page);
+  // Nothing chosen to start with; Banksia has this term's program already
+  await expect(page.locator('#moveTo')).toHaveValue('');
+  await expect(page.locator('#moveTo option[value="group:g1|banksia"]')).toHaveText(`1st Example · Banksia Cubs: already has ${term}`);
+  await expect(page.locator('#moveTo option[value="group:g1|banksia"]')).toHaveClass('taken');
+  await expect(page.locator('#moveTo option[value="group:g1|mob"]')).toHaveText('1st Example · Mob');
+  // Move with no unit chosen: asked to choose
+  await page.click('.modal-actions button:has-text("Move")');
+  await expect(page.locator('.toast').last()).toContainText('Choose the unit');
+  // Banksia: asked first; cancelled, nothing moves
+  await page.selectOption('#moveTo', 'group:g1|banksia');
+  await page.click('.modal-actions button:has-text("Move")');
+  await expect(page.locator('.modal h2')).toHaveText(`Replace Banksia Cubs's ${term} program?`);
+  await expect(page.locator('.modal-body')).toContainText('Theirs goes to the bin');
+  await page.click('.modal-actions button:has-text("Cancel")');
+  expect(server.programs.get('prog1111').owner).toBe('me');
+  // Again, replacing it: theirs to the bin, this one in its place
+  await libraryBox(page);
+  await page.selectOption('#moveTo', 'group:g1|banksia');
+  await page.click('.modal-actions button:has-text("Move")');
+  await page.click('.modal-actions button:has-text("Replace it")');
+  await expect.poll(() => server.programs.get('prog1111').owner).toBe('group:g1');
+  expect(server.programs.get('prog1111').unit).toBe('banksia');
+  expect(server.programs.get('lib22222').deletedAt).toBeTruthy();
+});
+
 test('a leader given some units sees only those, and can move programs in but not out', async ({ page }) => {
   await open(page, { groups: [{ ...GROUP, role: 'leader' }] }, (server) => {
     server.libraries.set('g1', { units: UNITS, styling: STYLING, region: 'SA', myUnits: ['banksia'] });
@@ -163,7 +195,7 @@ test('a leader given some units sees only those, and can move programs in but no
   });
   await expect(page.locator('.dir-unit-head')).toHaveText(['Banksia Cubs']);
   await libraryBox(page);
-  await expect(page.locator('#moveTo option')).toHaveText(['1st Example · Banksia Cubs']);
+  await expect(page.locator('#moveTo option')).toHaveText(['Choose a unit…', /^1st Example · Banksia Cubs/]);
   await page.keyboard.press('Escape');
   await unit(page, 'banksia').locator('.term-tab.has').click();
   await expect(page.locator('#btnDirMove')).toBeHidden();   // only the group's owner and admins take one out
