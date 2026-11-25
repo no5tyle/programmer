@@ -3244,6 +3244,14 @@ function bindEvents() {
       if (state.rows.map((r) => r.id).join() !== before) { save(); setTimeout(renderDoc, 0); }
     }
   });
+  // Escape leaves the cell, keeping what's typed: it's saved as it's typed (and seen live by anyone else here), so
+  // Undo, straight after, is how to take it back (the cell's start is the undo point: focusin above)
+  sheet.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !e.target.matches('.ed[contenteditable="true"]')) return;
+    e.preventDefault();
+    e.target.blur();
+    getSelection()?.removeAllRanges();
+  });
   sheet.addEventListener('input', (e) => {
     const ed = e.target.closest('.ed'); if (!ed) return;
     const r = rowById(ed.closest('tr').dataset.id); if (!r) return;
