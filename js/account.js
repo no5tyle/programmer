@@ -47,6 +47,9 @@ let syncTimer = null;
 let lastSync = 0;
 let refreshing = null;   // one token refresh at a time
 let settingUp = false;   // just signed in: nothing is sent until the leader has said what to add
+let loadingPrograms = false;   // the account's programs on their way (arriving, or another group): the list says so, not "none"
+/** Whether the programs list is still waiting for the account's programs. */
+const dirLoading = () => loadingPrograms;
 
 const accountsOn = () => !!(ACCOUNT.apiBase && ACCOUNT.firebaseApiKey);
 const signedIn = () => !!session;
@@ -754,6 +757,9 @@ async function checkCurrent() {
 /** Catch up with the account: on arriving, on coming back to the page, and when the connection returns. */
 async function catchUp() {
   if (!signedIn()) return;
+  // Nothing on this device yet: the list shows it's loading until the account's programs are here
+  const waiting = !library.items.length;
+  if (waiting) { loadingPrograms = true; renderDirectory(); }
   try {
     await loadMe();
     await loadLibraries();
@@ -762,6 +768,8 @@ async function catchUp() {
     offline = false;
   } catch (err) {
     if (err.offline) offline = true;
+  } finally {
+    if (waiting) { loadingPrograms = false; renderDirectory(); }
   }
   refreshSaveState();
   if (pendingWork()) syncSoon(0);
@@ -1491,9 +1499,11 @@ async function changeGroup(gid) {
   try { if (groupInView) localStorage.removeItem(MINE_ONLY_KEY); else localStorage.setItem(MINE_ONLY_KEY, '1'); } catch { /* this visit only */ }
   showGroupInView();
   if (!inView(libItem(library.current))) { save(); library.current = null; }
+  loadingPrograms = true;
   renderDirectory();
   await loadLibraries().catch(() => null);
   await refreshPrograms().catch(() => null);
+  loadingPrograms = false;
   if (!library.current) await ensureCurrent();
   renderAll();
 }

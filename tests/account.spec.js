@@ -192,6 +192,25 @@ test.describe('one sign-in for every qStored site', () => {
     expect(server.called('POST /programs')).toEqual([]);
   });
 
+  test("while the account's programs are on their way, the list says it's loading, not that there are none", async ({ page, context }) => {
+    await mockAccount(page, { programs: [program('acct1111', EXAMPLE)] });
+    await context.addCookies([{
+      name: 'qstored_session', domain: 'localhost', path: '/',
+      value: encodeURIComponent(JSON.stringify({ uid: 'u1', email: 'akela@example.com', refreshToken: 'refresh-1' })),
+    }]);
+    // The account's list of programs, held back until the test lets it go
+    let release;
+    const held = new Promise((r) => { release = r; });
+    await page.route(/\/programs\?owner=/, async (route) => { await held; await route.fallback(); });
+    errors = await openAccountApp(page);
+    await expect(page.locator('#dirList .dir-loading')).toHaveText('Loading your programs…');
+    await expect(page.locator('#dirList .spinner')).toBeVisible();
+    await expect(page.locator('#dirList')).not.toContainText('No programs yet');
+    release();
+    await expect(page.locator('#dirList .dir-item')).toHaveCount(1);
+    await expect(page.locator('#dirList .dir-loading')).toHaveCount(0);
+  });
+
   test('signed out on another qStored site, the programs here stay', async ({ page, context }) => {
     await mockAccount(page, { signedIn: true });
     errors = await openAccountApp(page, SIGN_IN_LINK);
