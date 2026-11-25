@@ -18,6 +18,20 @@ async function open(page) {
 }
 const activities = (page) => page.evaluate(() => state.rows.map((r) => r.activity));
 
+test('typing in a cell carries on through the saves it sends: nothing redraws the sheet under it', async ({ page }) => {
+  await open(page);
+  const row = await page.evaluate(() => state.rows.find((r) => document.querySelector(`#sheet tr[data-id="${r.id}"] td.c-description .ed`)).id);
+  const cell = page.locator(`#sheet tr[data-id="${row}"] td.c-description .ed`);
+  await cell.click();
+  // Long enough for several saves to go out and come back
+  for (let i = 0; i < 12; i++) {
+    await page.keyboard.type('ab', { delay: 40 });
+    await page.waitForTimeout(400);
+    expect(await page.evaluate(() => document.activeElement?.classList.contains('ed'))).toBe(true);
+  }
+  await expect(cell).toContainText('ab'.repeat(12));
+});
+
 test.describe('changes in two places', () => {
   test('different rows: both kept, with no question', async ({ page }) => {
     const { p } = await open(page);

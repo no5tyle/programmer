@@ -307,13 +307,32 @@ function refreshPublishButton() {
  */
 let nightBookings = new Map();   // rowId -> { status, spaceId, clash }
 let nightBookingsFor = null;     // the program they're for
+let nightBookingsShown = '';    // what the sheet last drew, to redraw only when it changes
+let nightBookingsWaiting = false;   // changed while someone was typing: drawn once they stop
 function setNightBookings(id, list) {
   if (!Array.isArray(list)) return;
+  const was = nightBookingsFor === id ? nightBookingsShown : null;
   nightBookingsFor = id;
   nightBookings = new Map(list.map((b) => [b.rowId, b]));
-  if (id === library.current && typeof renderSheet === 'function') { renderSheet(); if (typeof fit === 'function') fit(); }
-  if (id === library.current && typeof refreshWhereHint === 'function') refreshWhereHint();
+  // Each save answers with them: redraw only if they've changed, and never under someone's typing (it would close
+  // the cell they're in); then, once they stop
+  const now = JSON.stringify([...nightBookings.values()].sort((a, b) => String(a.rowId).localeCompare(String(b.rowId))));
+  if (id !== library.current || now === was) return;
+  nightBookingsShown = now;
+  if (busyEditing()) { nightBookingsWaiting = true; return; }
+  showNightBookings();
 }
+function showNightBookings() {
+  nightBookingsWaiting = false;
+  if (typeof renderSheet === 'function') { renderSheet(); if (typeof fit === 'function') fit(); }
+  if (typeof refreshWhereHint === 'function') refreshWhereHint();
+}
+// Bookings that changed while someone was typing: drawn when they leave the cell (a moment later, so a move from one
+// cell to the next doesn't count as stopping)
+document.addEventListener('focusout', () => {
+  if (!nightBookingsWaiting) return;
+  setTimeout(() => { if (nightBookingsWaiting && !busyEditing()) showNightBookings(); }, 300);
+});
 /** The group's spaces a program's Where can be, for a group library program: [{ id, name, shared }]. */
 function spacesFor(item = libItem(library.current)) {
   if (!item?.owner) return [];
