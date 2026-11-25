@@ -986,3 +986,9 @@ body.no-program #btnSave, body.no-program #btnExport, body.no-program #btnUndo {
 @media print { #sheet td.c-where[class*="night-"] { outline: none !important; } }
 .sheet.capture td.c-where[class*="night-"] { outline: none !important; }
 select option.taken { color: var(--muted); }
+
+/* A date typed day first, with a calendar button (js/app.js: dmyFieldHTML) */
+.dmy { position: relative; display: flex; gap: 6px; align-items: center; }
+.dmy input[type=text] { flex: 1; min-width: 0; }
+.dmy input.bad { border-color: var(--danger, #d70015); }
+.dmy .dmy-native { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
