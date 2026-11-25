@@ -570,7 +570,9 @@ function renderDirectory() {
       <div class="dir-head${g.library ? ' dir-library' : ''}">${g.library ? '<svg class="dir-lib-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M8 19V5M12 19l3-14 4 1-3 14z"/></svg>' : `<span class="dir-dot"${g.color ? ` style="background:${esc(g.color)}"` : ''}></span>`}${esc(g.name)}<span class="dir-count">${g.items.length}</span></div>
       ${g.items.sort(byTerm).map(item).join('')}
     </div>`;
-  }).join('') || '<p class="dir-empty">No programs yet.</p>';
+  }).join('') || (typeof dirLoading === 'function' && dirLoading()
+    ? '<p class="dir-loading" role="status"><span class="spinner" aria-hidden="true"></span>Loading your programs…</p>'
+    : '<p class="dir-empty">No programs yet.</p>');
   if (accountsOn() && !account) {
     box.insertAdjacentHTML('beforeend', `<div class="dir-signin"><span>Sign in to save your program to your account, and open it on any device.</span>
       <button class="btn btn-outline btn-sm" type="button" data-dir-signin>Sign in</button></div>`);
