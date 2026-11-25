@@ -596,8 +596,20 @@ async function takeTheirs(id, theirs, by = theirs.updatedBy) {
   if (clashes.length) {
     const what = [...new Set(clashes.map((c) => clashText(c, merged)))];
     toast(`You and ${who} both changed ${what.slice(0, 2).join(' and ')}${what.length > 2 ? ', and more' : ''}. Yours is kept${me?.premium || item.owner ? "; theirs is in this program's version history" : ''}.`);
-  } else if (open) toast(`Updated with the changes from ${who}.`);
+  } else if (open) toldOfChanges(id, by?.id || who, `Updated with the changes from ${who}.`);
   return true;
+}
+/*
+ * "Updated with the changes from …" once per person while a program stays open: working on it together, their saves
+ * keep arriving, and the leaders shown in the bar (and on the cell they're in) already say who's changing it. A clash
+ * is always said, since a change of theirs or mine was set aside.
+ */
+let toldOf = { program: null, who: new Set() };
+function toldOfChanges(programId, who, text) {
+  if (toldOf.program !== programId) toldOf = { program: programId, who: new Set() };
+  if (toldOf.who.has(who)) return;
+  toldOf.who.add(who);
+  toast(text);
 }
 let liveWaiting = false;   // a newer version waits for typing to stop (js/live.js picks it up)
 
@@ -772,7 +784,7 @@ async function checkCurrent() {
   const r = await api('GET', `/programs/${item.id}`);
   const now = libItem(item.id);
   if (!r.ok || !now || now.dirty || library.current !== item.id || unsavedHere()) return;
-  if (r.json.version !== now.version) { storeRemote(r.json); toast('Updated with the changes from your other device.'); }
+  if (r.json.version !== now.version) { storeRemote(r.json); toldOfChanges(item.id, session?.uid || 'me', 'Updated with the changes from your other device.'); }
 }
 
 /** Catch up with the account: on arriving, on coming back to the page, and when the connection returns. */
