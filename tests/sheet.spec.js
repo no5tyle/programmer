@@ -7,6 +7,20 @@ test.describe('sheet', () => {
   test.beforeEach(async ({ page }) => { errors = await openApp(page); });
   test.afterEach(() => { expect(errors, 'browser errors').toEqual([]); });
 
+  test('Escape leaves a cell, keeping what was typed; Undo then takes it back', async ({ page }) => {
+    const row = await page.evaluate(() => state.rows.find((r) => document.querySelector(`#sheet tr[data-id="${r.id}"] td.c-description .ed`)).id);
+    const cell = page.locator(`#sheet tr[data-id="${row}"] td.c-description .ed`);
+    const before = await page.evaluate((id) => state.rows.find((r) => r.id === id).description || '', row);
+    await cell.click();
+    await page.keyboard.type('Bring a torch');
+    await page.keyboard.press('Escape');
+    expect(await page.evaluate(() => document.activeElement?.classList.contains('ed'))).toBe(false);
+    await expect(cell).toContainText('Bring a torch');
+    await expect.poll(() => page.evaluate((id) => state.rows.find((r) => r.id === id).description, row)).toContain('Bring a torch');
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
+    await expect.poll(() => page.evaluate((id) => state.rows.find((r) => r.id === id).description || '', row)).toBe(before);
+  });
+
   test('the page loads its styles and scripts', async ({ page }) => {
     // Guards against a broken published index.html (e.g. a damaged tag hiding the stylesheets).
     const sheets = await page.evaluate(() => [...document.styleSheets].map((x) => (x.href || '').split('/').pop().split('?')[0]).filter(Boolean));
