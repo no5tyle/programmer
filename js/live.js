@@ -94,6 +94,7 @@ async function livePull(id, by) {
   if (!item || got.json.version <= (item.version ?? 0)) return;
   if (await takeTheirs(id, got.json, by || got.json.updatedBy)) return;
   // No base to start from: with nothing changed here, simply take it; otherwise the next save asks
+  if (busyEditing()) { liveWaiting = true; return; }
   if (!item.dirty && !unsavedHere()) storeRemote(got.json);
 }
 
@@ -164,7 +165,7 @@ document.addEventListener('focusout', () => {
   liveMoveTimer = setTimeout(() => {
     if (!liveCellOf(document.activeElement) && live.cell) { live.cell = null; live.warned = null; liveLook(); }
     // A newer version that waited for the typing to stop
-    if (liveWaiting && !busyEditing() && live.id) { liveWaiting = false; livePull(live.id); }
+    if (liveWaiting && !busyEditing()) { liveWaiting = false; if (live.id) livePull(live.id); else checkCurrent(); }
   }, 400);
 });
 

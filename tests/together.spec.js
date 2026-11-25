@@ -32,6 +32,25 @@ test('typing in a cell carries on through the saves it sends: nothing redraws th
   await expect(cell).toContainText('ab'.repeat(12));
 });
 
+test("coming back to the window while typing doesn't take the cell away: the other device's change waits, then comes in", async ({ page }) => {
+  const { server } = await open(page);
+  const row = await page.evaluate(() => state.rows.find((r) => document.querySelector(`#sheet tr[data-id="${r.id}"] td.c-activity .ed`)).id);
+  const cell = page.locator(`#sheet tr[data-id="${row}"] td.c-activity .ed`);
+  await cell.click();
+  await page.keyboard.press('ControlOrMeta+a');
+  for (let i = 0; i < 6; i++) {
+    server.otherSaves('prog1111', (d) => { d.rows.at(-1).activity = `Phone ${i}`; }, { id: 'me', name: 'Akela', tab: 'phoneTab' });
+    await page.evaluate(() => catchUp());   // as on coming back to the window
+    await page.keyboard.type('ab', { delay: 40 });
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => document.activeElement?.classList.contains('ed')), `still typing, round ${i}`).toBe(true);
+  }
+  await expect(cell).toHaveText('ab'.repeat(6));
+  await page.keyboard.press('Escape');
+  await expect.poll(() => activities(page).then((a) => a.at(-1))).toBe('Phone 5');
+  await expect.poll(() => server.programs.get('prog1111').data.rows.find((r) => r.id === row).activity).toBe('ab'.repeat(6));
+});
+
 test.describe('changes in two places', () => {
   test('different rows: both kept, with no question', async ({ page }) => {
     const { p } = await open(page);
@@ -111,6 +130,26 @@ test.describe('live', () => {
     }
     expect(await page.evaluate(() => toldOf.who.size)).toBe(1);
     expect(await told()).toBeLessThanOrEqual(1);
+  });
+
+  test("typing in a cell carries on while another leader's saves keep arriving", async ({ page }) => {
+    const { server } = await openLibrary(page);
+    server.otherHere('prog1111', { id: 'u2', name: 'Baloo', tab: 'baloosTab1' }, null);
+    const row = await page.evaluate(() => state.rows.find((r) => document.querySelector(`#sheet tr[data-id="${r.id}"] td.c-description .ed`)).id);
+    const cell = page.locator(`#sheet tr[data-id="${row}"] td.c-description .ed`);
+    await cell.click();
+    for (let i = 0; i < 10; i++) {
+      server.otherSaves('prog1111', (d) => { d.rows.at(-1).activity = `Baloo ${i}`; });
+      await lookNow(page);
+      await page.keyboard.type('ab', { delay: 40 });
+      await page.waitForTimeout(400);
+      expect(await page.evaluate(() => document.activeElement?.classList.contains('ed')), `still typing, round ${i}`).toBe(true);
+    }
+    await expect(cell).toContainText('ab'.repeat(10));
+    // Once the typing stops, theirs comes in, and mine is saved
+    await page.keyboard.press('Escape');
+    await expect.poll(() => activities(page).then((a) => a.at(-1))).toBe('Baloo 9');
+    await expect.poll(() => server.programs.get('prog1111').data.rows.find((r) => r.id === row).description).toContain('ab'.repeat(10));
   });
 
   test('with a change of mine on the way, both are kept, and Undo undoes only mine', async ({ page }) => {
