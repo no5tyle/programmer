@@ -101,6 +101,18 @@ test.describe('live', () => {
     expect(server.programs.get('prog1111').data.rows[1].activity).toBe('Baloo was here');   // still theirs in the account
   });
 
+  test("says whose changes came in once, not at every save of theirs while they type", async ({ page }) => {
+    const { server } = await openLibrary(page);
+    const told = () => page.evaluate(() => [...document.querySelectorAll('.toast')].filter((t) => t.textContent.includes('Updated with the changes from Baloo')).length);
+    for (const name of ['Baloo was here', 'Baloo was here again', 'Baloo, a third time']) {
+      server.otherSaves('prog1111', (d) => { d.rows[1].activity = name; });
+      await lookNow(page);
+      await expect.poll(() => activities(page).then((a) => a[1])).toBe(name);
+    }
+    expect(await page.evaluate(() => toldOf.who.size)).toBe(1);
+    expect(await told()).toBeLessThanOrEqual(1);
+  });
+
   test('with a change of mine on the way, both are kept, and Undo undoes only mine', async ({ page }) => {
     const { server, p } = await openLibrary(page);
     server.offline = true;
