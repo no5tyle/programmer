@@ -11,6 +11,7 @@ let state;
 let library = { current: null, items: [] };
 let undoStack = [];
 let zoom = 'fit';
+let fullScreen = false;   // full screen: no app frame, the program as large as fits (setFullScreen)
 let firstVisit = false;   // nothing saved in this browser yet: js/welcome.js shows the setup wizard
 
 // Shown under the program, and in the phone editor (in line with Scouts Australia's child safety and privacy guidance)
@@ -677,6 +678,7 @@ function openNotes(rowId) {
   $('#notesPane').hidden = false;
   $('#wsBody').classList.add('settings-open');
   $('#btnNotes').setAttribute('aria-pressed', 'true');
+  $('#btnFsNotes').setAttribute('aria-pressed', 'true');
   renderNotes();
   applyZoom();
 }
@@ -685,6 +687,7 @@ function closeNotes(restore = true) {
   notesRowId = null;
   $('#notesPane').hidden = true;
   $('#btnNotes').setAttribute('aria-pressed', 'false');
+  $('#btnFsNotes').setAttribute('aria-pressed', 'false');
   document.querySelectorAll('#sheet tr.notes-on').forEach((tr) => tr.classList.remove('notes-on'));
   if (restore && notesSettingsWas) setSettingsOpen(true, false);
   else { $('#wsBody').classList.toggle('settings-open', settingsOpen()); applyZoom(); }
@@ -1831,10 +1834,42 @@ function applyZoom() {
   const w = paper.offsetWidth, h = paper.offsetHeight;
   const cs = getComputedStyle(canvas);
   const avail = canvas.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-  const s = zoom === 'fit' ? Math.max(0.15, Math.min(1.5, avail / w)) : +zoom;
+  const availH = canvas.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  // Full screen: the whole program, as large as fits the screen both ways (the zoom choice is for the normal view)
+  const s = fullScreen ? Math.max(0.15, Math.min(avail / w, availH / h))
+    : zoom === 'fit' ? Math.max(0.15, Math.min(1.5, avail / w)) : +zoom;
   paper.style.transform = `scale(${s})`;
   wrap.style.width = `${w * s}px`;
   wrap.style.height = `${h * s}px`;
+}
+
+/* ---------------------------------------------------------------- full screen */
+
+/*
+ * Full screen hides the app's frame (the bar, the programs list, the toolbar and the settings) and the browser's,
+ * where it allows, leaving the program as large as the screen allows. Notes open over the program. Esc leaves; with
+ * the browser's full screen, Chrome is asked to let Esc through (so it can close a cell first): holding Esc still
+ * leaves its full screen, which leaves this too.
+ */
+function setFullScreen(on) {
+  on = !!on;
+  if (on === fullScreen) return;
+  fullScreen = on;
+  closePopover(); hideHandle();
+  document.body.classList.toggle('full-screen', on);
+  $('#fsBar').hidden = !on;
+  $('#btnFull').setAttribute('aria-pressed', String(on));
+  if (on) {
+    const el = document.documentElement;
+    if (el.requestFullscreen && !document.fullscreenElement) {
+      el.requestFullscreen({ navigationUI: 'hide' }).then(() => navigator.keyboard?.lock?.(['Escape'])).catch(() => {});
+    }
+  } else {
+    try { navigator.keyboard?.unlock?.(); } catch { /* not locked */ }
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
+  applyZoom();
+  (on ? $('#btnFsExit') : $('#btnFull')).focus({ preventScroll: true });
 }
 
 /* ---------------------------------------------------------------- sidebar */
@@ -3447,11 +3482,15 @@ function bindEvents() {
   $('#btnImport').onclick = importJson;
   $('#btnSettings').onclick = () => setSettingsOpen(!settingsOpen());
   // Notes: for the row being worked on (or the first), in Settings' place
-  $('#btnNotes').onclick = () => {
+  $('#btnNotes').onclick = $('#btnFsNotes').onclick = () => {
     if (notesRowId) { closeNotes(); return; }
     openNotes(document.activeElement?.closest?.('#sheet tr[data-id]')?.dataset.id || lastRowId);
   };
-  $('#btnNotesClose').onclick = () => { closeNotes(); $('#btnNotes').focus(); };
+  $('#btnNotesClose').onclick = () => { closeNotes(); (fullScreen ? $('#btnFsNotes') : $('#btnNotes')).focus(); };
+  $('#btnFull').onclick = () => setFullScreen(true);
+  $('#btnFsExit').onclick = () => setFullScreen(false);
+  // Leaving the browser's full screen (its own Esc or button) leaves this too
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && fullScreen) setFullScreen(false); else applyZoom(); });
   const stepNotes = (by) => {
     const list = notesRows();
     const next = list[list.findIndex((x) => x.id === notesRowId) + by];
@@ -3506,6 +3545,9 @@ function bindEvents() {
   $('#zoomSelect').onchange = (e) => { zoom = e.target.value; applyZoom(); };
 
   document.addEventListener('keydown', (e) => {
+    // Esc closes what's open first (a menu, a box, a cell being typed in), then leaves full screen
+    if (e.key === 'Escape' && fullScreen && !e.defaultPrevented && $('#popover').hidden && $('#modal').hidden
+      && !e.target.closest('input, textarea, select, [contenteditable], .notes-pane')) { e.preventDefault(); setFullScreen(false); return; }
     if (e.key === 'Escape') { closePopover(); }
     const inField = e.target.closest('input, textarea, select, [contenteditable]');
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey && !inField) { e.preventDefault(); undo(); }

@@ -1012,3 +1012,19 @@ select option.taken { color: var(--muted); }
 .prog .note-mark:hover { opacity: 1; }
 @media print { .prog .note-mark, .notes-pane { display: none !important; } .prog tr.notes-on > td { box-shadow: none; } }
 .sheet.capture .prog tr.notes-on > td { box-shadow: none; }
+
+/* Full screen: no app frame, just the program as large as the screen allows (js/app.js: setFullScreen). The notes
+   pane opens over the program instead of beside it. */
+.screen-bar { position: absolute; right: 16px; bottom: 16px; z-index: 6; display: flex; gap: 8px; padding: 6px;
+  border-radius: 999px; background: var(--bg); box-shadow: var(--shadow), 0 0 0 .5px var(--border); opacity: .55; transition: opacity .2s; }
+.screen-bar:hover, .screen-bar:focus-within { opacity: 1; }
+.screen-bar[hidden] { display: none; }
+#btnFull[aria-pressed="false"], #btnFsNotes[aria-pressed="false"] { background: var(--fill); color: var(--text-2); }
+body.full-screen .appbar, body.full-screen .directory, body.full-screen .ws-toolbar, body.full-screen #sidebar,
+body.full-screen .canvas-tip, body.full-screen .canvas-note, body.full-screen .read-only-note { display: none !important; }
+body.full-screen .layout { height: 100vh; }
+body.full-screen .canvas, body.full-screen .ws-body.settings-open .canvas {
+  display: flex; align-items: center; justify-content: center; padding: 12px; overflow: hidden; }
+body.full-screen .paper-wrap { margin: 0; flex: none; }
+body.full-screen .notes-pane { bottom: 76px; z-index: 7; box-shadow: 0 8px 40px rgba(0, 0, 0, .22), 0 0 0 .5px var(--border); }
+@media print { .screen-bar { display: none !important; } }
