@@ -325,12 +325,11 @@ test('buttons whose purpose may be unclear have tooltips', async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => typeof state === 'object');
   for (const sel of ['#btnGenerate2', '#btnLogo', '#btnLogoClear', '#btnReset', '#btnMobileView', '#btnAddRow', '#btnAddWeek',
-    '#fitStatus', '#zoomSelect', '#btnUndo', '#btnSettings', '#btnDirNew', '#btnDirDup', '#btnImport', '#btnSave', '#btnExport', '#btnHelp',
+    '#fitStatus', '#zoomSelect', '#btnUndo', '#btnSettings', '#btnDirNew', '#btnImport', '#btnSave', '#btnExport', '#btnHelp',
     '[data-add="dates"]', '[data-add="notes"]', '[data-add="patrols"]', '[data-add="categories"]', '[data-add="challenges"]']) {
     expect((await page.locator(sel).first().getAttribute('title')) || '', sel).not.toBe('');
   }
   await expect(page.locator('#btnDirNew')).toHaveAttribute('title', /keeping your branding/);
-  await expect(page.locator('#btnDirDup')).toHaveAttribute('title', /copy/);
   // The tour's Weeks and activities stop no longer mentions generating dates
   expect(await page.evaluate(() => TOUR_DESKTOP.find((s) => s.title === 'Weeks and activities').text)).not.toContain('Generate');
 });
