@@ -784,7 +784,12 @@ async function checkCurrent() {
   const r = await api('GET', `/programs/${item.id}`);
   const now = libItem(item.id);
   if (!r.ok || !now || now.dirty || library.current !== item.id || unsavedHere()) return;
-  if (r.json.version !== now.version) { storeRemote(r.json); toldOfChanges(item.id, session?.uid || 'me', 'Updated with the changes from your other device.'); }
+  if (r.json.version === now.version) return;
+  // Put together with anything here, and not while someone's typing (it waits, as a live update does)
+  if (await takeTheirs(item.id, r.json)) return;
+  if (busyEditing()) { liveWaiting = true; return; }
+  storeRemote(r.json);
+  toldOfChanges(item.id, r.json.updatedBy?.id || 'me', 'Updated with the changes from your other device.');
 }
 
 /** Catch up with the account: on arriving, on coming back to the page, and when the connection returns. */
